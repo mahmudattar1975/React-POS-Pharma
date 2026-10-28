@@ -60,7 +60,7 @@ const ZATCA_STATUS_LABEL: Record<ZatcaSubmissionStatus, { label: string; color: 
 };
 
 const CARD_NETWORK_LABEL: Record<CardNetwork, string> = {
-  mada: 'mada', visa: 'Visa', mastercard: 'Mastercard', amex: 'Amex',
+  mada: 'mada', visa: 'Visa', mastercard: 'Mastercard', amex: 'Amex', other: 'Card',
 };
 
 function paymentLabel(p: Payment): string {

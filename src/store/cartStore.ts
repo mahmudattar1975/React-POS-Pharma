@@ -7,7 +7,7 @@ import { useCustomerStore } from './customerStore';
 import { seedCustomers } from '../utils/seedData';
 import { looksLikeGs1, parseGs1 } from '../utils/gs1';
 import { fefoSort } from '../utils/fefo';
-import { priceCartLine, computeCartTotals, type CartTotals } from '../utils/pricing';
+import { priceCartLine, computeCartTotals, activeOfferFor, allocateBogoFreeUnits, type CartTotals } from '../utils/pricing';
 import * as erpApi from '../api/erpApi';
 
 export type ScanResult =
@@ -38,13 +38,45 @@ function manualDiscountOf(l: CartLine): { type: 'amount' | 'percent'; value: num
   return l.manualDiscountType && l.manualDiscountValue ? { type: l.manualDiscountType, value: l.manualDiscountValue } : undefined;
 }
 
-function repriceAll(lines: CartLine[], tier: CustomerTier): CartLine[] {
+// Prices every line together rather than one at a time: a BOGO offer's bundle count has to span
+// all of an item's batch lines (see allocateBogoFreeUnits), otherwise splitting one item over two
+// batches makes each line look like it's under the buy quantity and the offer is lost.
+function priceLines(lines: CartLine[], tier: CustomerTier): CartLine[] {
   const { itemById, batchById, offers } = useCatalogStore.getState();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const linesByItem = new Map<string, CartLine[]>();
+  for (const line of lines) {
+    const group = linesByItem.get(line.itemId);
+    if (group) group.push(line);
+    else linesByItem.set(line.itemId, [line]);
+  }
+
+  const bogoFreeUnitsByLine = new Map<string, number>();
+  const bogoOfferInEffectByItem = new Set<string>();
+  for (const [itemId, itemLines] of linesByItem) {
+    const item = itemById(itemId);
+    if (!item) continue;
+    const allocation = allocateBogoFreeUnits(activeOfferFor(item, offers, today), itemLines);
+    allocation.forEach((freeUnits, lineId) => bogoFreeUnitsByLine.set(lineId, freeUnits));
+    if (allocation.size > 0) bogoOfferInEffectByItem.add(itemId);
+  }
+
   return lines.map((l) => {
     const item = itemById(l.itemId);
     const batch = batchById(l.batchId);
     if (!item || !batch) return l;
-    return priceCartLine(item, batch, l.qty, offers, tier, l.id, manualDiscountOf(l));
+    return priceCartLine(
+      item,
+      batch,
+      l.qty,
+      offers,
+      tier,
+      l.id,
+      manualDiscountOf(l),
+      bogoFreeUnitsByLine.get(l.id) ?? 0,
+      bogoOfferInEffectByItem.has(l.itemId)
+    );
   });
 }
 
@@ -56,7 +88,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
   lines: [],
   customer: walkInCustomer(),
 
-  setCustomer: (c) => set((s) => ({ customer: c, lines: repriceAll(s.lines, c.tier) })),
+  setCustomer: (c) => set((s) => ({ customer: c, lines: priceLines(s.lines, c.tier) })),
 
   totals: () => computeCartTotals(get().lines),
 
@@ -125,51 +157,61 @@ export const useCartStore = create<CartState>()((set, get) => ({
   addLineForBatch: (item, batch, qty) =>
     set((s) => {
       const existing = s.lines.find((l) => l.batchId === batch.id);
-      const { offers } = useCatalogStore.getState();
-      if (existing) {
-        const newQty = Math.min(existing.qty + qty, batch.qtyOnHand);
-        return {
-          lines: s.lines.map((l) =>
-            l.id === existing.id ? priceCartLine(item, batch, newQty, offers, s.customer.tier, l.id, manualDiscountOf(l)) : l
-          ),
-        };
-      }
-      const line = priceCartLine(item, batch, Math.min(qty, batch.qtyOnHand), offers, s.customer.tier);
-      return { lines: [...s.lines, line] };
+      const nextLines = existing
+        ? s.lines.map((l) =>
+            l.id === existing.id ? { ...l, qty: Math.min(existing.qty + qty, batch.qtyOnHand) } : l
+          )
+        : [
+            ...s.lines,
+            priceCartLine(
+              item,
+              batch,
+              Math.min(qty, batch.qtyOnHand),
+              useCatalogStore.getState().offers,
+              s.customer.tier
+            ),
+          ];
+      // Reprice the whole cart, not just the touched line: adding this item on a second batch can
+      // complete a bundle that spans both lines (see priceLines).
+      return { lines: priceLines(nextLines, s.customer.tier) };
     }),
 
   updateQty: (lineId, qty) => {
     const line = get().lines.find((l) => l.id === lineId);
     if (!line) return { appliedQty: 0, requestedQty: qty };
-    const { itemById, offers, batchById } = useCatalogStore.getState();
-    const item = itemById(line.itemId);
-    const batch = batchById(line.batchId);
-    if (!item || !batch) return { appliedQty: line.qty, requestedQty: qty };
+    const batch = useCatalogStore.getState().batchById(line.batchId);
+    if (!batch) return { appliedQty: line.qty, requestedQty: qty };
     const clamped = Math.max(1, Math.min(qty, batch.qtyOnHand));
     set((s) => ({
-      lines: s.lines.map((l) =>
-        l.id === lineId ? priceCartLine(item, batch, clamped, offers, s.customer.tier, l.id, manualDiscountOf(l)) : l
+      lines: priceLines(
+        s.lines.map((l) => (l.id === lineId ? { ...l, qty: clamped } : l)),
+        s.customer.tier
       ),
     }));
     return { appliedQty: clamped, requestedQty: qty };
   },
 
   setLineDiscount: (lineId, discount) =>
-    set((s) => {
-      const line = s.lines.find((l) => l.id === lineId);
-      if (!line) return s;
-      const { itemById, batchById, offers } = useCatalogStore.getState();
-      const item = itemById(line.itemId);
-      const batch = batchById(line.batchId);
-      if (!item || !batch) return s;
-      return {
-        lines: s.lines.map((l) =>
-          l.id === lineId ? priceCartLine(item, batch, l.qty, offers, s.customer.tier, l.id, discount ?? undefined) : l
+    set((s) => ({
+      lines: priceLines(
+        s.lines.map((l) =>
+          l.id === lineId
+            ? { ...l, manualDiscountType: discount?.type, manualDiscountValue: discount?.value }
+            : l
         ),
-      };
-    }),
+        s.customer.tier
+      ),
+    })),
 
-  removeLine: (lineId) => set((s) => ({ lines: s.lines.filter((l) => l.id !== lineId) })),
+  // Removing a line can change what's left of another line's bundle (e.g. dropping the line that
+  // held the free unit), so the remainder has to be repriced too - not just filtered.
+  removeLine: (lineId) =>
+    set((s) => ({
+      lines: priceLines(
+        s.lines.filter((l) => l.id !== lineId),
+        s.customer.tier
+      ),
+    })),
 
   clear: () => set({ lines: [], customer: walkInCustomer() }),
 }));

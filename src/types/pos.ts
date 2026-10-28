@@ -3,12 +3,19 @@ import type { PaymentMethod } from './sales';
 
 // Matches dotnet-pos's PosPaymentMethod enum (Entity/Models/Pos.cs). Sent as this numeric value,
 // not the string, since the backend doesn't use a JsonStringEnumConverter.
-export const POS_PAYMENT_METHOD: Record<PaymentMethod, number> = {
+// 'other' deliberately has no entry: dotnet-pos has no equivalent enum member, so an 'other'
+// payment simply isn't mirrored there (see toPosPaymentMethod below) rather than being sent as
+// a value the backend would reject.
+const POS_PAYMENT_METHOD = {
   cash: 1,
   card: 2,
   insurance: 3,
   points: 4,
-};
+} as const satisfies Partial<Record<PaymentMethod, number>>;
+
+export function toPosPaymentMethod(method: PaymentMethod): number | undefined {
+  return POS_PAYMENT_METHOD[method as keyof typeof POS_PAYMENT_METHOD];
+}
 
 export interface CreatePosLinePayload {
   barcode: string;

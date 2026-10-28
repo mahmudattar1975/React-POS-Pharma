@@ -8,6 +8,34 @@ export function activeOfferFor(item: Item, offers: Offer[], today: string): Offe
   return offers.find((o) => o.itemId === item.id && o.activeFrom <= today && today <= o.activeTo);
 }
 
+// A "buy X get Y free" offer is defined per ITEM, but the cart can hold that item on several
+// lines - one per batch, when stock is split across lots and the cashier picks a different batch
+// for each scan (see cartStore's addLineForBatch/batch picker). Counting bundles per line made a
+// 2 + 1 split look like two quantities that are each below the bundle size, so the offer silently
+// vanished. Bundles are therefore counted over the item's total quantity, and the resulting free
+// units are handed back to individual lines in cart order (i.e. the order batches were picked),
+// so the discount stays attributable to a real batch for the receipt/stock record.
+export function allocateBogoFreeUnits(
+  offer: Offer | undefined,
+  lines: { id: string; qty: number }[]
+): Map<string, number> {
+  const allocation = new Map<string, number>();
+  if (!offer || offer.type !== 'bogo' || !offer.buyQty || !offer.freeQty) return allocation;
+
+  const bundleSize = offer.buyQty + offer.freeQty;
+  const totalQty = lines.reduce((sum, l) => sum + l.qty, 0);
+  let freeUnitsLeft = Math.floor(totalQty / bundleSize) * offer.freeQty;
+  if (freeUnitsLeft <= 0) return allocation;
+
+  for (const line of lines) {
+    if (freeUnitsLeft <= 0) break;
+    const freeUnits = Math.min(freeUnitsLeft, line.qty);
+    allocation.set(line.id, freeUnits);
+    freeUnitsLeft -= freeUnits;
+  }
+  return allocation;
+}
+
 // Real pharmacy pricing is set per BATCH, not per item (see types/catalog.ts's note on
 // Batch.salePriceOverride) - an item pulled in live from XPH carries its batch's own price, while
 // the local seed catalog never sets this and falls through to the item-level price.
@@ -34,7 +62,17 @@ export function priceCartLine(
   offers: Offer[],
   customerTier: CustomerTier,
   existingId?: string,
-  manualDiscount?: { type: 'amount' | 'percent'; value: number }
+  manualDiscount?: { type: 'amount' | 'percent'; value: number },
+  // For 'bogo' offers: how many free units of this line's quantity are covered by the item's
+  // bundle count (see allocateBogoFreeUnits). Left undefined for a single-line item, where the
+  // whole quantity can be counted directly.
+  bogoFreeUnits?: number,
+  // True when the item's BOGO offer is earning at least one free unit somewhere in the cart, even
+  // if this particular batch line holds none of them. The offer belongs to the item, so every
+  // line of it has to carry the label - that's what blocks a manual discount from stacking on the
+  // sibling batch (and disables its Discount button) instead of only on the line that got the
+  // free unit.
+  bogoOfferInEffect?: boolean
 ): CartLine {
   const today = new Date().toISOString().slice(0, 10);
   const offer = activeOfferFor(item, offers, today);
@@ -52,9 +90,15 @@ export function priceCartLine(
       offerLabel = offer.label;
     } else if (offer.type === 'bogo' && offer.buyQty && offer.freeQty) {
       const bundleSize = offer.buyQty + offer.freeQty;
-      const freeUnits = Math.floor(qty / bundleSize) * offer.freeQty;
+      // A caller that has already allocated bundles across the item's lines passes the exact
+      // count (0 included); without that, fall back to counting this line on its own.
+      const freeUnits =
+        bogoFreeUnits !== undefined ? bogoFreeUnits : Math.floor(qty / bundleSize) * offer.freeQty;
       if (freeUnits > 0) {
         offerDiscount = round2(freeUnits * unitPrice);
+      }
+      // Label the whole item (all its batch lines), not just the line the free unit landed on.
+      if (freeUnits > 0 || bogoOfferInEffect) {
         offerLabel = offer.label;
       }
     }

@@ -20,7 +20,7 @@ import { pointsEarnedFor, pointsToSar, sarToPoints } from '../../utils/loyalty';
 import { round2 } from '../../utils/vat';
 import type { SaleHeader, SaleLine, Payment, ZatcaSubmissionStatus, PrescriptionInfo } from '../../types/sales';
 import * as posApi from '../../api/posApi';
-import { POS_PAYMENT_METHOD } from '../../types/pos';
+import { toPosPaymentMethod } from '../../types/pos';
 import BatchPickerDialog from './BatchPickerDialog';
 import PaymentDialog from './PaymentDialog';
 import ReceiptView from './ReceiptView';
@@ -265,7 +265,10 @@ export default function POSPage() {
       const posResult = await posApi.createSale({
         invoiceNo,
         customerName: customer.nameEn || customer.nameAr,
-        payments: payments.map((p) => ({ method: POS_PAYMENT_METHOD[p.method], amount: p.amount })),
+        payments: payments.flatMap((p) => {
+          const method = toPosPaymentMethod(p.method);
+          return method === undefined ? [] : [{ method, amount: p.amount }];
+        }),
         items: lines.map((l) => ({
           barcode: itemById(l.itemId)?.barcode ?? l.itemId,
           name: l.itemNameEn,
@@ -471,6 +474,7 @@ export default function POSPage() {
                         color={l.manualDiscountValue ? 'secondary' : 'inherit'}
                         startIcon={<DiscountOutlinedIcon fontSize="small" />}
                         disabled={!!l.offerLabel}
+                        aria-label={`Line discount for ${l.itemNameEn}`}
                         onClick={(e) => setDiscountEditor({ anchorEl: e.currentTarget, lineId: l.id })}
                       >
                         {l.discountAmount > 0 ? `-${l.discountAmount.toFixed(2)}` : '—'}
