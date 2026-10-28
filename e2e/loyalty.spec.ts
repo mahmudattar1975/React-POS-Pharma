@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Vitamin D3 1000IU: 22.00 SAR excl. VAT, standard-rated (15%) -> 25.30 incl. VAT - see
 // utils/seedData.ts. One complete 15 SAR threshold is crossed, so a normal-tier customer earns

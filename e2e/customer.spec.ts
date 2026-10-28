@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('customer lookup', () => {
   test('an existing seed customer is found by phone, with points balance shown', async ({ page }) => {

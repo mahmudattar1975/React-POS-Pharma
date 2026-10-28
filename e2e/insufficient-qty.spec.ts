@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Insulin Lantus has two seeded batches (22 and 6 units - see utils/seedData.ts), so scanning it
 // shows the batch picker. Which one FEFO picks first isn't asserted here (it's the soonest-

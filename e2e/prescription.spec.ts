@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Tramadol 50mg: pre-flagged controlledStatus='schedule_a' in utils/seedData.ts specifically so
 // this flow is testable without any manual setup on the Inventory page first.

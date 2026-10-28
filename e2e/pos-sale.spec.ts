@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Amoxicillin Syrup: 12.00 SAR, zero-rated (SFDA-registered medicine), and - importantly for this
 // test - has only ONE seeded batch (see utils/seedData.ts), so scanning it adds straight to the

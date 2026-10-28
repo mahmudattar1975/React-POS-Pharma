@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Single-batch item (see pos-sale.spec.ts's comment on why that matters for a simple flow).
 const AMOXICILLIN_BARCODE = '6281007320021';
