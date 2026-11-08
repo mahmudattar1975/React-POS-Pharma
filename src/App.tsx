@@ -7,13 +7,13 @@ import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
 import RequireAuth from './components/Auth/RequireAuth';
 import DrawerGate from './components/Auth/DrawerGate';
-import POSPage from './components/POS/POSPage';
-import InventoryPage from './components/Inventory/InventoryPage';
+import SalesHubPage from './components/Sales/SalesHubPage';
+import InventoryHubPage from './components/Inventory/InventoryHubPage';
+import PurchasingHubPage from './components/Purchasing/PurchasingHubPage';
 import OffersPage from './components/Offers/OffersPage';
-import ReceivingPage from './components/Receiving/ReceivingPage';
-import HeadOfficeReceivingPage from './components/Receiving/HeadOfficeReceivingPage';
-import ReturnsPage from './components/Returns/ReturnsPage';
+import CostCentersHubPage from './components/CostCenters/CostCentersHubPage';
 import ReportsPage from './components/Reports/ReportsPage';
+import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
 import SettingsPage from './components/Settings/SettingsPage';
 
 export default function App() {
@@ -37,14 +37,29 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route element={<DrawerGate />}>
-                <Route path="/" element={<POSPage />} />
-                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/" element={<SalesHubPage />} />
+                <Route path="/inventory" element={<InventoryHubPage />} />
+                <Route path="/items" element={<InventoryHubPage />} />
+                <Route path="/manufacturers" element={<InventoryHubPage />} />
+                <Route path="/dosages" element={<InventoryHubPage />} />
+                <Route path="/wasfaty-mapping" element={<InventoryHubPage />} />
+                <Route path="/purchases" element={<PurchasingHubPage />} />
+                <Route path="/vendors" element={<PurchasingHubPage />} />
                 <Route path="/offers" element={<OffersPage />} />
-                <Route path="/receiving" element={<ReceivingPage />} />
-                <Route path="/head-office-receiving" element={<HeadOfficeReceivingPage />} />
-                <Route path="/returns" element={<ReturnsPage />} />
+                <Route path="/receiving" element={<PurchasingHubPage />} />
+                <Route path="/head-office-receiving" element={<PurchasingHubPage />} />
+                <Route path="/returns" element={<SalesHubPage />} />
+                <Route path="/sales-invoices" element={<SalesHubPage />} />
+                <Route path="/cost-centers" element={<CostCentersHubPage />} />
+                <Route path="/expenses" element={<CostCentersHubPage />} />
+                <Route path="/category-map" element={<CostCentersHubPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/wasfaty-claims" element={<WasfatyClaimsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                {/* The invoice ledger lives beside the till now (Point of Sale > ZATCA sales
+                    invoices), so old /e-invoices links and bookmarks land there instead of on
+                    Settings, which no longer owns the invoice list. */}
+                <Route path="/e-invoices" element={<Navigate to="/sales-invoices" replace />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Route>

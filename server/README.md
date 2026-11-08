@@ -5,19 +5,76 @@ Phase 2 e-invoicing: CSR/onboarding, UBL 2.1 invoice XML generation, canonicaliz
 ECDSA signing, QR building, and submission to ZATCA's clearance/reporting API. The frontend never
 sees the private key - it calls this server over HTTP (`src/api/zatcaApi.ts` on the frontend side).
 
+## Signed-invoice retention (`data/zatca-invoices.json`)
+
+Every submission attempt is archived here, accepted or rejected, with the exact signed UBL 2.1 XML,
+its hash, the 9-field QR, the ZATCA response, the ICV and the environment. Two reasons:
+
+- **Legal retention** — ZATCA requires the seller to keep the signed invoice and produce it on
+  request. The frontend deliberately does not store ~10 KB of XML per sale in browser localStorage.
+- **Auditability** — `GET /api/zatca/invoices` (summary list) and `GET /api/zatca/invoices/:uuid`
+  (full document) let the Sales invoices tab of Settings → ZATCA show what was actually stamped,
+  rather than re-building a document from the sale and hoping it is identical.
+
+Ordering rule: the record is written **before** the ICV/PIH chain advances, so a crash can only
+duplicate an archive row, never leave an accepted invoice whose chain pointer moved on without a
+retained copy. Writes are serialised through one promise chain (two simultaneous checkouts would
+otherwise read-modify-write the same JSON and lose one).
+
+Like `secureStore.ts`, this is plaintext-on-disk: fine locally, not a production retention store
+(it needs an append-only database with access control and a backup policy).
+
+## Seller & device identity (`data/zatca-state.json`)
+
+One stored identity (`store/identity.ts`, inside the same state file as the CSIDs) feeds **both**
+halves of Phase 2:
+
+- the CSR that ZATCA exchanges for a CSID (Common Name, OU/O, SN/UID/title/registeredAddress/
+  businessCategory), and
+- the UBL `AccountingSupplierParty` of every signed invoice.
+
+Before this existed, the CSR came from `.env` while the frontend's Settings page held a second,
+visible copy of the seller name/VAT/CR - the two could disagree with nothing to flag it. `.env` is
+now a **first-run seed only**; after the stored identity is created, the app is the source of truth.
+
+The device part mirrors the PowerBuilder CSID generator (`w_scrn_zatca_csid_generator`): terminal
+number, solution name/release, and a stable EGS UUID. Two values are **derived server-side** and
+shown read-only in the UI so they cannot drift from the format ZATCA expects:
+
+```
+Common Name = <terminal>-<solution>-<release>
+EGS serial  = 1-<solution>|2-<release>|3-<uuid>
+```
+
+Invoice type is `0100` (simplified/B2C only), `1000` (standard/B2B only) or `1100` (both). A
+simplified sales invoice only needs `0100`; the app keeps the other two for devices that also issue
+B2B tax invoices.
+
+Endpoints (Settings → ZATCA → Company & Device):
+
+- `GET /api/zatca/onboarding/settings` — stored identity, derived values, `configured`, `missing`,
+  active environment, and CSID status.
+- `PUT /api/zatca/onboarding/settings` — validates and saves. Blank seller fields are allowed as a
+  draft; the response lists what is still missing before onboarding. VAT, if present, must be 15
+  digits starting and ending with 3.
+
+CSID expiry/status is read from the certificate ZATCA issued (`node:crypto` `X509Certificate`)
+rather than re-typed by the user. Changing any CSR-relevant identity field while a CSID exists
+clears the CSIDs and resets the invoice chain (ICV/PIH), because the certificate would no longer
+describe this seller/device; the UI says so and onboarding has to be repeated.
+
 ## Setup
 
 ```bash
 cd server
 npm install
-cp .env.example .env   # fill in your real seller/CSR details
+cp .env.example .env   # first-run seed for seller/CSR identity (editable later in the app)
 npm run dev
 ```
 
 Requires `openssl` on PATH (used to generate the CSID's EC key + CSR - see `src/crypto/csr.ts`).
 
 ## This app's own database (sales/invoices/returns backup)
-
 Sales and returns are still recorded primarily in the browser's local storage (`src/store/
 salesStore.ts`) - a sale must never fail because a server or database is unreachable. This
 database is a best-effort backup of that same data, written to right after every local save (see

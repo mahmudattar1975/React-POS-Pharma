@@ -49,8 +49,20 @@ client-side QR, and the POS still uses local seed data - rather than blocking th
     reporting (B2C) API, returning the full 9-field cryptographically-stamped QR. See
     `server/README.md` for exactly what's been verified so far and what still needs a real
     onboarding OTP to confirm.
-- **Sales returns**, an inventory/expiry view with near-expiry and reorder alerts, a stock
-  receiving screen, and daily sales/VAT reports.
+  - **Phase 2 setup, on one page** (`Settings → ZATCA`) — **Company & Device** holds the seller
+    VAT/name/address and this register's terminal + EGS identity; those exact values go into both
+    the CSR (the certificate) and every signed invoice, so they cannot drift apart. `.env` is only
+    a first-run seed. **Onboarding** runs Compliance CSID → compliance checks → Production CSID and
+    shows the certificate's real expiry. **Sales invoices** keeps the evidence of what happened to
+    every sale (ZATCA UUID, ICV, invoice hash, environment, failure reason), lets staff resubmit
+    anything that was never accepted, retrieve the exact signed XML the server retained, and print
+    the A4 tax invoice. A sale never blocks on ZATCA being available: it is recorded, flagged, and
+    queued for a one-button retry. All three tabs live in `src/components/Zatca/`, rendered from
+    `SettingsPage`, so there is no separate E-Invoices menu item to look for.
+- **Sales returns**, an inventory/expiry view with near-expiry and reorder alerts, an **Item
+  Master** page (add/edit/discontinue items with barcode, GTIN, registration/customs numbers,
+  category, unit, location, VAT, reorder/max limits and live stock totals), a stock receiving
+  screen, and daily sales/VAT reports.
 - **Bilingual (Arabic + English) receipts** — required, not decorative: ZATCA tax invoices are
   legal Saudi documents and must show the Arabic invoice-type term (فاتورة ضريبية مبسطة /
   فاتورة ضريبية), not just an English label. Store name and item names are bilingual too.

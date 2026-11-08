@@ -19,9 +19,29 @@ export const useSettingsStore = create<SettingsState>()(
         defaultVatRate: 0.15,
         currency: 'SAR',
         cashierName: 'Cashier 1',
+        // This demo register belongs to the Riyadh branch (see seedCostCenters in
+        // utils/seedData.ts) - sales/purchases post under its cost center by default.
+        costCenterId: 'cc-br-001',
       },
       update: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
     }),
-    { name: 'pharmacy-settings' }
+    {
+      name: 'pharmacy-settings',
+      // Sessions persisted before the cost-center field existed keep their whole old settings
+      // object on read - stale-persisted state wins over the default - so backfill the field
+      // here explicitly (same pattern as purchasingStore's merge backfills pre-Phase-1 invoice
+      // lines), otherwise tagged documents would silently carry costCenterId: undefined forever.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as { settings?: Partial<StoreSettings> };
+        // Spread persisted fields OVER the current defaults, so a session persisted before the
+        // cost-center field existed backfills it (and any future field) from the default without
+        // clobbering what the user actually saved.
+        return {
+          ...current,
+          ...p,
+          settings: { ...current.settings, ...(p.settings ?? {}) },
+        };
+      },
+    }
   )
 );

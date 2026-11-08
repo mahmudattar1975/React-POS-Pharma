@@ -11,6 +11,10 @@ const NETWORKS: { id: CardNetwork; label: string }[] = [
   { id: 'visa', label: 'Visa' },
   { id: 'mastercard', label: 'Mastercard' },
   { id: 'amex', label: 'American Express' },
+  // The card terminal is a card terminal but somehow didn't report a recognizable scheme - still
+  // a card leg, not a different method, so it gets a plain neutral badge instead of blocking the
+  // cashier from recording card money.
+  { id: 'other', label: 'Unknown network' },
 ];
 
 const BADGE_SX = {
@@ -52,6 +56,13 @@ function NetworkBadge({ network }: { network: CardNetwork }) {
       return (
         <Box sx={{ width: '100%', height: '100%', bgcolor: '#006FCF', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}>AMEX</Box>
+        </Box>
+      );
+    case 'other':
+      // Deliberately plain - it IS the "no brand matched" outcome, so no logo styling.
+      return (
+        <Box sx={{ width: '100%', height: '100%', bgcolor: '#546E7A', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}>OTHER</Box>
         </Box>
       );
   }

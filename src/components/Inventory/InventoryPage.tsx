@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { Box, Typography, TextField, Table, TableHead, TableRow, TableCell, TableBody, Paper, Chip, Stack, Select, MenuItem } from '@mui/material';
+import { Box, Typography, TextField, Table, TableHead, TableRow, TableCell, TableBody, Paper, Chip, Select, MenuItem } from '@mui/material';
 import { useCatalogStore } from '../../store/catalogStore';
 import { isExpired, isNearExpiry, daysUntil } from '../../utils/fefo';
 import { CONTROLLED_STATUS_LABEL, CONTROLLED_STATUS_OPTIONS } from '../../utils/controlledSubstances';
 import type { ControlledStatus } from '../../types/catalog';
 import { resolveSalePrice } from '../../utils/pricing';
+import { formatPackShort, tabletsPerBox } from '../../utils/packUnits';
+import { itemCodes } from '../../utils/itemMaster';
 
 export default function InventoryPage() {
   const { items, batches, setControlledStatus } = useCatalogStore();
@@ -15,18 +17,21 @@ export default function InventoryPage() {
     const q = filter.trim().toLowerCase();
     return batches
       .map((b) => ({ batch: b, item: items.find((i) => i.id === b.itemId)! }))
-      .filter((r) => r.item && (!q || r.item.nameEn.toLowerCase().includes(q) || r.item.nameAr.includes(q) || r.item.barcode.includes(q)))
+      .filter((r) => r.item && (!q || r.item.nameEn.toLowerCase().includes(q) || r.item.nameAr.includes(q) || itemCodes(r.item).some((code) => code.toLowerCase().includes(q))))
       .sort((a, b) => a.batch.expiryDate.localeCompare(b.batch.expiryDate));
   }, [batches, items, filter]);
 
   const nearExpiryCount = rows.filter((r) => isNearExpiry(r.batch.expiryDate) && r.batch.qtyOnHand > 0).length;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Inventory &amp; Expiry</Typography>
-        {nearExpiryCount > 0 && <Chip color="warning" label={`${nearExpiryCount} batch(es) expiring within 60 days`} />}
-      </Stack>
+    <Box>
+      {nearExpiryCount > 0 && (
+        <Chip
+          color="warning"
+          sx={{ mb: 2 }}
+          label={`${nearExpiryCount} batch(es) expiring within 60 days`}
+        />
+      )}
       <TextField
         inputRef={inputRef}
         autoFocus
@@ -58,15 +63,40 @@ export default function InventoryPage() {
               <TableRow key={batch.id} hover>
                 <TableCell>
                   <Typography variant="body2">{item.nameEn}</Typography>
-                  <Typography variant="caption" color="text.secondary">{item.nameAr} · {item.barcode}</Typography>
+                  <Typography variant="caption" color="text.secondary">{item.nameAr} · {itemCodes(item).join(' / ')}</Typography>
                 </TableCell>
                 <TableCell>{batch.batchNo}</TableCell>
                 <TableCell>{batch.expiryDate}</TableCell>
-                <TableCell align="right">{batch.qtyOnHand}</TableCell>
+                <TableCell align="right">
+                  {item.pack ? (
+                    <>
+                      <Typography variant="body2">{formatPackShort(item.pack, batch.qtyOnHand)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {batch.qtyOnHand} tablets
+                      </Typography>
+                    </>
+                  ) : (
+                    batch.qtyOnHand
+                  )}
+                </TableCell>
                 <TableCell align="right">{(batch.purchasePrice ?? 0).toFixed(3)}</TableCell>
                 <TableCell align="right">{batch.purchaseDiscountPercent ? `${(batch.purchaseDiscountPercent * 100).toFixed(2)}%` : '—'}</TableCell>
-                <TableCell align="right">{(batch.costPrice ?? 0).toFixed(3)}</TableCell>
-                <TableCell align="right">{resolveSalePrice(item, batch).toFixed(3)}</TableCell>
+                <TableCell align="right">
+                  {(batch.costPrice ?? 0).toFixed(3)}
+                  {item.pack && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      per tablet
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell align="right">
+                  {resolveSalePrice(item, batch).toFixed(3)}
+                  {item.pack && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      box · {(item.basePrice / tabletsPerBox(item.pack)).toFixed(3)}/tab
+                    </Typography>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Select
                     size="small"

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, dismissDirectionsIfShown } from './fixtures';
 
 // Amoxicillin Syrup: 12.00 SAR, zero-rated (SFDA-registered medicine), and - importantly for this
 // test - has only ONE seeded batch (see utils/seedData.ts), so scanning it adds straight to the
@@ -20,6 +20,7 @@ test.describe('core POS sale flow', () => {
     await page.getByRole('button', { name: 'Checkout' }).click();
     await expect(page.getByText('Payment', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Complete Sale' }).click();
+    await dismissDirectionsIfShown(page);
 
     await expect(page.getByText(/^Invoice /)).toBeVisible();
     const receiptText = await page.locator('#receipt-print-area').innerText();

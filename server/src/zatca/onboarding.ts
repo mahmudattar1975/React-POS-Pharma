@@ -1,7 +1,8 @@
 import { generateCsr, csrPemToBase64 } from '../crypto/csr.js';
-import { csrFieldsFromConfig } from '../crypto/csrTemplate.js';
+import { csrFieldsFromIdentity } from '../crypto/csrTemplate.js';
 import { config } from '../config.js';
 import { loadState, saveState, type StoredCsid, type ZatcaEnv } from '../store/secureStore.js';
+import { loadIdentity, requireIdentityConfigured, toUblSupplier } from '../store/identity.js';
 import * as zatca from './client.js';
 import { buildSampleInvoices } from './sampleInvoices.js';
 import { signInvoice } from './signInvoice.js';
@@ -29,8 +30,11 @@ export async function setZatcaEnvironment(env: ZatcaEnv): Promise<OnboardingStat
 // portal) for a Compliance CSID. This CSID can only submit to the compliance-checking endpoint,
 // not real invoices.
 export async function requestComplianceCsid(otp: string): Promise<StoredCsid> {
-  config.requireSellerConfigured();
-  const fields = csrFieldsFromConfig();
+  // The CSR is built from the identity stored on this server (Settings > ZATCA > Company & Device),
+  // not straight from `.env`. `.env` only seeds that identity the first time.
+  const { identity } = await loadIdentity();
+  requireIdentityConfigured(identity);
+  const fields = csrFieldsFromIdentity(identity);
   const { privateKeyPem, csrPem } = await generateCsr(fields, config.zatcaEnv);
   const csrBase64 = csrPemToBase64(csrPem);
 
@@ -59,7 +63,8 @@ export async function runComplianceChecks(): Promise<{ passed: boolean; results:
   const state = await loadState();
   if (!state.compliance) throw new Error('No compliance CSID on file - call requestComplianceCsid first');
 
-  const samples = buildSampleInvoices();
+  const { identity } = await loadIdentity();
+  const samples = buildSampleInvoices(toUblSupplier(identity.seller));
   const results: Array<{ name: string; status: string }> = [];
 
   for (const sample of samples) {

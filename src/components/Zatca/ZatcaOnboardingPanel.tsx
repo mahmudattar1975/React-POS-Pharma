@@ -121,7 +121,8 @@ export default function ZatcaOnboardingPanel() {
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Get an OTP from your Fatoora portal account (Onboard New Solution Unit), enter it below,
-            and this generates a fresh key + CSR and exchanges it for a Compliance CSID.
+            and this generates a fresh key + CSR from the Company &amp; Device identity and exchanges
+            it for a Compliance CSID.
           </Typography>
           <Stack direction="row" spacing={1}>
             <TextField

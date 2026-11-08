@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, dismissDirectionsIfShown } from './fixtures';
 
 // Vitamin D3 1000IU: 22.00 SAR excl. VAT, standard-rated (15%) -> 25.30 incl. VAT - see
 // utils/seedData.ts. One complete 15 SAR threshold is crossed, so a normal-tier customer earns
@@ -28,6 +28,7 @@ test.describe('loyalty points', () => {
     await scan.press('Enter');
     await page.getByRole('button', { name: 'Checkout' }).click();
     await page.getByRole('button', { name: 'Complete Sale' }).click();
+    await dismissDirectionsIfShown(page);
     await expect(page.getByText(/^Invoice /)).toBeVisible();
 
     const receipt1 = await page.locator('#receipt-print-area').innerText();
@@ -48,6 +49,7 @@ test.describe('loyalty points', () => {
     await page.getByRole('button', { name: 'Add payment method' }).click();
     await expect(page.getByRole('button', { name: 'Complete Sale' })).toBeEnabled();
     await page.getByRole('button', { name: 'Complete Sale' }).click();
+    await dismissDirectionsIfShown(page);
     await expect(page.getByText(/^Invoice /)).toBeVisible();
 
     const receipt2 = await page.locator('#receipt-print-area').innerText();

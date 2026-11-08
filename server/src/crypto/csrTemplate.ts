@@ -31,7 +31,7 @@
 // STILL NOT LIVE-VALIDATED end-to-end: no real OTP was available to re-attempt onboarding after
 // this pass (see server/README.md) - what's confirmed here is that CSR generation itself is
 // correct and matches ZATCA's documented field set, not that the whole onboarding flow succeeds.
-import { config } from '../config.js';
+import { deriveIdentity, type ZatcaIdentity } from '../store/identity.js';
 
 const CERT_TEMPLATE_OID = '1.3.6.1.4.1.311.20.2';
 
@@ -53,17 +53,22 @@ export interface CsrFields {
   industry: string; // businessCategory
 }
 
-export function csrFieldsFromConfig(): CsrFields {
+// Built from the SAME stored seller/device identity that the signed UBL document uses (see
+// store/identity.ts), so the certificate ZATCA issues and the invoices signed under it describe one
+// business, one device - not two independently-edited copies of the truth.
+export function csrFieldsFromIdentity(identity: ZatcaIdentity): CsrFields {
+  const derived = deriveIdentity(identity.device);
+  const { seller, device } = identity;
   return {
-    commonName: config.csr.commonName,
-    organizationUnit: config.csr.organizationUnit,
-    organizationName: config.csr.organizationName,
-    country: config.seller.country,
-    serialNumber: config.csr.serialNumber,
-    vatNumber: config.seller.vatNumber,
-    invoiceType: config.csr.invoiceType,
-    location: `${config.seller.city}, ${config.seller.district}`,
-    industry: 'Pharmacy Retail',
+    commonName: derived.commonName,
+    organizationUnit: seller.organizationUnit,
+    organizationName: seller.nameEn,
+    country: seller.country,
+    serialNumber: derived.egsSerialNumber,
+    vatNumber: seller.vatNumber,
+    invoiceType: device.invoiceType,
+    location: [seller.city, seller.district].filter(Boolean).join(', '),
+    industry: seller.industry,
   };
 }
 

@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, ToggleButtonGroup, ToggleButton,
-  TextField, Stack, Typography, Alert, CircularProgress, IconButton, Paper,
+  TextField, Stack, Typography, Alert, CircularProgress, IconButton, Paper, Divider,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import LocalPharmacyOutlinedIcon from '@mui/icons-material/LocalPharmacyOutlined';
 import type { Payment, PaymentMethod, CardNetwork } from '../../types/sales';
+import type { WasfatySession } from '../../types/wasfaty';
 import CardNetworkPicker from './CardNetworkPicker';
 import { round2 } from '../../utils/vat';
+import { maskNationalId } from '../../utils/wasfaty';
 import { pointsToSar, sarToPoints } from '../../utils/loyalty';
 
 interface Props {
   open: boolean;
+  // What the PATIENT has to pay now. On a Wasfaty sale this is the non-covered part only; the
+  // covered part is settled by the coverage tender that completeSale adds, and is shown below for
+  // transparency. It is deliberately not part of the amount the cashier has to enter.
   totalDue: number;
   pointsBalance: number; // 0 for walk-in/no-phone customers - hides the Points tender option
+  wasfaty?: {
+    session: WasfatySession;
+    coveredAmount: number;
+    invoiceTotal: number;
+  } | null;
   isSubmitting?: boolean;
   onCancel: () => void;
   onConfirm: (payments: Payment[]) => void;
@@ -45,15 +56,18 @@ const EPSILON = 0.005;
 // invoice total. Rather than a single exclusive method + a single amount, this is a list of
 // tender rows that must add up to totalDue - overpayment is only meaningful on a cash row
 // (that's where "change due" comes from; a card/insurance terminal can't hand back change).
-export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitting, onCancel, onConfirm }: Props) {
-  const [rows, setRows] = useState<PaymentRow[]>([newRow(totalDue)]);
+export default function PaymentDialog({
+  open, totalDue, pointsBalance, wasfaty, isSubmitting, onCancel, onConfirm,
+}: Props) {
+  const fullyCovered = totalDue <= EPSILON;
+  const [rows, setRows] = useState<PaymentRow[]>(fullyCovered ? [] : [newRow(totalDue)]);
   const pointsAvailableSar = round2(pointsToSar(pointsBalance));
 
   // The dialog is mounted once and toggled via `open`, so state has to be re-seeded from the
   // live total each time it opens - a useState initializer only runs on first mount, which
   // would otherwise freeze it at whatever the cart total was back then.
   useEffect(() => {
-    if (open) setRows([newRow(totalDue)]);
+    if (open) setRows(totalDue <= EPSILON ? [] : [newRow(totalDue)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -81,7 +95,10 @@ export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitt
     return null;
   });
   const hasRowErrors = rowErrors.some(Boolean);
-  const confirmDisabled = hasRowErrors || stillOwing || !canGiveChange || isSubmitting;
+  // With the patient share at zero there are no tender rows to validate - the coverage leg is
+  // added by completeSale, not typed by the cashier.
+  const confirmDisabled =
+    hasRowErrors || (!fullyCovered && stillOwing) || !canGiveChange || isSubmitting;
 
   function updateRow(key: string, patch: Partial<PaymentRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -114,12 +131,57 @@ export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitt
 
   return (
     <Dialog open={open} onClose={onCancel} fullWidth maxWidth="xs">
-      <DialogTitle>Payment</DialogTitle>
+      <DialogTitle>{wasfaty ? 'Wasfaty dispense - payment' : 'Payment'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
+          {wasfaty && (
+            <Paper
+              variant="outlined"
+              sx={{ p: 1.5, bgcolor: 'rgba(21, 101, 192, 0.04)', borderColor: 'primary.main' }}
+            >
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
+                <LocalPharmacyOutlinedIcon fontSize="small" color="primary" />
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Wasfaty / وصفتي
+                </Typography>
+              </Stack>
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="caption" color="text.secondary">Prescription</Typography>
+                <Typography variant="caption">{wasfaty.session.prescriptionNo}</Typography>
+              </Stack>
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="caption" color="text.secondary">Patient</Typography>
+                <Typography variant="caption">{maskNationalId(wasfaty.session.patientNationalId)}</Typography>
+              </Stack>
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="caption" color="text.secondary">NUPCO coverage</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                  SAR {wasfaty.coveredAmount.toFixed(2)}
+                </Typography>
+              </Stack>
+              <Divider sx={{ my: 0.75 }} />
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>Patient share</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  SAR {totalDue.toFixed(2)}
+                </Typography>
+              </Stack>
+              {fullyCovered && (
+                <Alert severity="success" icon={false} sx={{ mt: 1, py: 0 }}>
+                  Fully covered by Wasfaty - the patient pays 0.00.
+                </Alert>
+              )}
+            </Paper>
+          )}
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             SAR {totalDue.toFixed(2)}
           </Typography>
+          {wasfaty && wasfaty.invoiceTotal > totalDue + EPSILON && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+              Invoice total is SAR {wasfaty.invoiceTotal.toFixed(2)}; the difference is the Wasfaty
+              coverage tender, recorded on the invoice automatically.
+            </Typography>
+          )}
 
           <Stack spacing={1.5}>
             {rows.map((row, i) => (
@@ -155,6 +217,10 @@ export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitt
                       <ToggleButton value="card">Card</ToggleButton>
                       <ToggleButton value="insurance">Insurance</ToggleButton>
                       <ToggleButton value="points" disabled={pointsAvailableSar <= EPSILON}>Points</ToggleButton>
+                      {/* Catch-all for a tender with no dedicated flow - store credit note, gift
+                          certificate, etc. Behaves like cash for validation (plain amount); the
+                          sale records it as method 'other' end to end. */}
+                      <ToggleButton value="other">Other</ToggleButton>
                     </ToggleButtonGroup>
                     {rows.length > 1 && (
                       <IconButton size="small" onClick={() => removeRow(row.key)} aria-label="Remove payment method">
@@ -211,9 +277,11 @@ export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitt
             ))}
           </Stack>
 
-          <Button startIcon={<AddIcon />} onClick={addRow} size="small" sx={{ alignSelf: 'flex-start' }}>
-            Add payment method
-          </Button>
+          {!fullyCovered && (
+            <Button startIcon={<AddIcon />} onClick={addRow} size="small" sx={{ alignSelf: 'flex-start' }}>
+              Add payment method
+            </Button>
+          )}
 
           {stillOwing ? (
             <Alert severity="warning">SAR {remaining.toFixed(2)} still due.</Alert>
@@ -236,7 +304,11 @@ export default function PaymentDialog({ open, totalDue, pointsBalance, isSubmitt
           startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : undefined}
           onClick={confirm}
         >
-          {isSubmitting ? 'Submitting to ZATCA…' : 'Complete Sale'}
+          {isSubmitting
+            ? 'Submitting to ZATCA…'
+            : wasfaty
+              ? 'Dispense & complete'
+              : 'Complete Sale'}
         </Button>
       </DialogActions>
     </Dialog>

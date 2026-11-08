@@ -6,6 +6,7 @@ import { invoicesRouter } from './routes/invoices.js';
 import { erpRouter } from './routes/erp.js';
 import { salesRouter } from './routes/sales.js';
 import { receivingRouter } from './routes/receiving.js';
+import { wasfatyRouter } from './routes/wasfaty.js';
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use('/api/zatca/invoices', invoicesRouter);
 app.use('/api/erp', erpRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/receiving', receivingRouter);
+app.use('/api/wasfaty', wasfatyRouter);
 
 app.listen(config.port, () => {
   console.log(`Pharmacy-App ZATCA server listening on http://localhost:${config.port} (ZATCA env: ${config.zatcaEnv})`);

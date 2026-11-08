@@ -9,6 +9,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ZatcaIdentity } from './identity.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
@@ -31,12 +32,18 @@ export interface ZatcaState {
   production?: StoredCsid;
   icv: number; // last-used Invoice Counter Value, increments per invoice on this device
   lastInvoiceHash: string; // PIH for the next invoice; "0" (base64 of a single zero byte) for the very first
+  // Seller + device identity (see store/identity.ts). Optional so state files written before it
+  // existed still load; those get seeded from `.env` on first read.
+  identity?: ZatcaIdentity;
 }
+
+// Base64 of a single zero byte - the chain root ZATCA expects before the first invoice on a device.
+export const ZERO_INVOICE_HASH = Buffer.from([0]).toString('base64');
 
 const EMPTY_STATE: ZatcaState = {
   environment: 'sandbox', // safe default - no real Fatoora OTP needed, see config.ts
   icv: 0,
-  lastInvoiceHash: Buffer.from([0]).toString('base64'),
+  lastInvoiceHash: ZERO_INVOICE_HASH,
 };
 
 async function ensureFile(): Promise<void> {

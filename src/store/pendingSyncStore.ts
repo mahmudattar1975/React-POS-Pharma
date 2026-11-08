@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { backupSale, backupReturn, type ReturnBackupPayload } from '../api/salesApi';
 import { backupReceiving, type ReceivingBackupPayload } from '../api/receivingApi';
+import { createWasfatyDispense } from '../api/wasfatyApi';
 import type { SaleHeader } from '../types/sales';
+import type { WasfatyManualDispenseInput } from '../types/wasfaty';
 
 // Every backup to this app's own database (sale, return, receiving) is best-effort by design - a
 // POS action must never fail because that server/DB is unreachable. Without this queue, though,
@@ -15,12 +17,22 @@ import type { SaleHeader } from '../types/sales';
 type PendingSyncItem =
   | { id: string; kind: 'sale'; payload: SaleHeader; createdAt: string; attempts: number }
   | { id: string; kind: 'return'; payload: ReturnBackupPayload; createdAt: string; attempts: number }
-  | { id: string; kind: 'receiving'; payload: ReceivingBackupPayload; createdAt: string; attempts: number };
+  | { id: string; kind: 'receiving'; payload: ReceivingBackupPayload; createdAt: string; attempts: number }
+  // A Wasfaty dispense whose server mirror failed. The sale itself is already recorded locally;
+  // this only re-sends the operational record so the claim/reporting side catches up.
+  | {
+      id: string;
+      kind: 'wasfatyDispense';
+      payload: { invoiceId: string; input: WasfatyManualDispenseInput };
+      createdAt: string;
+      attempts: number;
+    };
 
 type NewPendingSyncItem =
   | { kind: 'sale'; payload: SaleHeader }
   | { kind: 'return'; payload: ReturnBackupPayload }
-  | { kind: 'receiving'; payload: ReceivingBackupPayload };
+  | { kind: 'receiving'; payload: ReceivingBackupPayload }
+  | { kind: 'wasfatyDispense'; payload: { invoiceId: string; input: WasfatyManualDispenseInput } };
 
 interface PendingSyncState {
   queue: PendingSyncItem[];
@@ -32,7 +44,21 @@ interface PendingSyncState {
 async function runOne(item: PendingSyncItem): Promise<void> {
   if (item.kind === 'sale') return backupSale(item.payload);
   if (item.kind === 'return') return backupReturn(item.payload);
-  return backupReceiving(item.payload);
+  if (item.kind === 'receiving') return backupReceiving(item.payload);
+
+  const result = await createWasfatyDispense(item.payload.input);
+  // Dynamic import on purpose: salesStore imports this module to queue failures, so a static
+  // import back would be a cycle. By the time a retry succeeds both modules are fully initialised.
+  const { useSalesStore } = await import('./salesStore');
+  useSalesStore.getState().patchInvoiceWasfaty(item.payload.invoiceId, {
+    dispenseId: result.dispense.id,
+    nupcoDispenseId: result.dispense.nupcoDispenseId,
+    nupcoPrescriptionId: result.dispense.nupcoPrescriptionId,
+    status: result.dispense.status,
+    claimStatus: result.claim?.status,
+    claimMonth: result.claim?.month,
+    syncState: 'synced',
+  });
 }
 
 export const usePendingSyncStore = create<PendingSyncState>()(

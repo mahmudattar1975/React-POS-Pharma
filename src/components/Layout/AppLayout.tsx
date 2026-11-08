@@ -4,10 +4,9 @@ import { Box, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divi
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
-import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -22,13 +21,21 @@ import CloseDrawerDialog from '../Auth/CloseDrawerDialog';
 const NAV = [
   { to: '/', label: 'Point of Sale', icon: <PointOfSaleIcon fontSize="small" />, color: '#1565c0' },
   { to: '/inventory', label: 'Inventory & Expiry', icon: <Inventory2Icon fontSize="small" />, color: '#2e7d32' },
+  { to: '/purchases', label: 'Purchasing & Receiving', icon: <ReceiptLongIcon fontSize="small" />, color: '#5d4037' },
   { to: '/offers', label: 'Offers & Promotions', icon: <LocalOfferIcon fontSize="small" />, color: '#e65100' },
-  { to: '/receiving', label: 'Stock Receiving', icon: <LocalShippingIcon fontSize="small" />, color: '#6a1b9a' },
-  { to: '/head-office-receiving', label: 'Receive from Head Office', icon: <MoveToInboxIcon fontSize="small" />, color: '#00695c' },
-  { to: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#c62828' },
+  { to: '/cost-centers', label: 'Cost Centers & Expenses', icon: <AccountTreeIcon fontSize="small" />, color: '#4527a0' },
   { to: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" />, color: '#00838f' },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon fontSize="small" />, color: '#546e7a' },
 ];
+
+// Some screens share one tabbed workspace, so a single sidebar row must stay highlighted on
+// every tab URL (the row points at the first tab).
+const HUB_PATHS: Record<string, string[]> = {
+  '/': ['/', '/returns', '/sales-invoices'],
+  '/inventory': ['/inventory', '/items', '/manufacturers', '/dosages', '/wasfaty-mapping'],
+  '/purchases': ['/purchases', '/vendors', '/receiving', '/head-office-receiving'],
+  '/cost-centers': ['/cost-centers', '/category-map', '/expenses'],
+};
 
 export default function AppLayout() {
   const settings = useSettingsStore((s) => s.settings);
@@ -73,7 +80,9 @@ export default function AppLayout() {
               key={n.to}
               component={NavLink}
               to={n.to}
-              selected={location.pathname === n.to}
+              selected={
+                HUB_PATHS[n.to]?.includes(location.pathname) ?? location.pathname === n.to
+              }
               sx={{ borderRadius: 2, mb: 0.5 }}
             >
               <ListItemIcon sx={{ minWidth: 34, color: n.color }}>{n.icon}</ListItemIcon>

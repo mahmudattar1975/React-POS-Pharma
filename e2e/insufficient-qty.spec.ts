@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // Insulin Lantus has two seeded batches (22 and 6 units - see utils/seedData.ts), so scanning it
 // shows the batch picker. Which one FEFO picks first isn't asserted here (it's the soonest-
@@ -25,7 +25,9 @@ test.describe('insufficient quantity warning', () => {
     await qtyInput.blur();
 
     await expect(qtyInput).toHaveValue(available!);
-    await expect(page.getByText(new RegExp(`Only ${available} in stock .* \\(requested 999\\)`))).toBeVisible();
+    // The toast names the unit ("Only 6 units in stock for …"), so allow the unit word between
+    // the quantity and "in stock" rather than pinning one exact phrasing.
+    await expect(page.getByText(new RegExp(`Only ${available} \\S+ in stock .* \\(requested 999\\)`))).toBeVisible();
 
     // This is a local seed item (not ERP-sourced), which has no real cross-branch data to check -
     // the action must not appear for it, only for real ERP items (see OtherBranchStockDialog.tsx).

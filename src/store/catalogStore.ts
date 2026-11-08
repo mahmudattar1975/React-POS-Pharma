@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Item, Batch, Offer, ControlledStatus } from '../types/catalog';
+import type { Item, Batch, Offer, ControlledStatus, PackLevel, PackConfig } from '../types/catalog';
 import { seedItems, seedBatches, seedOffers } from '../utils/seedData';
 import type { ErpItem, ErpBatch } from '../api/erpApi';
 import { computeCostPrice } from '../utils/pricing';
+import { tabletsPerBox, tabletsPerUnit } from '../utils/packUnits';
+import { assertItemIdentityUnique, itemCodes, itemNumberOf, nextItemNumber } from '../utils/itemMaster';
+import { isValidNupcoCode, nupcoCodeConflictMessage, normaliseNupcoCode } from '../utils/wasfaty';
+import type { WasfatyMappingChange, WasfatyMappingSnapshot } from '../types/wasfaty';
 import { backupReceiving } from '../api/receivingApi';
 import { usePendingSyncStore } from './pendingSyncStore';
+import { useAuthStore } from './authStore';
 
 // Items pulled in live from XPH get a namespaced id (`erp-<itemNo>`) so they can never collide
 // with the local seed catalog's own ids (`itm-1`, etc.) - the two catalogs coexist in the same
@@ -47,6 +52,71 @@ export interface ReceivingEvent {
   costPrice: number;
   source: ReceivingSource;
   transferNo?: string; // set only for a head-office transfer that came from a file import
+  // Set only for a vendor receiving posted through a Purchase Invoice (see
+  // store/purchasingStore.ts) - lets the receiving log trace each event back to its document.
+  purchaseInvoiceNo?: string;
+  // Free-goods portion of qty, recorded only on the audit event/backup - qty itself is the TOTAL
+  // units put in the batch (paid + bonus), because that's what physically sits on the shelf.
+  // Kept separate so the receiving log can show the paid/free split of a purchase-invoice line
+  // (legacy FQTYITEM tracks the same split as CUR_QTY / CUR_BONUS_QTY).
+  bonusQty?: number;
+}
+
+// The mapping audit trail is bounded so a long-lived browser session cannot grow localStorage
+// without limit; 500 entries is several years of normal mapping edits.
+const WASFATY_MAPPING_LOG_LIMIT = 500;
+
+function mappingSnapshot(item: Item): WasfatyMappingSnapshot {
+  return {
+    nupcoCode: item.nupcoCode,
+    wasfatyPrice: item.wasfatyPrice,
+    wasfatyEligible: item.wasfatyEligible,
+  };
+}
+
+function mappingChanged(a: WasfatyMappingSnapshot, b: WasfatyMappingSnapshot): boolean {
+  return (
+    normaliseNupcoCode(a.nupcoCode ?? '') !== normaliseNupcoCode(b.nupcoCode ?? '') ||
+    (a.wasfatyPrice ?? undefined) !== (b.wasfatyPrice ?? undefined) ||
+    (a.wasfatyEligible === true) !== (b.wasfatyEligible === true)
+  );
+}
+
+function currentActor(): string {
+  const session = useAuthStore.getState().session;
+  return session?.fullName?.trim() || session?.username?.trim() || 'Unknown user';
+}
+
+function mappingChangeEntry(
+  item: Item,
+  before: WasfatyMappingSnapshot,
+  after: WasfatyMappingSnapshot,
+  source: 'manual' | 'import',
+  at = new Date().toISOString(),
+  by = currentActor(),
+): WasfatyMappingChange {
+  return {
+    id: `wml-${crypto.randomUUID()}`,
+    itemId: item.id,
+    itemNameEn: item.nameEn,
+    itemNo: itemNumberOf(item),
+    at,
+    by,
+    source,
+    before,
+    after,
+  };
+}
+
+// Only real changes are recorded. A "Saved" click that re-states the same code and price must not
+// bury the meaningful edit above it, and an import that re-sends an unchanged list should be a
+// no-op rather than 500 identical entries.
+function appendMappingLog(
+  log: WasfatyMappingChange[],
+  entries: WasfatyMappingChange[],
+): WasfatyMappingChange[] {
+  if (entries.length === 0) return log;
+  return [...log, ...entries].slice(-WASFATY_MAPPING_LOG_LIMIT);
 }
 
 interface CatalogState {
@@ -55,6 +125,9 @@ interface CatalogState {
   offers: Offer[];
   importedTransfers: ImportedTransfer[];
   receivingLog: ReceivingEvent[];
+  // Who changed each NUPCO mapping, when, and what it was before. Newest last, bounded by
+  // WASFATY_MAPPING_LOG_LIMIT.
+  wasfatyMappingLog: WasfatyMappingChange[];
   isTransferImported: (transferNo: string) => boolean;
   recordTransferImported: (transferNo: string) => void;
   findItemByBarcode: (barcode: string) => Item | undefined;
@@ -72,8 +145,49 @@ interface CatalogState {
     purchaseDiscountPercent: number;
     source: ReceivingSource;
     transferNo?: string;
+    purchaseInvoiceNo?: string;
+    bonusQty?: number;
+    // Packed items: the quantity and price above are expressed in this level (carton/box/strip/
+    // tablet) and converted to tablets here - the one unit stock is kept in.
+    packLevel?: PackLevel;
   }) => void;
   setControlledStatus: (itemId: string, status: ControlledStatus | undefined) => void;
+  // Wasfaty/NUPCO mapping, owned by this store because Item rows live here. Same immediate,
+  // store-level duplicate guarantee as the barcode guard: two items can never answer to one NUPCO
+  // code even if a caller bypasses the mapping screen. Clearing the code also records
+  // `wasfatyEligible: false` explicitly so a persisted catalogue cannot be re-seeded into coverage
+  // on the next reload (see the merge below).
+  setWasfatyMapping: (
+    itemId: string,
+    input: { nupcoCode?: string; wasfatyPrice?: number; wasfatyEligible?: boolean },
+    source?: 'manual' | 'import',
+  ) => void;
+  // Bulk counterpart used by the NUPCO list import. Every row is validated before anything is
+  // written, so a bad row can never leave a half-applied mapping behind.
+  applyWasfatyMappings: (
+    updates: { itemId: string; nupcoCode: string; wasfatyPrice?: number; wasfatyEligible: boolean }[],
+    source?: 'manual' | 'import',
+  ) => void;
+  // Removing a dosage from the global library must not leave dangling item links. Kept in this
+  // store (which owns Item rows) so every caller gets the same clean-up. Issued sales are untouched:
+  // their directions live in SaleLine.dosage, not in this link.
+  unlinkDosage: (dosageId: string) => void;
+  // Item Master CRUD (see components/Inventory/ItemMasterPage.tsx). The barcode/item identity
+  // guards live in utils/itemMaster.ts and run here too, so no caller can bypass the dialog's
+  // validation and create a duplicate barcode.
+  addItem: (input: Omit<Item, 'id' | 'itemNo'>) => Item;
+  updateItem: (id: string, input: Omit<Item, 'id' | 'itemNo'>) => void;
+  // Enabling a pack ladder on an item that already has stock: the shelf balance was counted in the
+  // item's OLD unit (typically its free-text `unit`, e.g. "Strip") while packed items are counted
+  // in tablets. This multiplies each batch by that old-unit-to-tablet factor and divides its
+  // prices by the same factor, so the physical quantity and the stock value both stay unchanged -
+  // only the unit of measure does. 138 strips become 2,760 tablets at the same total cost.
+  convertStockToBase: (itemId: string, factor: number, pack?: PackConfig) => void;
+  setItemActive: (id: string, isActive: boolean) => void;
+  // Hard delete is only allowed while nothing is on hand: a discontinued item that still has stock
+  // must be sold/returned/expensed first, otherwise the shelf would keep units whose master row no
+  // longer exists.
+  deleteItem: (id: string) => void;
   addOffer: (input: Omit<Offer, 'id'>) => void;
   updateOffer: (id: string, input: Omit<Offer, 'id'>) => void;
   deleteOffer: (id: string) => void;
@@ -91,12 +205,18 @@ export const useCatalogStore = create<CatalogState>()(
       offers: seedOffers,
       importedTransfers: [],
       receivingLog: [],
+      wasfatyMappingLog: [],
 
       isTransferImported: (transferNo) => get().importedTransfers.some((t) => t.transferNo === transferNo),
       recordTransferImported: (transferNo) =>
         set((s) => ({ importedTransfers: [...s.importedTransfers, { transferNo, importedAt: new Date().toISOString() }] })),
 
-      findItemByBarcode: (barcode) => get().items.find((i) => i.barcode === barcode),
+      findItemByBarcode: (barcode) => {
+        const key = barcode.trim().toLowerCase();
+        return get().items.find((i) =>
+          itemCodes(i).some((code) => code.toLowerCase() === key)
+        );
+      },
       batchesForItem: (itemId) => get().batches.filter((b) => b.itemId === itemId),
       batchById: (batchId) => get().batches.find((b) => b.id === batchId),
       itemById: (itemId) => get().items.find((i) => i.id === itemId),
@@ -111,27 +231,43 @@ export const useCatalogStore = create<CatalogState>()(
           batches: s.batches.map((b) => (b.id === batchId ? { ...b, qtyOnHand: b.qtyOnHand + qty } : b)),
         })),
 
-      receiveStock: ({ itemId, batchNo, expiryDate, qty, purchasePrice, purchaseDiscountPercent, source, transferNo }) => {
+      receiveStock: ({ itemId, batchNo, expiryDate, qty, purchasePrice, purchaseDiscountPercent, source, transferNo, purchaseInvoiceNo, bonusQty, packLevel }) => {
         const item = get().items.find((i) => i.id === itemId);
-        const costPrice = computeCostPrice(purchasePrice, purchaseDiscountPercent);
+        // A packed item is stocked in tablets. Converting once here means every caller (vendor
+        // invoice, manual receiving, head-office import) can keep entering the unit the delivery
+        // actually arrived in - 1 carton, 1 box - and never has to know the ladder.
+        const perUnit = item?.pack ? tabletsPerUnit(item.pack, packLevel ?? 'box') : 1;
+        const baseQty = qty * perUnit;
+        const basePurchasePrice = purchasePrice / perUnit;
+        const baseBonusQty = (bonusQty ?? 0) * perUnit;
+        // purchaseDiscountPercent arrives pre-folded: everything the caller wants expressed as one
+        // fraction. Purchase-invoice lines pass their tier discount PLUS the bonus dilution (see
+        // utils/purchasing.ts batchReceiveDiscount) so the batch cost lands on the legacy
+        // NET_PUR_PRICE convention (net across paid+bonus units, live XPH: 8100.081/500 = 16.200).
+        const costPrice = computeCostPrice(basePurchasePrice, purchaseDiscountPercent);
         const receivedDate = new Date().toISOString().slice(0, 10);
         const existing = get().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
-        const batchId = existing ? existing.id : `bat-${itemId}-${Date.now()}`;
+        // Unique suffix, not just Date.now(): one purchase invoice can post several brand-new
+        // lots of the SAME item in the same tick, and a shared id would make every sale/list
+        // operation treat the two lots as one batch (decrementing both, colliding React keys).
+        const batchId = existing ? existing.id : `bat-${itemId}-${crypto.randomUUID()}`;
 
         const event: ReceivingEvent = {
-          id: `rcv-${itemId}-${Date.now()}`,
+          id: `rcv-${itemId}-${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           itemId,
           itemNameEn: item?.nameEn ?? '',
           itemNameAr: item?.nameAr ?? '',
           batchNo,
           expiryDate,
-          qty,
-          purchasePrice,
+          qty: baseQty,
+          purchasePrice: basePurchasePrice,
           purchaseDiscountPercent,
           costPrice,
           source,
           transferNo,
+          purchaseInvoiceNo,
+          bonusQty: baseBonusQty > 0 ? baseBonusQty : undefined,
         };
 
         set((s) => {
@@ -142,7 +278,7 @@ export const useCatalogStore = create<CatalogState>()(
             // The receiving event above still records this specific delivery, even though the
             // batch row itself doesn't show a separate line for it.
             return {
-              batches: s.batches.map((b) => (b.id === existing.id ? { ...b, qtyOnHand: b.qtyOnHand + qty } : b)),
+              batches: s.batches.map((b) => (b.id === existing.id ? { ...b, qtyOnHand: b.qtyOnHand + baseQty } : b)),
               receivingLog,
             };
           }
@@ -152,8 +288,8 @@ export const useCatalogStore = create<CatalogState>()(
             batchNo,
             expiryDate,
             receivedDate,
-            qtyOnHand: qty,
-            purchasePrice,
+            qtyOnHand: baseQty,
+            purchasePrice: basePurchasePrice,
             purchaseDiscountPercent,
             costPrice,
           };
@@ -178,10 +314,11 @@ export const useCatalogStore = create<CatalogState>()(
           batchNo,
           expiryDate,
           receivedDate,
-          qty,
-          purchasePrice,
+          qty: baseQty,
+          purchasePrice: basePurchasePrice,
           purchaseDiscountPercent,
           costPrice,
+          bonusQty: baseBonusQty > 0 ? baseBonusQty : undefined,
         };
         backupReceiving(backupPayload).catch((err) => {
           console.warn('Receiving backup failed, queued for retry:', err);
@@ -191,6 +328,186 @@ export const useCatalogStore = create<CatalogState>()(
 
       setControlledStatus: (itemId, status) =>
         set((s) => ({ items: s.items.map((i) => (i.id === itemId ? { ...i, controlledStatus: status } : i)) })),
+
+      setWasfatyMapping: (itemId, input, source = 'manual') => {
+        const item = get().items.find((i) => i.id === itemId);
+        if (!item) throw new Error('Item not found.');
+        const code = normaliseNupcoCode(input.nupcoCode ?? '');
+        if (code !== '' && !isValidNupcoCode(code)) {
+          throw new Error('A NUPCO item code is 13 digits.');
+        }
+        if (code !== '') {
+          const conflict = nupcoCodeConflictMessage(get().items, code, itemId);
+          if (conflict) throw new Error(conflict);
+        }
+        const eligible = input.wasfatyEligible ?? (code !== '' || item.wasfatyEligible === true);
+        if (code !== '' && !eligible) {
+          throw new Error('Turn on Wasfaty eligibility before mapping a NUPCO code.');
+        }
+        if (input.wasfatyPrice !== undefined && (!Number.isFinite(input.wasfatyPrice) || input.wasfatyPrice < 0)) {
+          throw new Error('The NUPCO-approved price must be 0 or more.');
+        }
+        const before = mappingSnapshot(item);
+        const after: WasfatyMappingSnapshot = {
+          nupcoCode: code === '' ? undefined : code,
+          wasfatyPrice: input.wasfatyPrice,
+          // false is meaningful and persisted: it says "this item is not on the approved
+          // list", which must survive a reload even though the code is now undefined.
+          wasfatyEligible: eligible ? true : false,
+        };
+        set((s) => ({
+          items: s.items.map((i) => (i.id === itemId ? { ...i, ...after } : i)),
+          wasfatyMappingLog: appendMappingLog(
+            s.wasfatyMappingLog,
+            mappingChanged(before, after) ? [mappingChangeEntry(item, before, after, source)] : [],
+          ),
+        }));
+      },
+
+      applyWasfatyMappings: (updates, source = 'import') => {
+        const current = get().items;
+        const byId = new Map(current.map((i) => [i.id, i]));
+        const updating = new Set(updates.map((u) => u.itemId));
+        const seenCodes = new Map<string, string>();
+
+        for (const update of updates) {
+          const item = byId.get(update.itemId);
+          if (!item) throw new Error(`Item ${update.itemId} was not found.`);
+          const code = normaliseNupcoCode(update.nupcoCode);
+          if (!isValidNupcoCode(code)) {
+            throw new Error(`${item.nameEn}: a NUPCO item code is 13 digits.`);
+          }
+          const previous = seenCodes.get(code);
+          if (previous && previous !== update.itemId) {
+            throw new Error(`Two rows in this import use NUPCO code ${code}.`);
+          }
+          seenCodes.set(code, update.itemId);
+          if (update.wasfatyPrice !== undefined && (!Number.isFinite(update.wasfatyPrice) || update.wasfatyPrice < 0)) {
+            throw new Error(`${item.nameEn}: the NUPCO-approved price must be 0 or more.`);
+          }
+          if (!update.wasfatyEligible) {
+            throw new Error(`${item.nameEn}: a mapped NUPCO code must be marked as eligible.`);
+          }
+        }
+
+        // Conflicts against the rest of the catalogue. Items in this batch are allowed to swap or
+        // re-state codes among themselves, which is why they are excluded from the owner search.
+        for (const update of updates) {
+          const code = normaliseNupcoCode(update.nupcoCode);
+          const owner = current.find(
+            (i) => !updating.has(i.id) && i.nupcoCode && normaliseNupcoCode(i.nupcoCode) === code,
+          );
+          if (owner) {
+            throw new Error(`NUPCO code ${code} is already mapped to ${owner.nameEn}.`);
+          }
+        }
+
+        const patchById = new Map(updates.map((u) => [u.itemId, u]));
+        const at = new Date().toISOString();
+        const by = currentActor();
+        set((s) => {
+          const entries: WasfatyMappingChange[] = [];
+          const items = s.items.map((item) => {
+            const update = patchById.get(item.id);
+            if (!update) return item;
+            const before = mappingSnapshot(item);
+            const after: WasfatyMappingSnapshot = {
+              nupcoCode: normaliseNupcoCode(update.nupcoCode),
+              wasfatyPrice: update.wasfatyPrice,
+              wasfatyEligible: true,
+            };
+            if (mappingChanged(before, after)) {
+              entries.push(mappingChangeEntry(item, before, after, source, at, by));
+            }
+            return { ...item, ...after };
+          });
+          return { items, wasfatyMappingLog: appendMappingLog(s.wasfatyMappingLog, entries) };
+        });
+      },
+
+      unlinkDosage: (dosageId) =>
+        set((s) => ({
+          items: s.items.map((i) => {
+            if (!i.dosageIds?.includes(dosageId)) return i;
+            const dosageIds = i.dosageIds.filter((id) => id !== dosageId);
+            return {
+              ...i,
+              dosageIds: dosageIds.length > 0 ? dosageIds : undefined,
+              defaultDosageId: i.defaultDosageId === dosageId ? undefined : i.defaultDosageId,
+            };
+          }),
+        })),
+
+      addItem: (input) => {
+        assertItemIdentityUnique(get().items, input.barcode, input.gtin ?? '', undefined, input.barcodes ?? []);
+        const item: Item = {
+          ...input,
+          id: `itm-${crypto.randomUUID()}`,
+          itemNo: nextItemNumber(get().items),
+        };
+        set((s) => ({ items: [...s.items, item] }));
+        return item;
+      },
+
+      updateItem: (id, input) => {
+        assertItemIdentityUnique(get().items, input.barcode, input.gtin ?? '', id, input.barcodes ?? []);
+        set((s) => ({
+          // itemNo is an identity assigned at creation - an edit may change everything else, but
+          // renumbering an item would break printed labels and external references to it.
+          items: s.items.map((i) => (i.id === id ? { ...input, id, itemNo: i.itemNo } : i)),
+        }));
+      },
+
+      convertStockToBase: (itemId, factor, pack) => {
+        if (!Number.isFinite(factor) || factor <= 1) return;
+        // per-unit prices are always present on a batch; divide then keep 3 decimals so a cost like
+        // 2.80 / 20 = 0.14 does not accumulate floating-point noise.
+        const perTablet = (value: number) => Math.round((value / factor) * 1000) / 1000;
+        // A batch sale-price override is quoted per OLD selling unit, while packed pricing reads it
+        // as the BOX price (utils/pricing.ts resolveSalePrice). Scale it by boxes-per-old-unit, not
+        // by 1/factor, or an ERP price of 4.50 per strip would be read as 4.50 per box.
+        const saleMultiplier = pack ? tabletsPerBox(pack) / factor : 1;
+        const perBox = (value: number) => Math.round(value * saleMultiplier * 1000) / 1000;
+        set((s) => ({
+          batches: s.batches.map((b) =>
+            b.itemId === itemId
+              ? {
+                  ...b,
+                  // Tablets are whole units; the factor is always an integer ladder size.
+                  qtyOnHand: Math.round(b.qtyOnHand * factor),
+                  purchasePrice: perTablet(b.purchasePrice),
+                  costPrice: perTablet(b.costPrice),
+                  salePriceOverride:
+                    b.salePriceOverride === undefined ? undefined : perBox(b.salePriceOverride),
+                }
+              : b
+          ),
+        }));
+      },
+
+      setItemActive: (id, isActive) =>
+        set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, isActive } : i)) })),
+
+      deleteItem: (id) => {
+        const item = get().items.find((i) => i.id === id);
+        if (!item) return;
+        const onHand = get()
+          .batches.filter((b) => b.itemId === id)
+          .reduce((sum, b) => sum + b.qtyOnHand, 0);
+        if (onHand > 0) {
+          throw new Error(
+            `Cannot delete ${item.nameEn}: ${onHand} unit(s) are still on hand. Sell, return or write them off first, or mark the item discontinued instead.`
+          );
+        }
+        // Zero-quantity batches and offers go with the item so the catalog has no orphan rows; the
+        // receiving log and issued invoices stay untouched because they are the audit trail and
+        // already carry their own item-name snapshots.
+        set((s) => ({
+          items: s.items.filter((i) => i.id !== id),
+          batches: s.batches.filter((b) => b.itemId !== id),
+          offers: s.offers.filter((o) => o.itemId !== id),
+        }));
+      },
 
       addOffer: (input) =>
         set((s) => ({ offers: [...s.offers, { ...input, id: `off-${Date.now()}` }] })),
@@ -221,6 +538,15 @@ export const useCatalogStore = create<CatalogState>()(
           requiresBatchTracking: erpItem.requiresBatchTracking,
           reorderLevel: 0,
           controlledStatus: existing?.controlledStatus,
+          // Item-level directions are curated locally (XPH has no DOS concept), so a re-scan must
+          // keep them exactly like controlledStatus rather than dropping the links.
+          dosageIds: existing?.dosageIds,
+          defaultDosageId: existing?.defaultDosageId,
+          // Wasfaty mapping is likewise local pharmacy data with no XPH source - a scan refresh
+          // must never silently un-map an item and stop it being dispensed.
+          nupcoCode: existing?.nupcoCode,
+          wasfatyPrice: existing?.wasfatyPrice,
+          wasfatyEligible: existing?.wasfatyEligible,
         };
         const batches: Batch[] = erpBatches.map((b) => ({
           id: erpBatchId(erpItem.itemNo, b.batchNo),
@@ -255,7 +581,33 @@ export const useCatalogStore = create<CatalogState>()(
       // survive a reload), but append any seed row whose id isn't already present.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<CatalogState>;
-        const persistedItems = p.items ?? current.items;
+        // Backfill the dosage links added to the starter items in seedData.ts. The check is on the
+        // FIELD being absent, not empty: an owner who deliberately cleared every direction on an
+        // item must not have the seed links silently reinstated on the next reload.
+        const seedById = new Map(current.items.map((i) => [i.id, i]));
+        const persistedItems = (p.items ?? current.items).map((i) => {
+          const seed = seedById.get(i.id);
+          let next = i;
+          if (next.dosageIds === undefined && seed?.dosageIds) {
+            next = { ...next, dosageIds: seed.dosageIds, defaultDosageId: seed.defaultDosageId };
+          }
+          // Same field-absence rule for the Wasfaty mapping added to the starter items. A deliberate
+          // clear stores `wasfatyEligible: false`, so this only fills rows saved before the field
+          // existed - it never re-maps an item the owner took off the list.
+          if (
+            next.nupcoCode === undefined &&
+            next.wasfatyEligible === undefined &&
+            (seed?.nupcoCode !== undefined || seed?.wasfatyEligible !== undefined)
+          ) {
+            next = {
+              ...next,
+              nupcoCode: seed.nupcoCode,
+              wasfatyPrice: seed.wasfatyPrice,
+              wasfatyEligible: seed.wasfatyEligible,
+            };
+          }
+          return next;
+        });
         // Backfills batches saved before purchasePrice/purchaseDiscountPercent existed on Batch -
         // without this, a batch from an older browser session has those fields as `undefined`,
         // and InventoryPage.tsx's `batch.purchasePrice.toFixed(2)` throws, blanking the whole page

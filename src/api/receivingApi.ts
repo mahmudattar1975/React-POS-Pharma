@@ -23,6 +23,9 @@ export interface ReceivingBackupPayload {
   purchasePrice: number;
   purchaseDiscountPercent: number;
   costPrice: number;
+  // Optional free-goods split of qty (set only by purchase-invoice receiving) - kept out of older
+  // persisted payloads' shape, so it stays optional on the server side too.
+  bonusQty?: number;
 }
 
 export async function backupReceiving(payload: ReceivingBackupPayload): Promise<void> {

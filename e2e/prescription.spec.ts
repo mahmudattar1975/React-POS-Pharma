@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, dismissDirectionsIfShown } from './fixtures';
 
 // Tramadol 50mg: pre-flagged controlledStatus='schedule_a' in utils/seedData.ts specifically so
 // this flow is testable without any manual setup on the Inventory page first.
@@ -32,6 +32,7 @@ test.describe('prescription / controlled-substance gate', () => {
 
     await expect(page.getByRole('button', { name: 'Complete Sale' })).toBeVisible();
     await page.getByRole('button', { name: 'Complete Sale' }).click();
+    await dismissDirectionsIfShown(page);
     await expect(page.getByText(/^Invoice /)).toBeVisible();
 
     const receipt = await page.locator('#receipt-print-area').innerText();

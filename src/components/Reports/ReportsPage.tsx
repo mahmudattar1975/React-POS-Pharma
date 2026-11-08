@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Chip } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import { useSalesStore } from '../../store/salesStore';
@@ -8,6 +9,7 @@ import { round2 } from '../../utils/vat';
 import { pointsToSar } from '../../utils/loyalty';
 
 export default function ReportsPage() {
+  const navigate = useNavigate();
   const { invoices } = useSalesStore();
   const { customers } = useCustomerStore();
   const { receivingLog } = useCatalogStore();
@@ -78,9 +80,14 @@ export default function ReportsPage() {
       `}</style>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Reports</Typography>
-        <Button id="reports-print-hide" variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-          Print
-        </Button>
+        <Box id="reports-print-hide" sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" onClick={() => navigate('/wasfaty-claims')}>
+            Wasfaty / NUPCO claims
+          </Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
+            Print
+          </Button>
+        </Box>
       </Box>
 
       <Box id="reports-print-area">

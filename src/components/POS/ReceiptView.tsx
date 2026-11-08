@@ -1,25 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, Typography, Divider, Box, Chip } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, Typography, Divider, Box, Chip, FormControlLabel, Switch } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
+import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import QRCode from 'qrcode';
-import type { SaleHeader, SaleLine, ZatcaSubmissionStatus, CardNetwork, Payment } from '../../types/sales';
+import type { SaleHeader, SaleLine, CardNetwork, Payment } from '../../types/sales';
 import { useSettingsStore } from '../../store/settingsStore';
 import { groupVatByRate, round2 } from '../../utils/vat';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
+import { PACK_LEVELS, PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL } from '../../utils/packUnits';
+import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
+import { hasDosages } from '../../utils/dosages';
 
 interface Props {
   open: boolean;
   invoice: SaleHeader | null;
+  // Opens the separate patient direction label. The parent closes this receipt dialog first, so
+  // the two print surfaces never coexist in one print job. `autoPrint` is true for the
+  // after-invoice chain (the label sends itself to the printer straight away) and false for the
+  // manual button, which opens the same label as a preview.
+  onOpenDosages?: (autoPrint: boolean) => void;
   onClose: () => void;
 }
 
 const ROW_SX = { justifyContent: 'space-between' } as const;
+
+// Receipts read as prose ("Qty 5 Tablets"), so a sold pack level is pluralised for any quantity
+// other than one. Free-text item units (e.g. "Bottle") are left exactly as the owner typed them.
+const PACK_UNIT_PLURAL: Record<string, string> = Object.fromEntries(
+  PACK_LEVELS.map((level) => [PACK_LEVEL_LABEL[level], PACK_LEVEL_LABEL_PLURAL[level]])
+);
+
+function printedUnit(unit: string | undefined, qty: number): string {
+  if (!unit) return '';
+  return qty === 1 ? unit : PACK_UNIT_PLURAL[unit] ?? unit;
+}
 
 interface PrintLineGroup {
   itemId: string;
   itemNameAr: string;
   itemNameEn: string;
   qty: number;
+  // Selling unit for packed items ("Tablets", "Box"). Grouping keys on it too, so 1 box + 5
+  // loose tablets of the same product stay two receipt rows instead of "6".
+  unit?: string;
   totalInclVat: number;
   discountAmount: number;
   controlledStatus?: SaleLine['controlledStatus'];
@@ -28,21 +51,24 @@ interface PrintLineGroup {
 // The printed receipt is per item, not per batch - a customer doesn't need to see that their 3
 // units of an item came from two different batches, only that they bought 3 of it. The POS cart
 // itself still tracks each batch as its own line (needed for stock decrement/FEFO/pricing), so
-// this collapsing only happens here, at print time.
+// this collapsing only happens here, at print time. Packed items are grouped per selling unit
+// as well: a box and some loose tablets are different things to the customer.
 function groupLinesForPrint(lines: SaleLine[]): PrintLineGroup[] {
   const byItem = new Map<string, PrintLineGroup>();
   for (const l of lines) {
-    const existing = byItem.get(l.itemId);
+    const key = `${l.itemId}::${l.unit ?? ''}`;
+    const existing = byItem.get(key);
     if (existing) {
       existing.qty += l.qty;
       existing.totalInclVat = round2(existing.totalInclVat + l.totalInclVat);
       existing.discountAmount = round2(existing.discountAmount + l.discountAmount);
     } else {
-      byItem.set(l.itemId, {
+      byItem.set(key, {
         itemId: l.itemId,
         itemNameAr: l.itemNameAr,
         itemNameEn: l.itemNameEn,
         qty: l.qty,
+        unit: l.unit,
         totalInclVat: l.totalInclVat,
         discountAmount: l.discountAmount,
         controlledStatus: l.controlledStatus,
@@ -52,27 +78,31 @@ function groupLinesForPrint(lines: SaleLine[]): PrintLineGroup[] {
   return Array.from(byItem.values());
 }
 
-const ZATCA_STATUS_LABEL: Record<ZatcaSubmissionStatus, { label: string; color: 'success' | 'info' | 'warning' | 'error' }> = {
-  phase2_cleared: { label: 'ZATCA: Cleared', color: 'success' },
-  phase2_reported: { label: 'ZATCA: Reported', color: 'success' },
-  phase1_fallback: { label: 'ZATCA: Not sent (Phase 1 QR only)', color: 'warning' },
-  submission_failed: { label: 'ZATCA: Submission failed', color: 'error' },
-};
-
 const CARD_NETWORK_LABEL: Record<CardNetwork, string> = {
   mada: 'mada', visa: 'Visa', mastercard: 'Mastercard', amex: 'Amex',
+  other: 'Other',
 };
 
 function paymentLabel(p: Payment): string {
   if (p.method === 'card') return p.cardNetwork ? CARD_NETWORK_LABEL[p.cardNetwork] : 'Card';
   if (p.method === 'insurance') return p.insuranceCompany ? `Insurance (${p.insuranceCompany})` : 'Insurance';
   if (p.method === 'points') return 'Loyalty points';
+  // The NUPCO/Wasfaty coverage leg. It is real settlement of the invoice (not a discount), so it is
+  // printed like any other tender and the patient sees their own share below it.
+  if (p.method === 'wasfaty') return 'Wasfaty / وصفتي';
+  // Catch-all tender (store credit note etc.) - Arabic label for the receipt, like every other
+  // payment means (this is a legal KSA document, see the invoice-type note above).
+  if (p.method === 'other') return 'أخرى / Other';
   return 'Cash';
 }
 
-export default function ReceiptView({ open, invoice, onClose }: Props) {
+export default function ReceiptView({ open, invoice, onOpenDosages, onClose }: Props) {
   const settings = useSettingsStore((s) => s.settings);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  // On by default when the sale carries directions: the counter wants the invoice and the patient
+  // sheet in one action. The switch makes that explicit and lets a pharmacist reprint the invoice
+  // alone (e.g. for the file copy) without a second trip to Sales.
+  const [printDirectionsAfter, setPrintDirectionsAfter] = useState(true);
   const printAreaRef = useRef<HTMLDivElement>(null);
   const pageSizeStyleRef = useRef<HTMLStyleElement>(null);
 
@@ -89,6 +119,7 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
   // this has to be synchronous and already in the DOM before window.print() runs in the same
   // click handler, and a setState-triggered re-render isn't guaranteed to flush in time for that.
   function handlePrint() {
+    if (!invoice) return;
     const el = printAreaRef.current;
     const styleEl = pageSizeStyleRef.current;
     if (el && styleEl) {
@@ -96,6 +127,12 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
       styleEl.textContent = `@page { size: 80mm ${heightMm.toFixed(1)}mm; margin: 0; }`;
     }
     window.print();
+    // The direction label is a SECOND print job, so it starts only after the receipt's print
+    // dialog has been dismissed. Opening it here (rather than mounting it alongside the receipt)
+    // also keeps the two print areas - and their @page rules - from ever being visible together.
+    if (printDirectionsAfter && hasDosages(invoice.lines) && onOpenDosages) {
+      onOpenDosages(true);
+    }
   }
 
   if (!invoice) return null;
@@ -137,7 +174,7 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
       <style ref={pageSizeStyleRef} />
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         Invoice {invoice.invoiceNo}
-        <Chip size="small" color={ZATCA_STATUS_LABEL[invoice.zatcaStatus].color} label={ZATCA_STATUS_LABEL[invoice.zatcaStatus].label} />
+        <Chip size="small" color={ZATCA_STATUS_LABEL[invoice.zatcaStatus].color} label={`ZATCA: ${ZATCA_STATUS_LABEL[invoice.zatcaStatus].label}`} />
       </DialogTitle>
       <DialogContent id="receipt-print-area" ref={printAreaRef}>
         <Stack spacing={0.5} sx={{ fontFamily: 'monospace', fontSize: 13 }}>
@@ -159,6 +196,12 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
               العميل / Customer: {invoice.customerNameAr}{invoice.customerNameAr && invoice.customerNameEn ? ' / ' : ''}{invoice.customerNameEn}
             </Typography>
           )}
+          {invoice.wasfaty && (
+            <Typography variant="caption" color="text.secondary">
+              وصفة / Rx {invoice.wasfaty.prescriptionNo}
+              {invoice.wasfaty.authorizationNo ? ` · Auth ${invoice.wasfaty.authorizationNo}` : ''}
+            </Typography>
+          )}
 
           <Divider sx={{ my: 1 }} />
 
@@ -171,13 +214,19 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
               </Typography>
               <Stack direction="row" sx={ROW_SX}>
                 <Typography variant="caption" color="text.secondary">
-                  Qty {g.qty}
+                  Qty {g.qty}{g.unit ? ` ${printedUnit(g.unit, g.qty)}` : ''}
                   {g.discountAmount > 0 ? ` · discount -${g.discountAmount.toFixed(2)}` : ''}
                 </Typography>
                 <Typography variant="caption">{g.totalInclVat.toFixed(2)}</Typography>
               </Stack>
             </Box>
           ))}
+
+          {hasDosages(invoice.lines) && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              إرشادات الاستخدام في ملصق منفصل · Directions are on a separate label.
+            </Typography>
+          )}
 
           <Divider sx={{ my: 1 }} />
 
@@ -262,15 +311,41 @@ export default function ReceiptView({ open, invoice, onClose }: Props) {
           </Box>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
-          {invoice.zatcaStatus === 'phase1_fallback'
-            ? 'ZATCA QR (Phase 1 fields only - not yet cryptographically stamped/reported)'
-            : 'ZATCA QR (Phase 2 - cryptographically stamped and submitted)'}
+          {invoice.zatcaStatus === 'phase2_cleared' || invoice.zatcaStatus === 'phase2_reported'
+            ? 'ZATCA QR (Phase 2 - cryptographically stamped and submitted)'
+            : 'ZATCA QR (Phase 1 fields only - not yet cryptographically stamped/reported)'}
         </Typography>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+      {hasDosages(invoice.lines) && onOpenDosages && (
+        <Box sx={{ px: 3, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={printDirectionsAfter}
+                onChange={(e) => setPrintDirectionsAfter(e.target.checked)}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2">Print directions after the invoice</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Sends the separate patient direction label as soon as the receipt is printed.
+                </Typography>
+              </Box>
+            }
+          />
+        </Box>
+      )}
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
-          Print
+          Print receipt
         </Button>
+        {hasDosages(invoice.lines) && onOpenDosages && (
+          <Button variant="outlined" color="secondary" startIcon={<MedicationOutlinedIcon />} onClick={() => onOpenDosages(false)}>
+            Directions label
+          </Button>
+        )}
         <Button variant="contained" onClick={onClose} fullWidth>
           New Sale
         </Button>

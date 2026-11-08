@@ -1,18 +1,65 @@
-import type { Item, Batch, Offer } from '../types/catalog';
+import type { Item, Batch, Offer, PackLevel, PackConfig } from '../types/catalog';
 import type { CustomerTier } from '../types/customer';
 import { TIER_DISCOUNT } from '../types/customer';
 import type { CartLine } from '../types/cart';
 import { lineVat, lineTotalInclVat, round2, round3, groupVatByRate, type VatBucket } from './vat';
+import { PACK_LEVEL_LABEL, priceForLevel, sellableQty, tabletsPerBox, tabletsPerUnit, toBaseQty } from './packUnits';
 
 export function activeOfferFor(item: Item, offers: Offer[], today: string): Offer | undefined {
   return offers.find((o) => o.itemId === item.id && o.activeFrom <= today && today <= o.activeTo);
 }
 
+// A "buy X get Y free" offer is defined per ITEM on its main unit - the BOX. The cart can hold that
+// item on several lines (one per batch, and/or one per selling level) and each line may be counted
+// in tablets, so bundles are counted in TABLETS: a strip/tablet sale still contributes toward the
+// bundle, but a handful of loose tablets can never earn a free box before a full box value exists.
+// The resulting free TABLETS are handed back to individual lines in cart order (the order batches
+// were picked), so the discount stays attributable to a real batch for the receipt/stock record.
+//
+// `pack` omitted means a plain single-unit item: one "box" is one unit, and the result is the same
+// free-unit count as before.
+export function allocateBogoFreeUnits(
+  offer: Offer | undefined,
+  lines: { id: string; qty: number; baseQty?: number }[],
+  pack?: PackConfig
+): Map<string, number> {
+  const allocation = new Map<string, number>();
+  if (!offer || offer.type !== 'bogo' || !offer.buyQty || !offer.freeQty) return allocation;
+
+  const basePerBox = pack ? tabletsPerBox(pack) : 1;
+  const bundleBase = (offer.buyQty + offer.freeQty) * basePerBox;
+  const totalBase = lines.reduce((sum, l) => sum + (l.baseQty ?? l.qty), 0);
+  let freeBaseLeft = Math.floor(totalBase / bundleBase) * offer.freeQty * basePerBox;
+  if (freeBaseLeft <= 0) return allocation;
+
+  for (const line of lines) {
+    if (freeBaseLeft <= 0) break;
+    const lineBase = line.baseQty ?? line.qty;
+    const freeBaseQty = Math.min(freeBaseLeft, lineBase);
+    if (freeBaseQty > 0) allocation.set(line.id, freeBaseQty);
+    freeBaseLeft -= freeBaseQty;
+  }
+  return allocation;
+}
+
 // Real pharmacy pricing is set per BATCH, not per item (see types/catalog.ts's note on
 // Batch.salePriceOverride) - an item pulled in live from XPH carries its batch's own price, while
 // the local seed catalog never sets this and falls through to the item-level price.
-export function resolveSalePrice(item: Item, batch: Batch): number {
-  return batch.salePriceOverride ?? item.basePrice;
+//
+// For a packed item that stored price is the BOX price; strip/tablet prices are derived from the
+// pack ladder (utils/packUnits.ts). Callers that don't pass a level get the box/own-unit price,
+// which is exactly what every pre-pack caller already expects.
+export function resolveSalePrice(item: Item, batch: Batch, packLevel?: PackLevel): number {
+  const base = batch.salePriceOverride ?? item.basePrice;
+  if (!item.pack) return base;
+  return priceForLevel(base, item.pack, packLevel ?? 'box');
+}
+
+// What the batch can sell in a given pack level, as whole units. Used by the cart to clamp a box
+// quantity to the tablets actually on the shelf.
+export function resolveAvailableQty(item: Item, batch: Batch, packLevel?: PackLevel): number {
+  if (!item.pack) return batch.qtyOnHand;
+  return sellableQty(item.pack, packLevel ?? 'box', batch.qtyOnHand);
 }
 
 // Net cost after the vendor discount - e.g. purchasePrice 10, discount 0.10 -> 9.00. Computed
@@ -34,11 +81,23 @@ export function priceCartLine(
   offers: Offer[],
   customerTier: CustomerTier,
   existingId?: string,
-  manualDiscount?: { type: 'amount' | 'percent'; value: number }
+  manualDiscount?: { type: 'amount' | 'percent'; value: number },
+  packLevel: PackLevel = 'box',
+  // For 'bogo' offers: how many free TABLETS (base units) of this line are covered by the item's
+  // bundle count (see allocateBogoFreeUnits). Left undefined for a single-line item, where the
+  // line can be counted directly. For a plain unpacked item one base unit = one unit.
+  bogoFreeBaseQty?: number,
+  // True when the item's BOGO offer is earning at least one free unit somewhere in the cart, even
+  // if this particular batch line holds none of them. The offer belongs to the item, so every
+  // line of it has to carry the label - that's what blocks a manual discount from stacking on the
+  // sibling batch (and disables its Discount button) instead of only on the line that got the
+  // free unit.
+  bogoOfferInEffect?: boolean
 ): CartLine {
   const today = new Date().toISOString().slice(0, 10);
   const offer = activeOfferFor(item, offers, today);
-  const unitPrice = resolveSalePrice(item, batch);
+  const level: PackLevel | undefined = item.pack ? packLevel : undefined;
+  const unitPrice = resolveSalePrice(item, batch, level);
   const gross = round2(qty * unitPrice);
 
   let offerDiscount = 0;
@@ -51,10 +110,24 @@ export function priceCartLine(
       offerDiscount = round2(Math.min(offer.value * qty, gross));
       offerLabel = offer.label;
     } else if (offer.type === 'bogo' && offer.buyQty && offer.freeQty) {
-      const bundleSize = offer.buyQty + offer.freeQty;
-      const freeUnits = Math.floor(qty / bundleSize) * offer.freeQty;
-      if (freeUnits > 0) {
-        offerDiscount = round2(freeUnits * unitPrice);
+      // Bundles are counted on the item's BOX; free quantity is expressed in tablets and valued at
+      // this line's per-tablet price, so 1 free box on a tablet line is still worth 4.50.
+      const basePerBox = item.pack ? tabletsPerBox(item.pack) : 1;
+      const basePerUnit = item.pack ? tabletsPerUnit(item.pack, level ?? 'box') : 1;
+      const lineBaseQty = item.pack ? toBaseQty(item.pack, level ?? 'box', qty) : qty;
+      // A caller that has already allocated bundles across the item's lines passes the exact
+      // count (0 included); without that, fall back to counting this line on its own.
+      const freeBaseQty =
+        bogoFreeBaseQty !== undefined
+          ? bogoFreeBaseQty
+          : Math.floor(lineBaseQty / ((offer.buyQty + offer.freeQty) * basePerBox)) *
+            offer.freeQty *
+            basePerBox;
+      if (freeBaseQty > 0) {
+        offerDiscount = round2(freeBaseQty * (unitPrice / basePerUnit));
+      }
+      // Label the whole item (all its batch lines), not just the line the free unit landed on.
+      if (freeBaseQty > 0 || bogoOfferInEffect) {
         offerLabel = offer.label;
       }
     }
@@ -89,7 +162,7 @@ export function priceCartLine(
     batchId: batch.id,
     batchNo: batch.batchNo,
     expiryDate: batch.expiryDate,
-    unit: item.unit,
+    unit: level ? PACK_LEVEL_LABEL[level] : item.unit,
     qty,
     unitPrice,
     vatRate: item.vatRate,
@@ -100,7 +173,11 @@ export function priceCartLine(
     netExclVat,
     vatAmount: lineVat(netExclVat, item.vatRate),
     totalInclVat: lineTotalInclVat(netExclVat, item.vatRate),
-    qtyAvailable: batch.qtyOnHand,
+    qtyAvailable: resolveAvailableQty(item, batch, level),
+    packLevel: level,
+    // Stock is kept in tablets for packed items; the line itself stays in selling units so the
+    // receipt and the ZATCA line read "2 boxes", not "24 tablets".
+    baseQty: item.pack ? toBaseQty(item.pack, level ?? 'box', qty) : qty,
   };
 }
 

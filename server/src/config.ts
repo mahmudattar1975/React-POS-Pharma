@@ -16,12 +16,6 @@ const ZATCA_BASE_URLS: Record<ZatcaEnv, string> = {
   production: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core',
 };
 
-function required(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var ${name} - copy .env.example to .env and fill it in`);
-  return v;
-}
-
 // The active environment is stored (see store/secureStore.ts) rather than fixed at process start,
 // so the Settings > ZATCA panel can switch it live without a server restart. `.env`'s ZATCA_ENV is
 // only the seed value used the very first time the state file is created.
@@ -42,6 +36,9 @@ export const config = {
   get zatcaBaseUrl() {
     return ZATCA_BASE_URLS[this.zatcaEnv];
   },
+  // Seed values only: the seller/device identity is stored in data/zatca-state.json and edited in
+  // Settings > ZATCA > Company & Device (see store/identity.ts). These are read once, when that
+  // stored identity is first created, so an existing `.env`-based installation keeps working.
   seller: {
     nameEn: process.env.ZATCA_SELLER_NAME_EN ?? '',
     nameAr: process.env.ZATCA_SELLER_NAME_AR ?? '',
@@ -54,15 +51,10 @@ export const config = {
     country: process.env.ZATCA_COUNTRY ?? 'SA',
   },
   csr: {
-    commonName: process.env.ZATCA_CSR_COMMON_NAME ?? '',
     organizationUnit: process.env.ZATCA_CSR_ORGANIZATION_UNIT ?? '',
-    organizationName: process.env.ZATCA_CSR_ORGANIZATION_NAME ?? '',
+    // `1-<solution>|2-<release>|3-<uuid>` - parsed into the device identity's individual parts.
     serialNumber: process.env.ZATCA_CSR_SERIAL_NUMBER ?? '',
     invoiceType: process.env.ZATCA_CSR_INVOICE_TYPE ?? '1100',
-  },
-  requireSellerConfigured() {
-    required('ZATCA_VAT_NUMBER');
-    required('ZATCA_SELLER_NAME_EN');
   },
   erp: {
     baseUrl: process.env.ERP_API_BASE_URL ?? 'http://localhost:5000',

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Paper, Stack, Table, TableHead, TableRow, TableCell, TableBody, Alert,
+  List, ListItemButton, ListItemText, Chip,
 } from '@mui/material';
 import { useSalesStore } from '../../store/salesStore';
 import { useCatalogStore } from '../../store/catalogStore';
@@ -38,19 +39,66 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 }
 
 export default function ReturnsPage() {
-  const { invoiceByNo, recordReturn, returns } = useSalesStore();
+  const { invoiceByNo, recordReturn, returns, invoices } = useSalesStore();
   const { incrementBatch } = useCatalogStore();
+  const customers = useCustomerStore((s) => s.customers);
 
   const [search, setSearch] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
+  // A phone number or a name can legitimately match several invoices, so the search has two
+  // outcomes: jump straight to the only hit, or show the list for the cashier to choose from.
+  const [results, setResults] = useState<SaleHeader[] | null>(null);
   const [qtyByLine, setQtyByLine] = useState<Record<string, number>>({});
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
   const invoice = invoiceByNo(invoiceNo);
 
+  // The sale stores the customer id and the name, not the phone (the phone belongs to the customer
+  // master and can be corrected there). Resolve it once per customer-list change instead of doing
+  // a store lookup per invoice row.
+  const phoneById = useMemo(
+    () => new Map(customers.map((c) => [c.id, c.phone])),
+    [customers],
+  );
+
+  // A returning customer usually has neither the receipt nor the invoice number - they have the
+  // phone that earned the loyalty points, or the name the cashier remembers. "Walk-in Customer" is
+  // a real, searchable label rather than an absence, so a refund on a walk-in sale is not a dead
+  // end.
   function find() {
-    setInvoiceNo(search.trim());
+    const query = search.trim();
+    setQtyByLine({});
+    setMessage(null);
+    if (!query) {
+      setResults(null);
+      setInvoiceNo('');
+      return;
+    }
+    const needle = query.toLowerCase();
+    const digits = query.replace(/\D/g, '');
+    const hits = invoices
+      .filter((inv) => {
+        const name = `${inv.customerNameEn ?? ''} ${inv.customerNameAr ?? ''}`.toLowerCase();
+        if (inv.invoiceNo.toLowerCase().includes(needle)) return true;
+        if (name.includes(needle) || (name.trim() === '' && 'walk-in customer'.includes(needle))) return true;
+        const phone = (inv.customerId ? phoneById.get(inv.customerId) : '') ?? '';
+        return digits.length >= 3 && phone.replace(/\D/g, '').includes(digits);
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    if (hits.length === 1) {
+      setInvoiceNo(hits[0].invoiceNo);
+      setResults(null);
+      return;
+    }
+    setInvoiceNo('');
+    setResults(hits);
+  }
+
+  function pick(inv: SaleHeader) {
+    setInvoiceNo(inv.invoiceNo);
+    setResults(null);
     setQtyByLine({});
     setMessage(null);
   }
@@ -66,7 +114,11 @@ export default function ReturnsPage() {
         const refund = round2((returnQty / l.qty) * l.totalInclVat);
         totalRefund += refund;
         returnLines.push({ saleLineId: l.id, itemNameEn: l.itemNameEn, qty: returnQty, refundAmount: refund });
-        incrementBatch(l.batchId, returnQty);
+        // Put back exactly what left the shelf, not the selling-unit count: one returned box is
+        // twelve tablets. Using the stored baseQty means an item whose pack ladder was edited
+        // after the sale still returns the right amount.
+        const basePerUnit = l.baseQty && l.qty > 0 ? l.baseQty / l.qty : 1;
+        incrementBatch(l.batchId, Math.round(returnQty * basePerUnit));
       }
       return { ...l, returnedQty: l.returnedQty + returnQty };
     });
@@ -129,20 +181,67 @@ export default function ReturnsPage() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 720 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Sales Returns</Typography>
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-        <TextField label="Invoice No." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && find()} />
-        <Button variant="contained" onClick={find}>Find</Button>
+    <Box sx={{ p: 3, maxWidth: 860 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
+        <TextField
+          label="Invoice No. / phone / customer"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setResults(null);
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && find()}
+          helperText="Search by invoice number, customer phone, name, or “Walk-in Customer”."
+          sx={{ flex: 1 }}
+        />
+        <Button variant="contained" onClick={find} sx={{ alignSelf: 'flex-start', height: 56 }}>Find</Button>
       </Stack>
 
-      {invoiceNo && !invoice && <Alert severity="error">No invoice found with that number.</Alert>}
+      {results !== null && results.length === 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          No invoice found for that number, phone or customer.
+        </Alert>
+      )}
+
+      {results !== null && results.length > 0 && (
+        <Paper variant="outlined" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5 }}>
+            {results.length} matching invoices — choose the one to refund
+          </Typography>
+          <List dense>
+            {results.map((inv) => {
+              const phone = (inv.customerId ? phoneById.get(inv.customerId) : '') ?? '';
+              const name = inv.customerNameEn || inv.customerNameAr || 'Walk-in Customer';
+              return (
+                <ListItemButton key={inv.id} onClick={() => pick(inv)}>
+                  <ListItemText
+                    primary={`${inv.invoiceNo} · ${name}`}
+                    secondary={`${new Date(inv.date).toLocaleString()}${phone ? ` · ${phone}` : ''} · SAR ${inv.totalInclVat.toFixed(2)}`}
+                  />
+                  {inv.status === 'returned' && <Chip size="small" label="Returned" />}
+                  {inv.status === 'partially_returned' && <Chip size="small" color="warning" label="Part returned" />}
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Paper>
+      )}
 
       {invoice && (
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            {invoice.invoiceNo} · {new Date(invoice.date).toLocaleString()} · {invoice.customerNameEn || invoice.customerNameAr}
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Typography variant="subtitle2">
+              {invoice.invoiceNo} · {new Date(invoice.date).toLocaleString()} ·{' '}
+              {invoice.customerNameEn || invoice.customerNameAr || 'Walk-in Customer'}
+            </Typography>
+            {(invoice.customerId ? phoneById.get(invoice.customerId) : '') && (
+              <Typography variant="caption" color="text.secondary">
+                {phoneById.get(invoice.customerId!)}
+              </Typography>
+            )}
+            {invoice.status === 'returned' && <Chip size="small" label="Returned" />}
+            {invoice.status === 'partially_returned' && <Chip size="small" color="warning" label="Part returned" />}
+          </Stack>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -157,7 +256,13 @@ export default function ReturnsPage() {
                 const remaining = l.qty - l.returnedQty;
                 return (
                   <TableRow key={l.id}>
-                    <TableCell>{l.itemNameEn}<Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>batch {l.batchNo}</Typography></TableCell>
+                    <TableCell>
+                      {l.itemNameEn}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        batch {l.batchNo}
+                        {l.unit ? ` · ${l.unit}` : ''}
+                      </Typography>
+                    </TableCell>
                     <TableCell align="right">{l.qty}</TableCell>
                     <TableCell align="right">{l.returnedQty}</TableCell>
                     <TableCell align="right">

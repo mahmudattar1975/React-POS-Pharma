@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { config } from '../config.js';
-import type { UblInvoiceInput, UblDocumentType, UblInvoiceKind } from '../ubl/types.js';
+import type { UblInvoiceInput, UblDocumentType, UblInvoiceKind, UblSupplier } from '../ubl/types.js';
 
 // ZATCA's compliance-invoices check expects one sample of each invoice/credit-note/debit-note
 // type, for both standard (B2B) and simplified (B2C) invoices - six samples total - before it
@@ -10,7 +9,7 @@ import type { UblInvoiceInput, UblDocumentType, UblInvoiceKind } from '../ubl/ty
 const DOCUMENT_TYPES: UblDocumentType[] = ['invoice', 'credit_note', 'debit_note'];
 const KINDS: UblInvoiceKind[] = ['standard', 'simplified'];
 
-export function buildSampleInvoices(): Array<{ name: string; input: UblInvoiceInput }> {
+export function buildSampleInvoices(supplier: UblSupplier): Array<{ name: string; input: UblInvoiceInput }> {
   const samples: Array<{ name: string; input: UblInvoiceInput }> = [];
 
   for (const kind of KINDS) {
@@ -24,18 +23,7 @@ export function buildSampleInvoices(): Array<{ name: string; input: UblInvoiceIn
         previousInvoiceHash: Buffer.from([0]).toString('base64'),
         issueDateTime: new Date(),
         currency: 'SAR',
-        supplier: {
-          nameEn: config.seller.nameEn,
-          vatNumber: config.seller.vatNumber,
-          crNumber: config.seller.crNumber,
-          address: {
-            street: config.seller.street,
-            city: config.seller.city,
-            postalCode: config.seller.postalCode,
-            district: config.seller.district,
-            country: config.seller.country,
-          },
-        },
+        supplier,
         customer:
           kind === 'standard'
             ? {

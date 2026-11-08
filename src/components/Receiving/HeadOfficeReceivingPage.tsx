@@ -8,6 +8,8 @@ import * as XLSX from 'xlsx';
 import { useCatalogStore } from '../../store/catalogStore';
 import { getErpStoreNo } from '../../api/erpApi';
 import { parseTransferCode } from '../../utils/transferCode';
+import type { PackLevel } from '../../types/catalog';
+import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
 
 // A transfer-in from head office/another branch is NOT a vendor purchase - there's no supplier
 // negotiating a discount off a box price, so this deliberately does NOT reuse Stock Receiving's
@@ -16,14 +18,17 @@ import { parseTransferCode } from '../../utils/transferCode';
 // applies here) since a received batch's shape in the catalog is identical either way; only how a
 // cashier fills the form differs.
 function ManualEntryForm() {
-  const { items, receiveStock } = useCatalogStore();
+  const { items, receiveStock, itemById } = useCatalogStore();
   const [itemId, setItemId] = useState('');
   const [batchNo, setBatchNo] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [qty, setQty] = useState('');
+  const [receiveUnit, setReceiveUnit] = useState<PackLevel>('box');
   const [costPerUnit, setCostPerUnit] = useState(''); // optional - head office doesn't always pass this down
   const [done, setDone] = useState(false);
 
+  const item = itemById(itemId);
+  const perUnit = item?.pack ? tabletsPerUnit(item.pack, receiveUnit) : 1;
   const valid = itemId && batchNo.trim() && expiryDate && Number(qty) > 0 && Number(costPerUnit || 0) >= 0;
 
   function submit() {
@@ -36,6 +41,7 @@ function ManualEntryForm() {
       purchasePrice: Number(costPerUnit) || 0,
       purchaseDiscountPercent: 0,
       source: 'head_office',
+      packLevel: item?.pack ? receiveUnit : undefined,
     });
     setBatchNo('');
     setExpiryDate('');
@@ -57,6 +63,21 @@ function ManualEntryForm() {
             ))}
           </Select>
         </FormControl>
+        {item?.pack && (
+          <FormControl fullWidth>
+            <InputLabel id="ho-unit-label">Received as</InputLabel>
+            <Select
+              labelId="ho-unit-label"
+              label="Received as"
+              value={receiveUnit}
+              onChange={(e) => setReceiveUnit(e.target.value as PackLevel)}
+            >
+              {purchasePackLevels(item.pack).map((level) => (
+                <MenuItem key={level} value={level}>{PACK_LEVEL_LABEL_PLURAL[level]}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
         <TextField
           label="Expiry Date"
@@ -66,7 +87,14 @@ function ManualEntryForm() {
           slotProps={{ inputLabel: { shrink: true } }}
           fullWidth
         />
-        <TextField label="Quantity Received" type="number" value={qty} onChange={(e) => setQty(e.target.value)} fullWidth />
+        <TextField
+          label={item?.pack ? `Quantity Received (${PACK_LEVEL_LABEL_PLURAL[receiveUnit].toLowerCase()})` : 'Quantity Received'}
+          type="number"
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          helperText={item?.pack && qty ? `= ${Number(qty) * perUnit} tablets` : undefined}
+          fullWidth
+        />
         <TextField
           label="Cost per Unit (optional)"
           type="number"
@@ -260,9 +288,7 @@ export default function HeadOfficeReceivingPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1000 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Receive from Head Office</Typography>
-
+    <Box sx={{ maxWidth: 1000 }}>
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Import a Transfer File</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

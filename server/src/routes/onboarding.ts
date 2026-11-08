@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getOnboardingStatus, requestComplianceCsid, runComplianceChecks, requestProductionCsid, setZatcaEnvironment } from '../zatca/onboarding.js';
+import { getZatcaSettings, updateZatcaSettings } from '../zatca/settings.js';
+import { IdentityValidationError } from '../store/identity.js';
 import type { ZatcaEnv } from '../store/secureStore.js';
 
 export const onboardingRouter = Router();
@@ -10,6 +12,28 @@ onboardingRouter.get('/status', async (_req, res) => {
   try {
     res.json(await getOnboardingStatus());
   } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Seller + device identity shared by the CSR and the signed UBL document. These two routes are what
+// the Settings > ZATCA > Company & Device tab reads and writes; `.env` is only the first-run seed.
+onboardingRouter.get('/settings', async (_req, res) => {
+  try {
+    res.json(await getZatcaSettings());
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+onboardingRouter.put('/settings', async (req, res) => {
+  try {
+    res.json(await updateZatcaSettings(req.body));
+  } catch (err) {
+    if (err instanceof IdentityValidationError) {
+      res.status(400).json({ error: err.errors.join(' '), errors: err.errors });
+      return;
+    }
     res.status(500).json({ error: String(err) });
   }
 });
