@@ -1,5 +1,5 @@
-// Purchasing-side types: the vendor master (mock seed data, see utils/seedData.ts's seedVendors)
-// and the vendor purchase invoice - the header N-lines document a pharmacy receives from a
+// Purchasing-side types: the FCODCSVN-style party master (mock seed data, see utils/seedData.ts's
+// seedVendors) and the purchase invoice - the header N-lines document a pharmacy receives from a
 // distributor (Al-Dawaa/Nahdi-style: paper invoice with a supplier invoice number, lines each
 // carrying their own batch/lot and expiry). Posting it creates/segments the stock batches via
 // catalogStore's receiveStock (one ReceivingEvent per line, tagged with this invoice no) and
@@ -14,9 +14,13 @@
 // discount fields, em_11-1..3, even though the table has five slots) + bonus qty.
 import type { VatBucket } from '../utils/vat';
 import type { PackLevel } from './catalog';
+import type { PartyTypeFlag } from './party';
 
 export interface Vendor {
   id: string;
+  // Legacy FCODCSVN type_flag: 1 for a vendor row, 2 for a business-customer row. Both live in
+  // the same purchasing party table - see types/party.ts.
+  typeFlag: PartyTypeFlag;
   // System-assigned vendor number (VEN-000001...), never typed by a user - see
   // nextVendorNumber in utils/purchasing.ts. This is the master's stable display key (legacy
   // CUST_NO analogue), so a vendor rename doesn't change how history/payables refer to it.
@@ -112,6 +116,11 @@ export interface PurchaseInvoice {
   // vendor+number pair is what guards against double-posting the same delivery).
   invoiceNo: string;
   vendorInvoiceNo: string; // the number printed on the vendor's own paper/PDF invoice
+  // Which side of the party master issued the document (legacy FCODCSVN type_flag): 1 = vendor,
+  // 2 = customer. Undefined on invoices posted before the party picker could switch to customers,
+  // so read it as 1. The vendorId/vendorNo/vendorName* snapshot fields below then describe that
+  // party regardless of side - the names are historical column names kept for compatibility.
+  partyType?: PartyTypeFlag;
   vendorId: string;
   // Vendor-number snapshot at posting time (VEN-000001...). Kept on the invoice so history keeps
   // the number even if the vendor master row is later edited; undefined on pre-vendor-number
@@ -121,6 +130,11 @@ export interface PurchaseInvoice {
   vendorNameEn: string;
   date: string; // yyyy-mm-dd - the vendor invoice's date, defaulting to today
   notes?: string;
+  // Optional: when true, this invoice is a credit note / return against a prior purchase.
+  // When set, originalInvoiceNo points to the source vendor invoice being returned.
+  isReturn?: boolean;
+  originalInvoiceNo?: string; // supplier's invoice no of the source purchase being returned
+  returnReason?: string; // free-text reason for the return/credit note
   // Branch cost center this purchase is attributed to (Phase A cost-center tagging, see
   // types/costCenters.ts) - optional for backward compatibility with already-posted invoices;
   // undefined rows surface in the Expenses page's unassigned exception list instead of blocking

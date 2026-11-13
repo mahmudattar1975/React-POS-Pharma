@@ -19,7 +19,8 @@ import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlin
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ToggleOnOutlinedIcon from '@mui/icons-material/ToggleOnOutlined';
 import type { Vendor } from '../../types/purchasing';
-import { nextVendorNumber } from '../../utils/purchasing';
+import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
+import { nextPartyNumber } from '../../utils/purchasing';
 import { cleanVatNumberInput } from '../../utils/vat';
 import {
   EMPTY_VENDOR_FORM, VENDOR_VAT_TYPES, formToVendorInput, validateVendorForm, vendorToForm,
@@ -30,7 +31,9 @@ interface Props {
   open: boolean;
   vendor: Vendor | null; // null = creating
   vendors: Vendor[];
-  onSave: (input: Omit<Vendor, 'id' | 'vendorNo'>) => void;
+  // Which side of the shared party table a NEW row is created on. Editing uses the row's own flag.
+  typeFlag?: PartyTypeFlag;
+  onSave: (input: Omit<Vendor, 'id' | 'vendorNo' | 'typeFlag'>) => void;
   onClose: () => void;
   error?: string | null;
 }
@@ -38,12 +41,17 @@ interface Props {
 const NOTES_MAX = 2000;
 
 export default function VendorFormDialog({
-  open, vendor, vendors, onSave, onClose, error,
+  open, vendor, vendors, typeFlag = PARTY_TYPE_FLAG.vendor, onSave, onClose, error,
 }: Props) {
+  const partyType = vendor?.typeFlag ?? typeFlag;
+  const isCustomer = partyType === PARTY_TYPE_FLAG.customer;
+  const noun = isCustomer ? 'customer' : 'vendor';
+  const Noun = isCustomer ? 'Customer' : 'Vendor';
+
   const [values, setValues] = useState<VendorFormValues>(() => (
     vendor
       ? vendorToForm(vendor)
-      : { ...EMPTY_VENDOR_FORM, vendorNo: nextVendorNumber(vendors) }
+      : { ...EMPTY_VENDOR_FORM, vendorNo: nextPartyNumber(vendors, partyType) }
   ));
   const [submitted, setSubmitted] = useState(false);
 
@@ -97,11 +105,11 @@ export default function VendorFormDialog({
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="h6" noWrap sx={{ lineHeight: 1.2 }}>
-              {vendor ? 'Edit vendor' : 'New vendor'}
+              {vendor ? `Edit ${noun}` : `New ${noun}`}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
               {vendor
-                ? `Vendor no ${vendor.vendorNo} · ${vendor.nameEn}`
+                ? `${Noun} no ${vendor.vendorNo} · ${vendor.nameEn}`
                 : `Next number ${values.vendorNo} — assigned automatically`}
             </Typography>
           </Box>
@@ -128,15 +136,17 @@ export default function VendorFormDialog({
 
           <Section
             icon={<BadgeOutlinedIcon />}
-            title="Vendor identity"
-            caption="بيانات المورد — the vendor number is fixed once saved"
+            title={`${Noun} identity`}
+            caption={isCustomer
+              ? 'بيانات العميل — the customer number is fixed once saved'
+              : 'بيانات المورد — the vendor number is fixed once saved'}
           >
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
               <TextField
-                label="Vendor No"
+                label={`${Noun} No`}
                 value={values.vendorNo}
                 size="small"
-                helperText="System-assigned — used by purchase invoices and item master rows"
+                helperText={`System-assigned — used by purchase invoices and item master rows`}
                 slotProps={{ input: { readOnly: true } }}
                 fullWidth
               />
@@ -154,7 +164,7 @@ export default function VendorFormDialog({
                 value={values.nameAr}
                 onChange={(e) => patch('nameAr', e.target.value)}
                 error={!!errorFor('nameAr')}
-                helperText={errorFor('nameAr') ?? 'اسم المورد بالعربي'}
+                helperText={errorFor('nameAr') ?? (isCustomer ? 'اسم العميل بالعربي' : 'اسم المورد بالعربي')}
                 size="small"
                 required
                 fullWidth
@@ -165,7 +175,7 @@ export default function VendorFormDialog({
                 value={values.nameEn}
                 onChange={(e) => patch('nameEn', e.target.value)}
                 error={!!errorFor('nameEn')}
-                helperText={errorFor('nameEn') ?? 'Vendor name on documents'}
+                helperText={errorFor('nameEn') ?? `${Noun} name on documents`}
                 size="small"
                 required
                 fullWidth
@@ -266,7 +276,7 @@ export default function VendorFormDialog({
                     </MenuItem>
                   ))}
                 </Select>
-                <FormHelperText>{errorFor('vatType') ?? 'Used on the vendor file'}</FormHelperText>
+                <FormHelperText>{errorFor('vatType') ?? `Used on the ${noun} file`}</FormHelperText>
               </FormControl>
               <TextField
                 label="GLN (optional)"
@@ -284,7 +294,7 @@ export default function VendorFormDialog({
           <Section
             icon={<ToggleOnOutlinedIcon />}
             title="Status & notes"
-            caption="Inactive vendors stay on old invoices and items, but are not offered for new ones"
+            caption={`Inactive ${noun}s stay on old invoices and items, but are not offered for new ones`}
           >
             <Stack spacing={2}>
               <FormControlLabel
@@ -339,7 +349,7 @@ export default function VendorFormDialog({
           startIcon={<SaveOutlinedIcon />}
           sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         >
-          {vendor ? 'Save Changes' : 'Create Vendor'}
+          {vendor ? 'Save Changes' : `Create ${Noun}`}
         </Button>
       </DialogActions>
     </Dialog>

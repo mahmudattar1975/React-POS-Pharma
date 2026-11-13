@@ -3,7 +3,8 @@
 // notes, lock flag), adapted to this app's vendor number key. Kept out of the dialog so the
 // validation and the blank/zero distinction are unit-tested directly.
 import type { Vendor } from '../types/purchasing';
-import { formatVendorNo, maxVendorNumber } from './purchasing';
+import { PARTY_TYPE_FLAG } from '../types/party';
+import { CUSTOMER_NO_PREFIX, formatVendorNo, maxVendorNumber } from './purchasing';
 
 export interface VendorFormValues {
   // Display only: addVendor assigns the real VEN- number; the form previews the next one.
@@ -132,7 +133,17 @@ export function mergeVendorMaster(persisted: Vendor[] | undefined, seeds: Vendor
 
   const merged = base.map((vendor) => {
     const seed = seedById.get(vendor.id);
-    const row = seed ? { ...seed, ...vendor } : vendor;
+    // `typeFlag` arrived with the shared party table; older saved rows predate it. A saved CUS-
+    // number means the row is a customer account, otherwise it is a vendor. Seeds carry their own
+    // flag, so a seed row keeps the right side even if its old copy lost the field.
+    const typeFlag =
+      vendor.typeFlag ??
+      (vendor.vendorNo?.startsWith(CUSTOMER_NO_PREFIX)
+        ? PARTY_TYPE_FLAG.customer
+        : (seed?.typeFlag ?? PARTY_TYPE_FLAG.vendor));
+    const row = seed
+      ? { ...seed, ...vendor, typeFlag }
+      : { ...vendor, typeFlag };
     if (row.vendorNo) return row;
     // A seed row whose old saved copy lost its number keeps the seed's own number; a genuinely
     // unnumbered legacy row gets the next free one.
@@ -145,7 +156,9 @@ export function mergeVendorMaster(persisted: Vendor[] | undefined, seeds: Vendor
 
 // Converts the string form back to the persisted shape: blank optional fields become undefined
 // (not 0 or ''), so "no credit limit" stays distinct from "credit limit is zero".
-export function formToVendorInput(values: VendorFormValues): Omit<Vendor, 'id' | 'vendorNo'> {
+export function formToVendorInput(
+  values: VendorFormValues
+): Omit<Vendor, 'id' | 'vendorNo' | 'typeFlag'> {
   return {
     nameAr: values.nameAr.trim(),
     nameEn: values.nameEn.trim(),

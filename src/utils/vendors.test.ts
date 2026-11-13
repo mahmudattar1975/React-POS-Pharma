@@ -62,6 +62,7 @@ describe('vendor form mapping', () => {
   it('maps a stored vendor into strings without losing optional fields', () => {
     const vendor: Vendor = {
       id: 'ven-1',
+      typeFlag: 1,
       vendorNo: 'VEN-000009',
       nameAr: 'شركة',
       nameEn: 'Company',
@@ -112,6 +113,7 @@ describe('vendor master persist merge', () => {
   it('backfills new vendor-file fields on a persisted seed row and keeps the owner edit', () => {
     const persisted: Vendor[] = [{
       id: 'ven-1',
+      typeFlag: 1,
       vendorNo: 'VEN-000001',
       nameAr: 'شركة الحياة',
       nameEn: 'Owner Renamed Vendor',
@@ -127,12 +129,14 @@ describe('vendor master persist merge', () => {
     expect(vendor?.creditLimit).toBe(50000);
     expect(vendor?.glnNo).toBe('6281000010001');
     expect(vendor?.isActive).toBe(true);
+    // Older saved rows predate the shared party flag; they are vendors by construction.
+    expect(vendor?.typeFlag).toBe(1);
   });
 
   it('assigns a unique number to a persisted vendor saved before numbering existed', () => {
     const persisted: Vendor[] = [
-      { id: 'ven-1', vendorNo: '', nameAr: 'أ', nameEn: 'One', phone: '' },
-      { id: 'legacy', vendorNo: '', nameAr: 'ب', nameEn: 'Legacy', phone: '' },
+      { id: 'ven-1', typeFlag: 1, vendorNo: '', nameAr: 'أ', nameEn: 'One', phone: '' },
+      { id: 'legacy', typeFlag: 1, vendorNo: '', nameAr: 'ب', nameEn: 'Legacy', phone: '' },
     ];
 
     const merged = mergeVendorMaster(persisted, seedVendors);

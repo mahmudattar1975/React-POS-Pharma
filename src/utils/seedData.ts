@@ -178,25 +178,49 @@ export const seedCustomers: Customer[] = [
 // catalogStore's receiveStock exactly like the single-line Stock Receiving page does.
 export const seedVendors: Vendor[] = [
   {
-    id: 'ven-1', vendorNo: 'VEN-000001', nameAr: 'شركة الحياة لتوزيع الأدوية', nameEn: 'Al-Hayat Drug Distribution Co.',
+    id: 'ven-1', typeFlag: 1, vendorNo: 'VEN-000001', nameAr: 'شركة الحياة لتوزيع الأدوية', nameEn: 'Al-Hayat Drug Distribution Co.',
     phone: '0114445566', vatNumber: '310555123400003', category: 'National distributor',
     creditLimit: 50000, settlementDays: 30, vatType: 1, glnNo: '6281000010001',
     bonusDiscountSetNo: 2, limitationSetNo: 1, notes: 'Riyadh HQ · nationwide cold-chain delivery',
     isActive: true, updatedAt: '2026-10-01T09:00:00.000Z',
   },
   {
-    id: 'ven-2', vendorNo: 'VEN-000002', nameAr: 'مؤسسة جدة للامداد الطبي', nameEn: 'Jeddah Medical Supply Est.',
+    id: 'ven-2', typeFlag: 1, vendorNo: 'VEN-000002', nameAr: 'مؤسسة جدة للامداد الطبي', nameEn: 'Jeddah Medical Supply Est.',
     phone: '0126667788', vatNumber: '312666987600003', category: 'Regional distributor',
     creditLimit: 25000, settlementDays: 45, vatType: 1, glnNo: '6281000020002',
     bonusDiscountSetNo: 1, limitationSetNo: 1, notes: 'Jeddah · western-region deliveries',
     isActive: true, updatedAt: '2026-10-05T10:30:00.000Z',
   },
   {
-    id: 'ven-3', vendorNo: 'VEN-000003', nameAr: 'مستوردات الرياض للسوبر فود', nameEn: 'Riyadh Superfood Imports',
+    id: 'ven-3', typeFlag: 1, vendorNo: 'VEN-000003', nameAr: 'مستوردات الرياض للسوبر فود', nameEn: 'Riyadh Superfood Imports',
     phone: '0117778899', vatNumber: '300777456700003', category: 'Importer',
     creditLimit: 15000, settlementDays: 30, vatType: 1, glnNo: '6281000030003',
     notes: 'Specialist food and consumer-goods importer',
     isActive: true, updatedAt: '2026-10-12T08:15:00.000Z',
+  },
+  // Customer accounts in the same FCODCSVN-style table (type_flag 2). These are vendor-like
+  // business parties - clinics, hospitals and institutional buyers - NOT the POS retail patients
+  // (those live in customerStore and never appear in a purchase invoice).
+  {
+    id: 'pcu-1', typeFlag: 2, vendorNo: 'CUS-000001', nameAr: 'مركز النور الطبي', nameEn: 'Al-Noor Medical Center',
+    phone: '0114567890', vatNumber: '311234567800003', category: 'Medical center',
+    creditLimit: 20000, settlementDays: 30, vatType: 1,
+    notes: 'Outpatient clinic - monthly institutional purchases',
+    isActive: true, updatedAt: '2026-10-18T09:30:00.000Z',
+  },
+  {
+    id: 'pcu-2', typeFlag: 2, vendorNo: 'CUS-000002', nameAr: 'مستشفى رعاية الرياض', nameEn: 'Riyadh Care Hospital',
+    phone: '0112345678', vatNumber: '312345678900003', category: 'Hospital',
+    creditLimit: 100000, settlementDays: 45, vatType: 1,
+    notes: 'Hospital pharmacy account - purchase orders and batch deliveries',
+    isActive: true, updatedAt: '2026-10-20T11:00:00.000Z',
+  },
+  {
+    id: 'pcu-3', typeFlag: 2, vendorNo: 'CUS-000003', nameAr: 'مجمع دار الشفاء الطبي', nameEn: 'Dar Al-Shifa Polyclinic',
+    phone: '0126789012', vatNumber: '313456789000003', category: 'Polyclinic',
+    creditLimit: 30000, settlementDays: 30, vatType: 1,
+    notes: 'Jeddah polyclinic - recurring supply account',
+    isActive: true, updatedAt: '2026-10-24T13:45:00.000Z',
   },
 ];
 
