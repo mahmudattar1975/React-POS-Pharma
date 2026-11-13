@@ -39,3 +39,21 @@ export async function backupReceiving(payload: ReceivingBackupPayload): Promise<
     throw new Error(body.error ?? `Receiving backup failed (${res.status})`);
   }
 }
+
+// Mirror of catalogStore.reversePurchaseInvoice's batch decrement. Best-effort: a failure must not
+// block deleting/modifying the invoice, since the browser's catalogStore is the primary record.
+export async function reverseReceiving(payload: {
+  itemId: string;
+  batchNo: string;
+  qty: number;
+}): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/receiving/reverse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Receiving reversal failed (${res.status})`);
+  }
+}

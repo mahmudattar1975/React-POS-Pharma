@@ -169,4 +169,72 @@ describe('inventory movement', () => {
     catalog.getState().incrementBatch('bat-1a', 1);
     expect(qtyOf('bat-1a')).toBe(125); // 120 + 7 - 3 + 1
   });
+
+  it('reverses the batch and the receiving log when a posted invoice is deleted', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    expect(qtyOf('bat-1a')).toBe(127);
+
+    purchasing.getState().deletePurchaseInvoice('pur-test-1');
+
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(catalog.getState().receivingLog).toHaveLength(0);
+    expect(purchasing.getState().invoices).toHaveLength(0);
+  });
+
+  it('removes a batch the invoice itself created when it is deleted', () => {
+    purchasing.getState().receivePurchaseInvoice(
+      invoice({ batchNo: 'DELETE-ME', expiryDate: '2028-01-31', qty: 3, bonusQty: 0, totalQty: 3 })
+    );
+    const created = catalog.getState().batches.find((b) => b.batchNo === 'DELETE-ME')!;
+    expect(created.qtyOnHand).toBe(3);
+
+    purchasing.getState().deletePurchaseInvoice('pur-test-1');
+
+    // The row stays (it may share its number with opening stock) but holds nothing.
+    expect(catalog.getState().batches.find((b) => b.batchNo === 'DELETE-ME')?.qtyOnHand).toBe(0);
+    expect(catalog.getState().receivingLog).toHaveLength(0);
+  });
+
+  it('refuses to delete when the delivery is no longer fully on hand', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    catalog.getState().decrementBatch('bat-1a', 121); // 127 -> 6, fewer than the 7 received
+
+    expect(() => purchasing.getState().deletePurchaseInvoice('pur-test-1')).toThrow(/already been sold/i);
+
+    // Nothing moved: invoice, stock and log are all still as they were.
+    expect(purchasing.getState().invoices).toHaveLength(1);
+    expect(qtyOf('bat-1a')).toBe(6);
+    expect(catalog.getState().receivingLog).toHaveLength(1);
+  });
+
+  it('reverses the old lines and posts the new ones when a posted invoice is modified', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    const original = purchasing.getState().invoices[0];
+
+    const corrected: PurchaseInvoice = {
+      ...original,
+      lines: [{ ...original.lines[0], qty: 10, totalQty: 10, bonusQty: 0 }],
+    };
+    purchasing.getState().updatePurchaseInvoice(original.id, corrected);
+
+    // 120 baseline + 10 corrected units (the original 7 were reversed first).
+    expect(qtyOf('bat-1a')).toBe(130);
+    expect(purchasing.getState().invoices).toHaveLength(1);
+    expect(purchasing.getState().invoices[0].lines[0].qty).toBe(10);
+    expect(catalog.getState().receivingLog).toHaveLength(1);
+    expect(catalog.getState().receivingLog[0].qty).toBe(10);
+  });
+
+  it('does not touch stock when only the header is corrected', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    const original = purchasing.getState().invoices[0];
+
+    purchasing.getState().updatePurchaseInvoice(original.id, { ...original, notes: 'Corrected note' });
+
+    expect(qtyOf('bat-1a')).toBe(127);
+    expect(catalog.getState().receivingLog).toHaveLength(1);
+    expect(purchasing.getState().invoices[0].notes).toBe('Corrected note');
+    // The system number is never rewritten by an edit.
+    expect(purchasing.getState().invoices[0].invoiceNo).toBe('PUR-000001');
+  });
 });

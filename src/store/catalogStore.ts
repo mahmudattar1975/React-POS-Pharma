@@ -8,7 +8,7 @@ import { tabletsPerBox, tabletsPerUnit } from '../utils/packUnits';
 import { assertItemIdentityUnique, itemCodes, itemNumberOf, nextItemNumber } from '../utils/itemMaster';
 import { isValidNupcoCode, nupcoCodeConflictMessage, normaliseNupcoCode } from '../utils/wasfaty';
 import type { WasfatyMappingChange, WasfatyMappingSnapshot } from '../types/wasfaty';
-import { backupReceiving } from '../api/receivingApi';
+import { backupReceiving, reverseReceiving } from '../api/receivingApi';
 import { usePendingSyncStore } from './pendingSyncStore';
 import { useAuthStore } from './authStore';
 
@@ -151,6 +151,11 @@ interface CatalogState {
     // tablet) and converted to tablets here - the one unit stock is kept in.
     packLevel?: PackLevel;
   }) => void;
+  // Reverses the stock a posted purchase invoice added: every receiving event tagged with that
+  // invoice number is removed and its batch quantity reduced by the same amount. Refuses (throws)
+  // when part of that stock has already been sold or moved, so an invoice can never silently
+  // erase stock that is no longer on the shelf - use a return/credit note in that case.
+  reversePurchaseInvoice: (purchaseInvoiceNo: string) => void;
   setControlledStatus: (itemId: string, status: ControlledStatus | undefined) => void;
   // Wasfaty/NUPCO mapping, owned by this store because Item rows live here. Same immediate,
   // store-level duplicate guarantee as the barcode guard: two items can never answer to one NUPCO
@@ -324,6 +329,62 @@ export const useCatalogStore = create<CatalogState>()(
           console.warn('Receiving backup failed, queued for retry:', err);
           usePendingSyncStore.getState().enqueue({ kind: 'receiving', payload: backupPayload });
         });
+      },
+
+      reversePurchaseInvoice: (purchaseInvoiceNo) => {
+        const events = get().receivingLog.filter((e) => e.purchaseInvoiceNo === purchaseInvoiceNo);
+        // Nothing was posted for this invoice (legacy rows saved before the receiving log tagged
+        // invoice numbers) - the document can still be removed without touching stock.
+        if (events.length === 0) return;
+
+        // One line tops up an existing batch and a second line of the same invoice can top it up
+        // again, so aggregate per item+batch before checking what is still on hand.
+        const received = new Map<string, { itemId: string; batchNo: string; qty: number }>();
+        for (const event of events) {
+          const key = `${event.itemId}\u0000${event.batchNo}`;
+          const current = received.get(key);
+          if (current) current.qty += event.qty;
+          else received.set(key, { itemId: event.itemId, batchNo: event.batchNo, qty: event.qty });
+        }
+
+        for (const { itemId, batchNo, qty } of received.values()) {
+          const batch = get().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
+          if (!batch) {
+            throw new Error(
+              `Batch ${batchNo} for item ${itemId} is no longer in the catalog - invoice ${purchaseInvoiceNo} cannot be reversed safely.`
+            );
+          }
+          // Tiny epsilon for the floating-point quantity arithmetic used by packed items.
+          if (batch.qtyOnHand + 1e-9 < qty) {
+            throw new Error(
+              `Batch ${batchNo} has ${batch.qtyOnHand} on hand but invoice ${purchaseInvoiceNo} received ${qty}. ` +
+              'Part of that delivery has already been sold or moved, so the invoice cannot be deleted or changed. ' +
+              'Post a purchase return / credit note instead.'
+            );
+          }
+        }
+
+        set((s) => {
+          const batches = s.batches.map((b) => {
+            const key = `${b.itemId}\u0000${b.batchNo}`;
+            const hit = received.get(key);
+            if (!hit) return b;
+            // Kept at zero rather than removed: the batch may predate this invoice (opening stock
+            // or another delivery), and its row is the cost reference for anything already sold.
+            return { ...b, qtyOnHand: Math.max(0, b.qtyOnHand - hit.qty) };
+          });
+          return {
+            batches,
+            receivingLog: s.receivingLog.filter((e) => e.purchaseInvoiceNo !== purchaseInvoiceNo),
+          };
+        });
+
+        // Best-effort SQL mirror, same "never block the action" pattern as the receiving backup.
+        for (const { itemId, batchNo, qty } of received.values()) {
+          reverseReceiving({ itemId, batchNo, qty }).catch((err) => {
+            console.warn('Receiving reversal backup failed:', err);
+          });
+        }
       },
 
       setControlledStatus: (itemId, status) =>
