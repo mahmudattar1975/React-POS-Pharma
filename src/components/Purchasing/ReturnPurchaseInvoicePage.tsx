@@ -23,6 +23,7 @@ export default function ReturnPurchaseInvoicePage() {
     vendors,
     invoices,
     receiveReturnInvoice,
+    nextReturnNo,
   } = usePurchasingStore();
   const { items } = useCatalogStore();
   const cashierName = useSettingsStore((s) => s.settings.cashierName);
@@ -102,7 +103,7 @@ export default function ReturnPurchaseInvoicePage() {
     try {
       const returnInv: PurchaseInvoice = {
         id: 'ret-' + Date.now(),
-        invoiceNo: 'RET-' + Date.now(),
+        invoiceNo: nextReturnNo(),
         vendorInvoiceNo: creditNoteNo.trim(),
         partyType,
         vendorId: party.id,
@@ -176,7 +177,8 @@ export default function ReturnPurchaseInvoicePage() {
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
-              <TextField label="Return No" value={creditNoteNo} onChange={(e) => setCreditNoteNo(e.target.value)} size="small" fullWidth />
+              <TextField label="Return seq." value={nextReturnNo()} size="small" fullWidth slotProps={{ input: { readOnly: true } }} helperText="System number — assigned when posted" />
+              <TextField label="Return No" value={creditNoteNo} onChange={(e) => setCreditNoteNo(e.target.value)} size="small" fullWidth helperText="Party credit note no" />
               <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
             </Stack>
             <TextField label="Reason" value={returnReason} onChange={(e) => setReturnReason(e.target.value)} size="small" fullWidth multiline rows={2} />
@@ -224,7 +226,8 @@ export default function ReturnPurchaseInvoicePage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Return No</TableCell>
+                    <TableCell>Return seq.</TableCell>
+                    <TableCell>Party doc. no</TableCell>
                     <TableCell>Party No.</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Original doc.</TableCell>
@@ -236,6 +239,7 @@ export default function ReturnPurchaseInvoicePage() {
                 <TableBody>
                   {postedReturns.map((r) => (
                     <TableRow key={r.id}>
+                      <TableCell>{r.invoiceNo}</TableCell>
                       <TableCell>{r.vendorInvoiceNo}</TableCell>
                       <TableCell>{r.vendorNo ?? '—'}</TableCell>
                       <TableCell>{r.date}</TableCell>

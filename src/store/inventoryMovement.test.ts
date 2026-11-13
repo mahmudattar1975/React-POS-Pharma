@@ -39,7 +39,7 @@ beforeAll(async () => {
 beforeEach(() => {
   // Every test starts from the seed catalog, so expected quantities are constants (bat-1a = 120).
   catalog.setState({ items: seedItems, batches: seedBatches, receivingLog: [] });
-  purchasing.setState({ vendors: seedVendors, invoices: [], invoiceCounter: 0 });
+  purchasing.setState({ vendors: seedVendors, invoices: [], invoiceCounter: 0, returnCounter: 0 });
 });
 
 function invoice(overrides: Partial<PurchaseInvoice['lines'][number]> = {}): PurchaseInvoice {
@@ -286,5 +286,36 @@ describe('inventory movement', () => {
 
     expect(qtyOf('bat-1a')).toBe(120);
     expect(purchasing.getState().invoices).toHaveLength(0);
+  });
+
+  it('does not consume a PUR number when a return is posted', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    expect(purchasing.getState().nextPurchaseNo()).toBe('PUR-000002');
+
+    purchasing.getState().receiveReturnInvoice(returnInvoice());
+
+    // Returns live on their own RET- sequence; the next purchase stays PUR-000002.
+    expect(purchasing.getState().nextPurchaseNo()).toBe('PUR-000002');
+    expect(purchasing.getState().nextReturnNo()).toBe('RET-000002');
+  });
+
+  it('numbers consecutive returns RET-000001, RET-000002', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    purchasing.getState().receivePurchaseInvoice({ ...invoice(), id: 'pur-test-2', invoiceNo: 'PUR-000002' });
+
+    expect(purchasing.getState().nextReturnNo()).toBe('RET-000001');
+    purchasing.getState().receiveReturnInvoice(returnInvoice());
+    expect(purchasing.getState().nextReturnNo()).toBe('RET-000002');
+
+    purchasing.getState().receiveReturnInvoice({
+      ...returnInvoice(),
+      id: 'ret-test-2',
+      invoiceNo: purchasing.getState().nextReturnNo(),
+    });
+
+    expect(purchasing.getState().invoices.filter((i) => i.isReturn).map((i) => i.invoiceNo)).toEqual([
+      'RET-000001',
+      'RET-000002',
+    ]);
   });
 });

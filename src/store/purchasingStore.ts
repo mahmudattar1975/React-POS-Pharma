@@ -21,6 +21,9 @@ interface PurchasingState {
   // Same satisfied-by-recording pattern as salesStore's simplified/standard counters - nextPurchaseNo
   // only previews the next number; receivePurchaseInvoice bumps it.
   invoiceCounter: number;
+  // Returns have their own gap-free sequence (RET-000001...). Posting a return must never consume
+  // a PUR number, or the purchase sequence would skip one for every credit note.
+  returnCounter: number;
   // Preview of the next system-assigned number on each side; addVendor/addCustomer assigns it for
   // real. Same satisfied-by-recording pattern as nextPurchaseNo below.
   nextVendorNo: () => string;
@@ -33,6 +36,7 @@ interface PurchasingState {
   updateVendor: (id: string, input: Partial<Omit<Vendor, 'id' | 'vendorNo' | 'typeFlag'>>) => void;
   removeVendor: (id: string) => void;
   nextPurchaseNo: () => string;
+  nextReturnNo: () => string;
   // The paper invoice's supplier number is the practical dedup key (this app's PUR number is
   // generated here and means nothing to the vendor) - re-entering the same vendor + vendor invoice
   // number is almost always an accidental double-post of the same delivery.
@@ -102,6 +106,7 @@ export const usePurchasingStore = create<PurchasingState>()(
       vendors: seedVendors,
       invoices: [],
       invoiceCounter: 0,
+      returnCounter: 0,
 
       nextVendorNo: () => nextVendorNumber(get().vendors),
       nextCustomerNo: () => nextCustomerNumber(get().vendors),
@@ -147,6 +152,7 @@ export const usePurchasingStore = create<PurchasingState>()(
       },
 
       nextPurchaseNo: () => `PUR-${String(get().invoiceCounter + 1).padStart(6, '0')}`,
+      nextReturnNo: () => `RET-${String(get().returnCounter + 1).padStart(6, '0')}`,
 
       isVendorInvoiceNoUsed: (vendorId, vendorInvoiceNo, excludeInvoiceId) =>
         get().invoices.some(
@@ -260,7 +266,7 @@ export const usePurchasingStore = create<PurchasingState>()(
 
         set((s) => ({
           invoices: [...s.invoices, invoice],
-          invoiceCounter: s.invoiceCounter + 1,
+          returnCounter: s.returnCounter + 1,
         }));
       },
 
@@ -299,11 +305,21 @@ export const usePurchasingStore = create<PurchasingState>()(
             discountTotal: l.discountTotal ?? 0,
           })),
         }));
+        // Returns persisted before they had their own counter were saved with a 13-digit
+        // RET-<timestamp> number. Only the new gap-free RET-000001 shape may drive the backfill -
+        // matching a timestamp would set the counter to an absurd value and stall the sequence.
+        const maxReturnNo = persistedInvoices.reduce((max, inv) => {
+          const match = inv.isReturn ? /^RET-(\d{6})$/.exec(inv.invoiceNo) : null;
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
         return {
           ...current,
           ...p,
           vendors: persistedVendors,
           invoices: persistedInvoices,
+          // Keep the persisted counter when it is ahead (a return may have been deleted), and
+          // never recompute invoiceCounter downward - deleted purchases must not reuse PUR numbers.
+          returnCounter: Math.max(p.returnCounter ?? 0, maxReturnNo),
         };
       },
     }

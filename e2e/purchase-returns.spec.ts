@@ -4,6 +4,11 @@ import { test, expect } from './fixtures';
 // back. It reuses the same party table as purchases, so a return can be for a vendor or a
 // business customer, and it links to the original purchase document.
 test.describe('purchase returns', () => {
+  // Each flow receives a delivery, posts a return, then checks inventory and history - four
+  // navigations plus two forms. That legitimately runs near Playwright's 30s default when the
+  // full suite shares one dev server, so give these two end-to-end flows room.
+  test.describe.configure({ timeout: 60_000 });
+
   test('posts a return against a purchase and restores the stock', async ({ page }) => {
     // 1. Receive 10 units so there is a real delivery to return.
     await page.goto('/purchases');
@@ -42,6 +47,7 @@ test.describe('purchase returns', () => {
 
     await expect(page.getByText(/Return CN-2026-001 recorded/)).toBeVisible();
     const returnRow = page.getByRole('row', { name: /CN-2026-001/ });
+    await expect(returnRow).toContainText('RET-000001');
     await expect(returnRow).toContainText('RTN-PUR-2026-001');
     await expect(returnRow).toContainText('35.00');
 
@@ -55,6 +61,8 @@ test.describe('purchase returns', () => {
     await page.goto('/purchases');
     await expect(page.getByRole('row', { name: /CN-2026-001/ })).toHaveCount(0);
     await expect(page.getByRole('row', { name: /RTN-PUR-2026-001/ })).toBeVisible();
+    // The return has its own RET- sequence, so the next purchase is still PUR-000002.
+    await expect(page.getByLabel('Invoice seq.')).toHaveValue('PUR-000002');
   });
 
   test('returns a customer purchase with a manual line and refuses an over-return', async ({ page }) => {
@@ -108,7 +116,9 @@ test.describe('purchase returns', () => {
 
     await page.getByRole('button', { name: 'Post Return' }).click();
     await expect(page.getByText(/Return CN-CUS-2026-001 recorded/)).toBeVisible();
-    await expect(page.getByRole('row', { name: /CN-CUS-2026-001/ })).toContainText('CUS-000001');
+    const customerReturnRow = page.getByRole('row', { name: /CN-CUS-2026-001/ });
+    await expect(customerReturnRow).toContainText('RET-000001');
+    await expect(customerReturnRow).toContainText('CUS-000001');
 
     // 4. The customer return leaves the batch empty, and it is not listed as a purchase.
     await page.goto('/inventory');
