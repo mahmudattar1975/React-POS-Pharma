@@ -42,11 +42,16 @@ test.describe('purchase returns', () => {
     await page.getByRole('option', { name: /RTN-PUR-2026-001/ }).click();
 
     await page.getByLabel('Return No').fill('CN-2026-001');
-    // The linked line is prefilled with the full purchased quantity, but it is editable: return
-    // only 4 of the 10 Panadol received.
+    // Select the Panadol line from the original invoice, then lower just its return quantity:
+    // return only 4 of the 10 received.
+    const originalLine = page.getByRole('table', { name: 'Original invoice lines' }).getByRole('row', { name: /Paracetamol 500mg/ });
+    await expect(originalLine).toContainText('10 + 0 bonus');
+    await originalLine.getByRole('button', { name: 'Add to return' }).click();
+
+    const returnLine = page.getByRole('table', { name: 'Return lines' }).getByRole('row', { name: /Paracetamol 500mg/ });
     await expect(page.getByLabel('Return paid qty Paracetamol 500mg')).toHaveValue('10');
     await page.getByLabel('Return paid qty Paracetamol 500mg').fill('4');
-    await expect(page.getByRole('row', { name: /Paracetamol 500mg/ })).toContainText('14.00');
+    await expect(returnLine).toContainText('14.00');
     await page.getByRole('button', { name: 'Post Return' }).click();
 
     await expect(page.getByText(/Return CN-2026-001 recorded/)).toBeVisible();

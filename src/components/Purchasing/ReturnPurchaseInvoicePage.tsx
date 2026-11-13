@@ -105,6 +105,11 @@ export default function ReturnPurchaseInvoicePage() {
         return line.qty > remaining.qty + 1e-9 || line.bonusQty > remaining.bonusQty + 1e-9;
       })
     : [];
+  // True when every line on the linked purchase has already been credited.
+  const fullyReturned = !!originalInvoice && originalInvoice.lines.every((line) => {
+    const remaining = remainingFor(line);
+    return remaining.qty + remaining.bonusQty <= 0;
+  });
 
   const lineValid = !!selectedItem && (Number(qty) > 0 || Number(bonusQty) > 0) && !!batchNo.trim() && Number(unitPurchasePrice) >= 0;
   const invoiceHeaderValid = !!party && !!creditNoteNo.trim() && returnLines.length > 0 && overReturnedLines.length === 0;
@@ -164,27 +169,20 @@ export default function ReturnPurchaseInvoicePage() {
 
   function handleOriginalInvoiceSelect(inv: PurchaseInvoice | null) {
     setOriginalInvoice(inv);
-    if (!inv) {
-      setLines([]);
-      return;
-    }
-    // Prefill each line with what is STILL returnable, not the full original quantity. Returning
-    // 20 of 100 Panadol is then just a matter of typing 20 over the prefilled row (or leaving it
-    // alone for a full return). Lines already fully returned disappear from the form.
-    const previousReturns = returnedQuantitiesByLine(invoices, inv.vendorId, inv.vendorInvoiceNo);
-    const remaining = inv.lines
-      .map((line) => {
-        const key = purchaseReturnLineKey(line.itemId, line.batchNo);
-        const previous = previousReturns.get(key) ?? { qty: 0, bonusQty: 0 };
-        return repriceLine(
-          line,
-          Math.max(0, line.qty - previous.qty),
-          Math.max(0, (line.bonusQty || 0) - previous.bonusQty)
-        );
-      })
-      .filter((line) => line.qty + line.bonusQty > 0);
-    setLines(remaining);
-    setCostCenterId(inv.costCenterId);
+    // Linking starts an empty return. The owner picks the lines to send back from the original
+    // invoice below - nothing is added automatically, so a 100-unit purchase can return 20.
+    setLines([]);
+    if (inv) setCostCenterId(inv.costCenterId);
+  }
+
+  // Add one line from the linked purchase to the return. It starts at the full remaining
+  // quantity, and the return table is where the owner lowers just the paid/bonus qty.
+  function addLinkedLine(originalLine: PurchaseLine) {
+    const key = purchaseReturnLineKey(originalLine.itemId, originalLine.batchNo);
+    if (lines.some((line) => purchaseReturnLineKey(line.itemId, line.batchNo) === key)) return;
+    const remaining = remainingFor(originalLine);
+    if (remaining.qty + remaining.bonusQty <= 0) return;
+    setLines((current) => [...current, repriceLine(originalLine, remaining.qty, remaining.bonusQty)]);
   }
 
   function post() {
@@ -300,69 +298,122 @@ export default function ReturnPurchaseInvoicePage() {
             )}
             {originalInvoice && (
               <Typography variant="body2" color="text.secondary">
-                Linked to {originalInvoice.invoiceNo} · party doc. {originalInvoice.vendorInvoiceNo}. Quantities are
-                prefilled with what is still returnable — lower them for a partial return.
+                Linked to {originalInvoice.invoiceNo} · party doc. {originalInvoice.vendorInvoiceNo}. Pick the
+                lines to send back, then edit only their paid/bonus quantity in the return list.
               </Typography>
             )}
-            {originalInvoice && lines.length === 0 && (
-              <Alert severity="info">This invoice has already been fully returned.</Alert>
+            {originalInvoice && (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Original invoice lines</Typography>
+                <TableContainer>
+                  <Table size="small" aria-label="Original invoice lines">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell>Batch</TableCell>
+                        <TableCell align="right">Purchased</TableCell>
+                        <TableCell align="right">Already returned</TableCell>
+                        <TableCell align="right">Still returnable</TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {originalInvoice.lines.map((line) => {
+                        const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+                        const previous = alreadyReturned.get(key) ?? { qty: 0, bonusQty: 0 };
+                        const remaining = remainingFor(line);
+                        const added = lines.some((l) => purchaseReturnLineKey(l.itemId, l.batchNo) === key);
+                        const exhausted = remaining.qty + remaining.bonusQty <= 0;
+                        return (
+                          <TableRow key={line.id}>
+                            <TableCell>{line.itemNameEn}</TableCell>
+                            <TableCell>{line.batchNo}</TableCell>
+                            <TableCell align="right">{line.qty} + {line.bonusQty || 0} bonus</TableCell>
+                            <TableCell align="right">{previous.qty} + {previous.bonusQty} bonus</TableCell>
+                            <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
+                            <TableCell align="right">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                disabled={added || exhausted}
+                                onClick={() => addLinkedLine(line)}
+                              >
+                                {added ? 'Added' : exhausted ? 'Fully returned' : 'Add to return'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {fullyReturned && <Alert severity="info">This invoice has already been fully returned.</Alert>}
+                {!fullyReturned && lines.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No return lines selected yet — use “Add to return” above.
+                  </Typography>
+                )}
+              </>
             )}
             {lines.length > 0 && (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Item</TableCell>
-                      <TableCell align="right">Paid qty</TableCell>
-                      <TableCell align="right">Bonus qty</TableCell>
-                      <TableCell>Batch</TableCell>
-                      {originalInvoice && <TableCell align="right">Still returnable</TableCell>}
-                      <TableCell align="right">Total</TableCell>
-                      <TableCell />
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {lines.map((l) => {
-                      const remaining = remainingFor(l);
-                      return (
-                        <TableRow key={l.id}>
-                          <TableCell>{l.itemNameEn}</TableCell>
-                          <TableCell align="right">
-                            <TextField
-                              type="number"
-                              size="small"
-                              value={l.qty || ''}
-                              onChange={(e) => updateLine(l.id, { qty: Number(e.target.value) })}
-                              sx={{ width: 90 }}
-                              slotProps={{ htmlInput: { min: 0, 'aria-label': `Return paid qty ${l.itemNameEn}` } }}
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <TextField
-                              type="number"
-                              size="small"
-                              value={l.bonusQty || ''}
-                              onChange={(e) => updateLine(l.id, { bonusQty: Number(e.target.value) })}
-                              sx={{ width: 90 }}
-                              slotProps={{ htmlInput: { min: 0, 'aria-label': `Return bonus qty ${l.itemNameEn}` } }}
-                            />
-                          </TableCell>
-                          <TableCell>{l.batchNo}</TableCell>
-                          {originalInvoice && (
-                            <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
-                          )}
-                          <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Selected return lines</Typography>
+                <TableContainer>
+                  <Table size="small" aria-label="Return lines">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item</TableCell>
+                        <TableCell align="right">Paid qty</TableCell>
+                        <TableCell align="right">Bonus qty</TableCell>
+                        <TableCell>Batch</TableCell>
+                        {originalInvoice && <TableCell align="right">Still returnable</TableCell>}
+                        <TableCell align="right">Total</TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {lines.map((l) => {
+                        const remaining = remainingFor(l);
+                        return (
+                          <TableRow key={l.id}>
+                            <TableCell>{l.itemNameEn}</TableCell>
+                            <TableCell align="right">
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={l.qty || ''}
+                                onChange={(e) => updateLine(l.id, { qty: Number(e.target.value) })}
+                                sx={{ width: 90 }}
+                                slotProps={{ htmlInput: { min: 0, 'aria-label': `Return paid qty ${l.itemNameEn}` } }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={l.bonusQty || ''}
+                                onChange={(e) => updateLine(l.id, { bonusQty: Number(e.target.value) })}
+                                sx={{ width: 90 }}
+                                slotProps={{ htmlInput: { min: 0, 'aria-label': `Return bonus qty ${l.itemNameEn}` } }}
+                              />
+                            </TableCell>
+                            <TableCell>{l.batchNo}</TableCell>
+                            {originalInvoice && (
+                              <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
+                            )}
+                            <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
             )}
             {overReturnedLines.length > 0 && (
               <Alert severity="warning">
