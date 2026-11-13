@@ -63,6 +63,14 @@ client-side QR, and the POS still uses local seed data - rather than blocking th
   Master** page (add/edit/discontinue items with barcode, GTIN, registration/customs numbers,
   category, unit, location, VAT, reorder/max limits and live stock totals), a stock receiving
   screen, and daily sales/VAT reports.
+- **Purchasing** — purchase invoices against a shared FCODCSVN-style party table (vendors and
+  business customers in one master, tagged `type_flag`), up to three cascading vendor discount
+  tiers, per-line batch/lot and expiry, bonus quantities, invoice edit/delete with stock reversal,
+  purchase returns/credit notes, an A4 goods-received document (not a ZATCA tax invoice), and
+  stock receiving from a distributor or head office.
+- **One discount convention everywhere** — every discount field uses the shared `##.##`
+  percentage mask, stores a fraction, and prints back as a percentage. See
+  [`.mdfile/Discount.md`](.mdfile/Discount.md) before adding or changing any discount field.
 - **Bilingual (Arabic + English) receipts** — required, not decorative: ZATCA tax invoices are
   legal Saudi documents and must show the Arabic invoice-type term (فاتورة ضريبية مبسطة /
   فاتورة ضريبية), not just an English label. Store name and item names are bilingual too.
@@ -73,8 +81,13 @@ client-side QR, and the POS still uses local seed data - rather than blocking th
 
 ## What it deliberately doesn't cover yet
 
-- **Prescription / controlled-substance workflow** — not present in the legacy screen reviewed
-  for this design; confirm whether it's out of scope or lives elsewhere before shipping.
 - **Multi-terminal sync** — state is per-browser (localStorage), not shared across registers.
 - **Production-grade secrets storage** for the ZATCA CSID private key — see the security note in
   `server/README.md`.
+- **Live ZATCA production clearance** — the signing/submission path is implemented and verified
+  locally, but real onboarding still needs a production OTP/CSID (the checked-in state is
+  simulation-only).
+- **ERP write-back** — the XPH/PharmaAxis integration is read-only today; purchase invoices,
+  offers, DOS and NUPCO documents are still local-only until the backend write endpoints exist.
+- **Stock count / adjustment / wastage** — receiving, returns and other-branch stock viewing
+  exist, but there is no stock-take or write-off workflow yet.
