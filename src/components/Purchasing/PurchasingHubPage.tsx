@@ -16,7 +16,7 @@ import ReceivingPage from '../Receiving/ReceivingPage';
 import HeadOfficeReceivingPage from '../Receiving/HeadOfficeReceivingPage';
 
 const TABS = [
-  { path: '/purchases', label: 'Purchase Invoices (Vendor / Customer)', icon: <ReceiptLongIcon fontSize="small" /> },
+  { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" /> },
   { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/vendors', label: 'Vendors & Customers', icon: <StorefrontIcon fontSize="small" /> },
   { path: '/receiving', label: 'Stock Receiving', icon: <LocalShippingIcon fontSize="small" /> },
