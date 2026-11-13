@@ -210,7 +210,34 @@ export const usePurchasingStore = create<PurchasingState>()(
             );
           }
         }
-        
+
+        // A purchase return takes goods OFF the shelf and sends them back to the supplier. Refuse
+        // before moving anything when the batch is not in stock or no longer holds what the return
+        // asks for - otherwise the return would create negative stock. Same rule the invoice
+        // delete/edit path uses, aggregated per item+batch because one return can repeat a lot.
+        const requested = new Map<string, { itemId: string; batchNo: string; qty: number }>();
+        for (const line of invoice.lines) {
+          const key = `${line.itemId}\u0000${line.batchNo}`;
+          const qty = line.qty + (line.bonusQty || 0);
+          const current = requested.get(key);
+          if (current) current.qty += qty;
+          else requested.set(key, { itemId: line.itemId, batchNo: line.batchNo, qty });
+        }
+        for (const { itemId, batchNo, qty } of requested.values()) {
+          const batch = useCatalogStore.getState().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
+          if (!batch) {
+            throw new Error(
+              `Batch ${batchNo} is not in stock - return ${invoice.invoiceNo} cannot be posted.`
+            );
+          }
+          if (batch.qtyOnHand + 1e-9 < qty) {
+            throw new Error(
+              `Batch ${batchNo} has ${batch.qtyOnHand} on hand but the return asks for ${qty}. ` +
+              `Only goods still in stock can be returned; return ${invoice.invoiceNo} was not posted.`
+            );
+          }
+        }
+
         // Reverse stock: negate quantities (physical and bonus)
         for (const line of invoice.lines) {
           useCatalogStore.getState().receiveStock({

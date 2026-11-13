@@ -201,7 +201,7 @@ export default function ReturnPurchaseInvoicePage() {
                   <TableHead><TableRow><TableCell>Item</TableCell><TableCell align="right">Qty</TableCell><TableCell>Batch</TableCell><TableCell align="right">Total</TableCell><TableCell /></TableRow></TableHead>
                   <TableBody>
                     {lines.map((l) => (
-                      <TableRow key={l.id}><TableCell>{l.itemNameEn}</TableCell><TableCell align="right">{l.qty}</TableCell><TableCell>{l.batchNo}</TableCell><TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell><TableCell><IconButton size="small" color="error" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}><DeleteOutlineIcon fontSize="small" /></IconButton></TableCell></TableRow>
+                      <TableRow key={l.id}><TableCell>{l.itemNameEn}</TableCell><TableCell align="right">{l.qty}</TableCell><TableCell>{l.batchNo}</TableCell><TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell><TableCell><IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}><DeleteOutlineIcon fontSize="small" /></IconButton></TableCell></TableRow>
                     ))}
                   </TableBody>
                 </Table>

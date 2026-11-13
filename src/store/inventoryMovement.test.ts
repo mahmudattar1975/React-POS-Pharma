@@ -94,6 +94,17 @@ function invoice(overrides: Partial<PurchaseInvoice['lines'][number]> = {}): Pur
   };
 }
 
+function returnInvoice(overrides: Partial<PurchaseInvoice['lines'][number]> = {}): PurchaseInvoice {
+  return {
+    ...invoice(overrides),
+    id: 'ret-test-1',
+    invoiceNo: 'RET-000001',
+    vendorInvoiceNo: 'CN-1001',
+    isReturn: true,
+    originalInvoiceNo: 'V-1001',
+  };
+}
+
 const qtyOf = (batchId: string) =>
   catalog.getState().batches.find((b) => b.id === batchId)!.qtyOnHand;
 
@@ -236,5 +247,44 @@ describe('inventory movement', () => {
     expect(purchasing.getState().invoices[0].notes).toBe('Corrected note');
     // The system number is never rewritten by an edit.
     expect(purchasing.getState().invoices[0].invoiceNo).toBe('PUR-000001');
+  });
+
+  it('DECREASES stock by paid + bonus units when a purchase return is posted', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    expect(qtyOf('bat-1a')).toBe(127);
+
+    purchasing.getState().receiveReturnInvoice(returnInvoice());
+
+    // 5 paid + 2 free goods go back to the supplier.
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(catalog.getState().receivingLog).toHaveLength(2);
+    expect(catalog.getState().receivingLog[1]).toMatchObject({
+      qty: -7,
+      purchaseInvoiceNo: 'RET-000001',
+      source: 'vendor',
+    });
+    expect(purchasing.getState().invoices).toHaveLength(2);
+    expect(purchasing.getState().invoices[1]).toMatchObject({ isReturn: true, originalInvoiceNo: 'V-1001' });
+  });
+
+  it('refuses a return larger than the batch still holds and moves nothing', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    catalog.getState().decrementBatch('bat-1a', 125); // 127 -> 2, fewer than the 7 being returned
+
+    expect(() => purchasing.getState().receiveReturnInvoice(returnInvoice())).toThrow(/Only goods still in stock/i);
+
+    // Nothing moved: stock, log and invoice history are all as they were.
+    expect(qtyOf('bat-1a')).toBe(2);
+    expect(catalog.getState().receivingLog).toHaveLength(1);
+    expect(purchasing.getState().invoices).toHaveLength(1);
+  });
+
+  it('refuses a return for a batch that is not in stock', () => {
+    expect(() =>
+      purchasing.getState().receiveReturnInvoice(returnInvoice({ batchNo: 'GHOST-LOT' }))
+    ).toThrow(/not in stock/i);
+
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(purchasing.getState().invoices).toHaveLength(0);
   });
 });

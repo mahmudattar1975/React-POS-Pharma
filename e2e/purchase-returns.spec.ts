@@ -56,4 +56,66 @@ test.describe('purchase returns', () => {
     await expect(page.getByRole('row', { name: /CN-2026-001/ })).toHaveCount(0);
     await expect(page.getByRole('row', { name: /RTN-PUR-2026-001/ })).toBeVisible();
   });
+
+  test('returns a customer purchase with a manual line and refuses an over-return', async ({ page }) => {
+    // 1. Receive 5 units for a business customer (type_flag 2).
+    await page.goto('/purchases');
+    await page.getByRole('checkbox', { name: /Customer \(type_flag = 2\)/ }).check();
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /Al-Noor Medical Center/ }).click();
+    await page.getByLabel('Customer document no').fill('CUS-RTN-2026-001');
+
+    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
+    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Qty (paid)').fill('5');
+    await page.getByLabel('Batch / Lot No.').fill('CUSRTN26A01');
+    await page.getByLabel('Expiry Date').fill('2028-07-31');
+    await page.getByLabel('Unit purchase price (excl. VAT)').fill('3.5');
+    await page.getByRole('button', { name: 'Add line to invoice' }).click();
+    await page.getByRole('button', { name: /Receive into stock/ }).click();
+    await expect(page.getByText(/received from Al-Noor/)).toBeVisible();
+
+    // 2. Ask for more than the shelf holds: the return must be refused, not create negative stock.
+    await page.goto('/purchase-returns');
+    await page.getByRole('checkbox', { name: 'Customer Return' }).check();
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /Al-Noor Medical Center/ }).click();
+    await page.getByLabel('Return No').fill('CN-CUS-2026-001');
+
+    await page.getByLabel('Search item').fill('Paracetamol');
+    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Qty').fill('6');
+    await page.getByLabel('Batch').fill('CUSRTN26A01');
+    await page.getByLabel('Price').fill('3.5');
+    await page.getByRole('button', { name: 'Add line' }).click();
+
+    let alertMessage = '';
+    page.once('dialog', async (dialog) => {
+      alertMessage = dialog.message();
+      await dialog.accept();
+    });
+    await page.getByRole('button', { name: 'Post Return' }).click();
+    expect(alertMessage).toMatch(/Only goods still in stock/);
+
+    // 3. Correct the line to what is actually on hand and post it.
+    await page.getByLabel('Remove returned line').click();
+    await page.getByLabel('Search item').fill('Paracetamol');
+    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Qty').fill('5');
+    await page.getByLabel('Batch').fill('CUSRTN26A01');
+    await page.getByLabel('Price').fill('3.5');
+    await page.getByRole('button', { name: 'Add line' }).click();
+
+    await page.getByRole('button', { name: 'Post Return' }).click();
+    await expect(page.getByText(/Return CN-CUS-2026-001 recorded/)).toBeVisible();
+    await expect(page.getByRole('row', { name: /CN-CUS-2026-001/ })).toContainText('CUS-000001');
+
+    // 4. The customer return leaves the batch empty, and it is not listed as a purchase.
+    await page.goto('/inventory');
+    await page.getByLabel('Scan barcode or type item name / SKU').fill('Paracetamol');
+    await expect(page.getByRole('row', { name: /CUSRTN26A01/ }).getByRole('cell').nth(3)).toHaveText('0');
+
+    await page.goto('/purchases');
+    await expect(page.getByRole('row', { name: /CN-CUS-2026-001/ })).toHaveCount(0);
+  });
 });
