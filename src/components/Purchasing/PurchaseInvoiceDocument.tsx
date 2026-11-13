@@ -74,16 +74,22 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
             <Typography sx={{ fontSize: 10.5 }}>{settings.address}</Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700 }}>فاتورة مشتريات</Typography>
-            <Typography sx={{ fontSize: 12, fontWeight: 600 }}>Purchase Invoice</Typography>
-            <Typography sx={{ fontSize: 10 }}>سجل استلام بضاعة / Goods received record</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
+              {invoice.isReturn ? 'فاتورة مرتجع مشتريات' : 'فاتورة مشتريات'}
+            </Typography>
+            <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+              {invoice.isReturn ? 'Purchase Return' : 'Purchase Invoice'}
+            </Typography>
+            <Typography sx={{ fontSize: 10 }}>
+              {invoice.isReturn ? 'مرتجع بضاعة / Goods returned record' : 'سجل استلام بضاعة / Goods received record'}
+            </Typography>
             <Box
               sx={{
                 display: 'inline-block', mt: 0.75, px: 1, py: 0.25, border: '1px solid #333',
                 borderRadius: 0.5, fontSize: 10, fontWeight: 700,
               }}
             >
-              RECEIVED · {invoice.invoiceNo}
+              {invoice.isReturn ? 'RETURNED' : 'RECEIVED'} · {invoice.invoiceNo}
             </Box>
           </Box>
         </Stack>

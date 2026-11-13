@@ -769,7 +769,10 @@ export default function PurchaseInvoicePage() {
         {/* ---- posted history */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Posted Invoices</Typography>
-          {invoices.length === 0 ? (
+          {/* Returns are posted documents too, but they are not purchases: editing or deleting one
+              through this form would move stock in the wrong direction. They live on the Purchase
+              Returns tab and are filtered out here. */}
+          {invoices.filter((inv) => !inv.isReturn).length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No purchase invoices posted yet.
             </Typography>
@@ -790,7 +793,7 @@ export default function PurchaseInvoicePage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {[...invoices].reverse().map((inv) => (
+                  {invoices.filter((inv) => !inv.isReturn).reverse().map((inv) => (
                     <TableRow key={inv.id}>
                       <TableCell>{inv.vendorInvoiceNo}</TableCell>
                       <TableCell>

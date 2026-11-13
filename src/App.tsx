@@ -44,6 +44,7 @@ export default function App() {
                 <Route path="/dosages" element={<InventoryHubPage />} />
                 <Route path="/wasfaty-mapping" element={<InventoryHubPage />} />
                 <Route path="/purchases" element={<PurchasingHubPage />} />
+                <Route path="/purchase-returns" element={<PurchasingHubPage />} />
                 <Route path="/vendors" element={<PurchasingHubPage />} />
                 <Route path="/offers" element={<OffersPage />} />
                 <Route path="/receiving" element={<PurchasingHubPage />} />

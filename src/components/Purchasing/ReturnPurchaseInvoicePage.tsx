@@ -53,6 +53,8 @@ export default function ReturnPurchaseInvoicePage() {
   const partyOptions = useMemo(() => partyTable.filter((p) => p.typeFlag === partyType), [partyTable, partyType]);
   const party = vendors.find((v) => v.id === partyId && v.typeFlag === partyType);
   const partyInvoices = useMemo(() => invoices.filter(inv => inv.vendorId === partyId && !inv.isReturn), [invoices, partyId]);
+  // Returns are their own documents; the purchase-invoice history deliberately excludes them.
+  const postedReturns = useMemo(() => invoices.filter((inv) => inv.isReturn).reverse(), [invoices]);
 
   const lineValid = !!selectedItem && Number(qty) > 0 && !!batchNo.trim() && Number(unitPurchasePrice) >= 0;
   const totals = useMemo(() => computePurchaseTotals(lines), [lines]);
@@ -212,6 +214,46 @@ export default function ReturnPurchaseInvoicePage() {
         <Button variant="contained" size="large" color="warning" startIcon={<AssignmentReturnIcon />} onClick={post} disabled={!invoiceHeaderValid}>
           Post Return
         </Button>
+
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Posted Returns</Typography>
+          {postedReturns.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">No purchase returns posted yet.</Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Return No</TableCell>
+                    <TableCell>Party No.</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Original doc.</TableCell>
+                    <TableCell align="right">Lines</TableCell>
+                    <TableCell align="right">Total (SAR)</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {postedReturns.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{r.vendorInvoiceNo}</TableCell>
+                      <TableCell>{r.vendorNo ?? '—'}</TableCell>
+                      <TableCell>{r.date}</TableCell>
+                      <TableCell>{r.originalInvoiceNo ?? '—'}</TableCell>
+                      <TableCell align="right">{r.lines.length}</TableCell>
+                      <TableCell align="right">{r.totalInclVat.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" aria-label="Print return" onClick={() => setPrinting(r)}>
+                          <PrintIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
       </Stack>
       <PurchaseInvoiceDocument open={printing !== null} invoice={printing} party={printingParty} costCenterLabel={printingCenter ? (printingCenter.code + ' · ' + printingCenter.nameEn) : undefined} onClose={() => setPrinting(null)} />
     </Box>

@@ -33,7 +33,7 @@ const NAV = [
 const HUB_PATHS: Record<string, string[]> = {
   '/': ['/', '/returns', '/sales-invoices'],
   '/inventory': ['/inventory', '/items', '/manufacturers', '/dosages', '/wasfaty-mapping'],
-  '/purchases': ['/purchases', '/vendors', '/receiving', '/head-office-receiving'],
+  '/purchases': ['/purchases', '/purchase-returns', '/vendors', '/receiving', '/head-office-receiving'],
   '/cost-centers': ['/cost-centers', '/category-map', '/expenses'],
 };
 
