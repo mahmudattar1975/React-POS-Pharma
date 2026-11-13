@@ -67,6 +67,9 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         {/* ---- buyer (this pharmacy) + document header ---- */}
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
           <Box>
+            <Typography sx={{ fontSize: 9, fontWeight: 700, color: '#555', letterSpacing: 0.5 }}>
+              Buyer / المشتري
+            </Typography>
             <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{settings.storeNameAr}</Typography>
             <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{settings.storeNameEn}</Typography>
             <Typography sx={{ fontSize: 10.5 }}>الرقم الضريبي / VAT No: {settings.vatRegistrationNo || '—'}</Typography>
@@ -96,15 +99,9 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
 
         <Divider sx={{ borderColor: '#333' }} />
 
-        {/* ---- the two parties ---- */}
-        <Stack direction="row" spacing={2} sx={{ py: 1 }}>
-          <Box sx={{ flex: 1, border: '1px solid #bbb', borderRadius: 0.5, p: 1 }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Buyer / المشتري</Typography>
-            <Typography sx={{ fontSize: 11, fontWeight: 600 }}>{settings.storeNameEn}</Typography>
-            <Typography sx={{ fontSize: 10 }}>VAT {settings.vatRegistrationNo || '—'} · CR {settings.crNumber || '—'}</Typography>
-            <Typography sx={{ fontSize: 10 }}>{settings.address}</Typography>
-          </Box>
-          <Box sx={{ flex: 1, border: '1px solid #bbb', borderRadius: 0.5, p: 1 }}>
+        {/* ---- supplier (the buyer is this pharmacy's letterhead above) ---- */}
+        <Box sx={{ py: 1 }}>
+          <Box sx={{ border: '1px solid #bbb', borderRadius: 0.5, p: 1 }}>
             <Typography sx={{ fontSize: 10, fontWeight: 700 }}>
               {partyIsCustomer ? 'Customer / العميل' : 'Supplier / المورد'}
             </Typography>
@@ -118,7 +115,7 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
               {party?.phone ? ` · ${party.phone}` : ''}
             </Typography>
           </Box>
-        </Stack>
+        </Box>
 
         {/* ---- identity of the document, not just of the delivery ---- */}
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 3, py: 1, fontSize: 10.5 }}>

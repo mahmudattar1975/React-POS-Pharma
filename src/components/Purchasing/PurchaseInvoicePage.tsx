@@ -897,7 +897,7 @@ export default function PurchaseInvoicePage() {
         <DialogContent>
           {viewing && (
             <Stack spacing={1}>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              <Typography variant="body2" component="div" sx={{ fontWeight: 700 }}>
                 <Chip
                   size="small"
                   variant="outlined"
