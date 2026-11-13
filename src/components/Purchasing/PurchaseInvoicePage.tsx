@@ -103,6 +103,10 @@ export default function PurchaseInvoicePage() {
   // "reprint what was posted" rule as sales: the document is rebuilt from the stored invoice, never
   // from the current vendor/item master, so a later rename cannot rewrite history.
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
+  // Posted-invoice search: the internal PUR-xxxxxx sequence, the party's own document number,
+  // the party number or the party name. The owner can type "PUR-000001" and jump straight to the
+  // edit action on that row.
+  const [historyFilter, setHistoryFilter] = useState('');
   const printingParty = printing
     ? vendors.find(
         (v) =>
@@ -124,6 +128,27 @@ export default function PurchaseInvoicePage() {
     [partyTable, partyType]
   );
   const party = vendors.find((v) => v.id === partyId && v.typeFlag === partyType);
+
+  // Returns are posted documents too, but they are not purchases: editing or deleting one through
+  // this form would move stock in the wrong direction. They live on the Purchase Returns tab.
+  const purchaseInvoices = useMemo(() => invoices.filter((inv) => !inv.isReturn), [invoices]);
+  const filteredInvoices = useMemo(() => {
+    const query = historyFilter.trim().toLowerCase();
+    if (!query) return purchaseInvoices;
+    return purchaseInvoices.filter((inv) => {
+      const partyRow = vendors.find((v) => v.id === inv.vendorId);
+      return [
+        inv.invoiceNo, // PUR-000001
+        inv.vendorInvoiceNo, // the party's own paper document number
+        inv.vendorNo,
+        inv.vendorNameEn,
+        inv.vendorNameAr,
+        partyRow?.vendorNo,
+        partyRow?.nameEn,
+        partyRow?.nameAr,
+      ].some((value) => (value ?? '').toLowerCase().includes(query));
+    });
+  }, [purchaseInvoices, vendors, historyFilter]);
 
   const entryTiers = [discountPercent1, discountPercent2, discountPercent3].map(discountInputToFraction);
   // The per-RECEIVED-unit cost (paid + bonus) after the tier cascade - exactly what gets written to
@@ -768,13 +793,27 @@ export default function PurchaseInvoicePage() {
 
         {/* ---- posted history */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Posted Invoices</Typography>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Invoices</Typography>
+            <TextField
+              size="small"
+              label="Search posted invoices"
+              placeholder="e.g. PUR-000001"
+              value={historyFilter}
+              onChange={(e) => setHistoryFilter(e.target.value)}
+              sx={{ width: 320 }}
+            />
+          </Stack>
           {/* Returns are posted documents too, but they are not purchases: editing or deleting one
               through this form would move stock in the wrong direction. They live on the Purchase
               Returns tab and are filtered out here. */}
-          {invoices.filter((inv) => !inv.isReturn).length === 0 ? (
+          {purchaseInvoices.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No purchase invoices posted yet.
+            </Typography>
+          ) : filteredInvoices.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No posted invoices match “{historyFilter.trim()}”.
             </Typography>
           ) : (
             <TableContainer>
@@ -793,7 +832,7 @@ export default function PurchaseInvoicePage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {invoices.filter((inv) => !inv.isReturn).reverse().map((inv) => (
+                  {[...filteredInvoices].reverse().map((inv) => (
                     <TableRow key={inv.id}>
                       <TableCell>{inv.vendorInvoiceNo}</TableCell>
                       <TableCell>

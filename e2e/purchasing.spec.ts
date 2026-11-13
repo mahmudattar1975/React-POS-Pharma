@@ -32,6 +32,14 @@ test.describe('purchase invoices', () => {
     await expect(row).toContainText('CUS-000001');
     await expect(row).toContainText('CUS-2026-001');
 
+    // The history is searchable by the system PUR sequence as well as the party's document no.
+    await page.getByLabel('Search posted invoices').fill('PUR-000001');
+    await expect(row).toBeVisible();
+    await page.getByLabel('Search posted invoices').fill('no-such-invoice');
+    await expect(page.getByText(/No posted invoices match/)).toBeVisible();
+    await page.getByLabel('Search posted invoices').clear();
+    await expect(row).toBeVisible();
+
     await row.getByLabel('View invoice').click();
     const viewDialog = page.getByRole('dialog');
     await expect(viewDialog.getByText('Customer document no:')).toBeVisible();

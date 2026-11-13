@@ -58,7 +58,13 @@ export default function ReturnPurchaseInvoicePage() {
   const partyTable = useMemo(() => buildPartyTable(vendors), [vendors]);
   const partyOptions = useMemo(() => partyTable.filter((p) => p.typeFlag === partyType), [partyTable, partyType]);
   const party = vendors.find((v) => v.id === partyId && v.typeFlag === partyType);
-  const partyInvoices = useMemo(() => invoices.filter(inv => inv.vendorId === partyId && !inv.isReturn), [invoices, partyId]);
+  // The link picker searches every posted purchase, not only the currently selected party's
+  // invoices: the owner often starts from the paper document (PUR-000001) and lets the party fill
+  // itself in. Once a party is chosen, the list narrows to that party.
+  const partyInvoices = useMemo(
+    () => invoices.filter((inv) => !inv.isReturn && (!partyId || inv.vendorId === partyId)),
+    [invoices, partyId]
+  );
   // Returns are their own documents; the purchase-invoice history deliberately excludes them.
   const postedReturns = useMemo(() => invoices.filter((inv) => inv.isReturn).reverse(), [invoices]);
 
@@ -172,7 +178,12 @@ export default function ReturnPurchaseInvoicePage() {
     // Linking starts an empty return. The owner picks the lines to send back from the original
     // invoice below - nothing is added automatically, so a 100-unit purchase can return 20.
     setLines([]);
-    if (inv) setCostCenterId(inv.costCenterId);
+    if (inv) {
+      // Searching by PUR-000001 should be enough - fill the party in from the linked document.
+      setPartyId(inv.vendorId);
+      setPartyType(inv.partyType ?? PARTY_TYPE_FLAG.vendor);
+      setCostCenterId(inv.costCenterId);
+    }
   }
 
   // Add one line from the linked purchase to the return. It starts at the full remaining
@@ -266,10 +277,21 @@ export default function ReturnPurchaseInvoicePage() {
                 size="small"
                 fullWidth
                 options={partyInvoices}
-                getOptionLabel={(o) => `${o.vendorInvoiceNo} (${o.date})`}
+                getOptionLabel={(o) => `${o.invoiceNo} · ${o.vendorInvoiceNo} (${o.date})`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, state) => {
+                  const query = state.inputValue.trim().toLowerCase();
+                  if (!query) return options;
+                  return options.filter((o) =>
+                    [o.invoiceNo, o.vendorInvoiceNo, o.vendorNo, o.vendorNameEn, o.vendorNameAr, o.date]
+                      .some((value) => (value ?? '').toLowerCase().includes(query))
+                  );
+                }}
                 value={originalInvoice}
                 onChange={(_, v) => handleOriginalInvoiceSelect(v)}
-                renderInput={(params) => <TextField {...params} label="Link to original invoice" />}
+                renderInput={(params) => (
+                  <TextField {...params} label="Link to original invoice" placeholder="PUR-000001 or party doc. no" />
+                )}
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
