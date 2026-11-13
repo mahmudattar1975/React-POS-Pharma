@@ -1,16 +1,13 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert, Autocomplete, Box, Button, Checkbox, Chip, Divider, FormControl, FormControlLabel,
+  Alert, Autocomplete, Box, Button, Checkbox, FormControl, FormControlLabel,
   IconButton, InputLabel, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintIcon from '@mui/icons-material/Print';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
-import type { Item, PackLevel } from '../../types/catalog';
+import type { Item } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
@@ -50,7 +47,6 @@ export default function ReturnPurchaseInvoicePage() {
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [posted, setPosted] = useState<PurchaseInvoice | null>(null);
 
-  const [viewing, setViewing] = useState<PurchaseInvoice | null>(null);
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
 
   const partyTable = useMemo(() => buildPartyTable(vendors), [vendors]);
@@ -140,7 +136,15 @@ export default function ReturnPurchaseInvoicePage() {
     <Box>
       <Stack spacing={2}>
         {posted && (
-          <Alert severity="success" onClose={() => setPosted(null)}>
+          <Alert
+            severity="success"
+            onClose={() => setPosted(null)}
+            action={
+              <Button color="inherit" size="small" startIcon={<PrintIcon />} onClick={() => setPrinting(posted)}>
+                Print
+              </Button>
+            }
+          >
             Return {posted.vendorInvoiceNo} recorded for {posted.vendorNameEn}. Stock has been adjusted.
           </Alert>
         )}
