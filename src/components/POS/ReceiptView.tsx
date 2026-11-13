@@ -19,6 +19,10 @@ interface Props {
   // after-invoice chain (the label sends itself to the printer straight away) and false for the
   // manual button, which opens the same label as a preview.
   onOpenDosages?: (autoPrint: boolean) => void;
+  // The receipt is normally the end of a sale, so its dismiss button says "New Sale". When it is
+  // reopened later from the invoice ledger (ZATCA Sales Invoices) there is no sale to start, so
+  // the caller labels it "Close" instead.
+  closeLabel?: string;
   onClose: () => void;
 }
 
@@ -96,7 +100,7 @@ function paymentLabel(p: Payment): string {
   return 'Cash';
 }
 
-export default function ReceiptView({ open, invoice, onOpenDosages, onClose }: Props) {
+export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel = 'New Sale', onClose }: Props) {
   const settings = useSettingsStore((s) => s.settings);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   // On by default when the sale carries directions: the counter wants the invoice and the patient
@@ -347,7 +351,7 @@ export default function ReceiptView({ open, invoice, onOpenDosages, onClose }: P
           </Button>
         )}
         <Button variant="contained" onClick={onClose} fullWidth>
-          New Sale
+          {closeLabel}
         </Button>
       </DialogActions>
     </Dialog>

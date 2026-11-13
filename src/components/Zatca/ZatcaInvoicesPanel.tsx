@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import PrintIcon from '@mui/icons-material/Print';
 import CodeIcon from '@mui/icons-material/Code';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 
@@ -40,6 +41,7 @@ import {
 import { hasDosages } from '../../utils/dosages';
 import TaxInvoiceDocument from './TaxInvoiceDocument';
 import DosagePrintView from '../POS/DosagePrintView';
+import ReceiptView from '../POS/ReceiptView';
 
 type Filter = 'all' | 'needs' | 'failed' | 'accepted';
 
@@ -50,6 +52,9 @@ export default function ZatcaInvoicesPanel() {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [printInvoice, setPrintInvoice] = useState<SaleHeader | null>(null);
+  // Two different documents, two buttons: the A4 tax invoice the buyer files, and the 80mm till
+  // receipt the customer walked out with. Reprinting either must never require rebuilding the sale.
+  const [printReceipt, setPrintReceipt] = useState<SaleHeader | null>(null);
   // Historical directions reprint: the sale carries its own frozen snapshot, so this shows exactly
   // what was dispensed even after the DOS library has moved on.
   const [printDosages, setPrintDosages] = useState<SaleHeader | null>(null);
@@ -277,6 +282,9 @@ export default function ZatcaInvoicesPanel() {
                       <Button size="small" startIcon={<ReceiptLongIcon />} onClick={() => setPrintInvoice(inv)}>
                         Invoice
                       </Button>
+                      <Button size="small" startIcon={<PrintIcon />} onClick={() => setPrintReceipt(inv)}>
+                        Print Receipt
+                      </Button>
                       {hasDosages(inv.lines) && (
                         <Button
                           size="small"
@@ -317,7 +325,18 @@ export default function ZatcaInvoicesPanel() {
       <TaxInvoiceDocument
         open={printInvoice !== null}
         invoice={printInvoice}
+        onPrintReceipt={() => {
+          setPrintReceipt(printInvoice);
+          setPrintInvoice(null);
+        }}
         onClose={() => setPrintInvoice(null)}
+      />
+
+      <ReceiptView
+        open={printReceipt !== null}
+        invoice={printReceipt}
+        closeLabel="Close"
+        onClose={() => setPrintReceipt(null)}
       />
 
       <DosagePrintView

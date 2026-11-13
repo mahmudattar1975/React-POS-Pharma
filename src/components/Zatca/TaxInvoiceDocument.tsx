@@ -15,6 +15,7 @@ import {
   Box, Button, Dialog, DialogActions, DialogContent, Divider, Stack, Typography,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import QRCode from 'qrcode';
 import type { Payment, SaleHeader, SaleLine } from '../../types/sales';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -24,6 +25,10 @@ import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
 interface Props {
   open: boolean;
   invoice: SaleHeader | null;
+  // The A4 document is the buyer's tax invoice. The 80mm till receipt is the customer's copy, so
+  // when the parent can open that second surface, offer it here - the cashier should not have to
+  // close A4 and hunt for the receipt row in the ledger.
+  onPrintReceipt?: () => void;
   onClose: () => void;
 }
 
@@ -83,7 +88,7 @@ const PAYMENT_LABEL: Record<Payment['method'], string> = {
 const TH = { fontSize: 11, fontWeight: 700, borderBottom: '1px solid #333', py: 0.75, px: 0.5 } as const;
 const TD = { fontSize: 11, borderBottom: '1px solid #ddd', py: 0.6, px: 0.5, verticalAlign: 'top' } as const;
 
-export default function TaxInvoiceDocument({ open, invoice, onClose }: Props) {
+export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onClose }: Props) {
   const settings = useSettingsStore((s) => s.settings);
   // Keyed by the QR payload: the rendered image is only trusted when it belongs to the invoice on
   // screen, so switching between two invoices can never flash the previous one's QR.
@@ -307,6 +312,11 @@ export default function TaxInvoiceDocument({ open, invoice, onClose }: Props) {
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
           Print A4
         </Button>
+        {onPrintReceipt && (
+          <Button variant="outlined" startIcon={<ReceiptIcon />} onClick={onPrintReceipt}>
+            Print Receipt
+          </Button>
+        )}
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
