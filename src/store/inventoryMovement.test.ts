@@ -301,7 +301,12 @@ describe('inventory movement', () => {
 
   it('numbers consecutive returns RET-000001, RET-000002', () => {
     purchasing.getState().receivePurchaseInvoice(invoice());
-    purchasing.getState().receivePurchaseInvoice({ ...invoice(), id: 'pur-test-2', invoiceNo: 'PUR-000002' });
+    purchasing.getState().receivePurchaseInvoice({
+      ...invoice(),
+      id: 'pur-test-2',
+      invoiceNo: 'PUR-000002',
+      vendorInvoiceNo: 'V-1002',
+    });
 
     expect(purchasing.getState().nextReturnNo()).toBe('RET-000001');
     purchasing.getState().receiveReturnInvoice(returnInvoice());
@@ -311,11 +316,44 @@ describe('inventory movement', () => {
       ...returnInvoice(),
       id: 'ret-test-2',
       invoiceNo: purchasing.getState().nextReturnNo(),
+      originalInvoiceNo: 'V-1002',
     });
 
     expect(purchasing.getState().invoices.filter((i) => i.isReturn).map((i) => i.invoiceNo)).toEqual([
       'RET-000001',
       'RET-000002',
     ]);
+  });
+
+  it('allows a partial return and caps later returns at what was purchased', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice()); // 5 paid + 2 bonus = 7 units
+    expect(qtyOf('bat-1a')).toBe(127);
+
+    // Panadol bought 5 paid + 2 bonus, but only 2 paid go back to the supplier now.
+    purchasing.getState().receiveReturnInvoice(
+      returnInvoice({ qty: 2, bonusQty: 0, totalQty: 2, bonusValue: 0, netExclVat: 7, totalInclVat: 7 })
+    );
+    expect(qtyOf('bat-1a')).toBe(125);
+    expect(purchasing.getState().invoices[1].lines[0]).toMatchObject({ qty: 2, bonusQty: 0 });
+
+    // The rest of the same purchase can still be returned later (3 paid + 2 bonus).
+    purchasing.getState().receiveReturnInvoice({
+      ...returnInvoice({ qty: 3, bonusQty: 2, totalQty: 5 }),
+      id: 'ret-test-2',
+      invoiceNo: 'RET-000002',
+    });
+    expect(qtyOf('bat-1a')).toBe(120);
+
+    // Nothing is left on the original document. The shelf still has 120 units from the seed lot,
+    // but that stock did not come from this invoice, so the return must be refused.
+    expect(() =>
+      purchasing.getState().receiveReturnInvoice({
+        ...returnInvoice(),
+        id: 'ret-test-3',
+        invoiceNo: 'RET-000003',
+      })
+    ).toThrow(/still returnable/i);
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(purchasing.getState().invoices).toHaveLength(3); // purchase + two returns
   });
 });

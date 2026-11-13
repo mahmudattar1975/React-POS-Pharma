@@ -8,7 +8,7 @@ import { persist } from 'zustand/middleware';
 import type { PurchaseInvoice, Vendor } from '../types/purchasing';
 import { PARTY_TYPE_FLAG } from '../types/party';
 import { seedVendors } from '../utils/seedData';
-import { batchReceiveDiscount, nextCustomerNumber, nextVendorNumber } from '../utils/purchasing';
+import { batchReceiveDiscount, nextCustomerNumber, nextVendorNumber, purchaseReturnLineKey, returnedQuantitiesByLine } from '../utils/purchasing';
 import { mergeVendorMaster } from '../utils/vendors';
 import { useCatalogStore } from './catalogStore';
 
@@ -221,24 +221,81 @@ export const usePurchasingStore = create<PurchasingState>()(
         // before moving anything when the batch is not in stock or no longer holds what the return
         // asks for - otherwise the return would create negative stock. Same rule the invoice
         // delete/edit path uses, aggregated per item+batch because one return can repeat a lot.
-        const requested = new Map<string, { itemId: string; batchNo: string; qty: number }>();
+        const requested = new Map<string, { itemId: string; batchNo: string; itemNameEn: string; qty: number; bonusQty: number }>();
         for (const line of invoice.lines) {
-          const key = `${line.itemId}\u0000${line.batchNo}`;
-          const qty = line.qty + (line.bonusQty || 0);
+          const key = purchaseReturnLineKey(line.itemId, line.batchNo);
           const current = requested.get(key);
-          if (current) current.qty += qty;
-          else requested.set(key, { itemId: line.itemId, batchNo: line.batchNo, qty });
+          if (current) {
+            current.qty += line.qty;
+            current.bonusQty += line.bonusQty || 0;
+          } else {
+            requested.set(key, {
+              itemId: line.itemId,
+              batchNo: line.batchNo,
+              itemNameEn: line.itemNameEn,
+              qty: line.qty,
+              bonusQty: line.bonusQty || 0,
+            });
+          }
         }
-        for (const { itemId, batchNo, qty } of requested.values()) {
+
+        // Partial returns: when the return is linked to an original purchase, the sum of every
+        // return against that document may never exceed what was bought. Stock on hand alone is
+        // not enough - a batch can also hold units from other deliveries, so a 100-unit purchase
+        // could otherwise be "returned" twice as long as the shelf still has stock.
+        const original = invoice.originalInvoiceNo
+          ? get().invoices.find(
+              (i) =>
+                !i.isReturn &&
+                i.vendorId === invoice.vendorId &&
+                i.vendorInvoiceNo === invoice.originalInvoiceNo
+            )
+          : undefined;
+        if (original) {
+          const purchased = new Map<string, { qty: number; bonusQty: number }>();
+          for (const line of original.lines) {
+            const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+            const current = purchased.get(key) ?? { qty: 0, bonusQty: 0 };
+            current.qty += line.qty;
+            current.bonusQty += line.bonusQty || 0;
+            purchased.set(key, current);
+          }
+          const alreadyReturned = returnedQuantitiesByLine(
+            get().invoices,
+            invoice.vendorId,
+            invoice.originalInvoiceNo!
+          );
+          for (const [key, req] of requested) {
+            const bought = purchased.get(key);
+            if (!bought) {
+              throw new Error(
+                `Batch ${req.batchNo} (${req.itemNameEn}) is not on original invoice ${invoice.originalInvoiceNo} - ` +
+                `return ${invoice.invoiceNo} cannot be posted against it.`
+              );
+            }
+            const previous = alreadyReturned.get(key) ?? { qty: 0, bonusQty: 0 };
+            const remainingQty = Math.max(0, bought.qty - previous.qty);
+            const remainingBonus = Math.max(0, bought.bonusQty - previous.bonusQty);
+            if (req.qty > remainingQty + 1e-9 || req.bonusQty > remainingBonus + 1e-9) {
+              throw new Error(
+                `Only ${remainingQty} paid + ${remainingBonus} bonus unit(s) of ${req.itemNameEn} ` +
+                `(batch ${req.batchNo}) are still returnable against ${invoice.originalInvoiceNo}; ` +
+                `this return asks for ${req.qty} paid + ${req.bonusQty} bonus.`
+              );
+            }
+          }
+        }
+
+        for (const { itemId, batchNo, qty, bonusQty } of requested.values()) {
           const batch = useCatalogStore.getState().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
           if (!batch) {
             throw new Error(
               `Batch ${batchNo} is not in stock - return ${invoice.invoiceNo} cannot be posted.`
             );
           }
-          if (batch.qtyOnHand + 1e-9 < qty) {
+          if (batch.qtyOnHand + 1e-9 < qty + bonusQty) {
             throw new Error(
-              `Batch ${batchNo} has ${batch.qtyOnHand} on hand but the return asks for ${qty}. ` +
+              `Batch ${batchNo} has ${batch.qtyOnHand} on hand but the return asks for ${qty + bonusQty}. ` +
               `Only goods still in stock can be returned; return ${invoice.invoiceNo} was not posted.`
             );
           }

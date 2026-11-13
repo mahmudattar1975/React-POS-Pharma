@@ -15,7 +15,7 @@
 //     cost: FQTYITEM.NET_PUR_PRICE = net / TOTAL_QTY (paid+bonus) - e.g. 890 paid units +890 bonus
 //     live row: 8100.081 net / 500 = 16.200162.
 import type { Item, PackLevel } from '../types/catalog';
-import type { PurchaseLine, Vendor } from '../types/purchasing';
+import type { PurchaseInvoice, PurchaseLine, Vendor } from '../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../types/party';
 import { computeCostPrice } from './pricing';
 import { PACK_LEVEL_LABEL } from './packUnits';
@@ -241,6 +241,41 @@ export function computePurchaseTotals(lines: PurchaseLine[]): PurchaseTotals {
 
   return { subtotalExclVat, totalDiscount, totalBonusValue, netExclVat, totalVatAmount, totalInclVat, vatByRate };
 }
+
+// A purchase can contain the same item on two lines (two batches, or a re-delivery), so returns
+// are tracked per item + batch, not per line id. The NUL separator cannot appear in either key.
+export function purchaseReturnLineKey(itemId: string, batchNo: string): string {
+  return `${itemId}\u0000${batchNo}`;
+}
+
+export interface ReturnedQuantities {
+  qty: number; // paid units already returned
+  bonusQty: number; // free units already returned
+}
+
+// Everything already credited against one original purchase. Partial returns are allowed, so a
+// second return must only be able to take what is left - not the whole original quantity again.
+export function returnedQuantitiesByLine(
+  invoices: PurchaseInvoice[],
+  vendorId: string,
+  originalInvoiceNo: string
+): Map<string, ReturnedQuantities> {
+  const returned = new Map<string, ReturnedQuantities>();
+  for (const invoice of invoices) {
+    if (!invoice.isReturn || invoice.vendorId !== vendorId || invoice.originalInvoiceNo !== originalInvoiceNo) {
+      continue;
+    }
+    for (const line of invoice.lines) {
+      const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+      const current = returned.get(key) ?? { qty: 0, bonusQty: 0 };
+      current.qty += line.qty;
+      current.bonusQty += line.bonusQty || 0;
+      returned.set(key, current);
+    }
+  }
+  return returned;
+}
+
 
 // The single convention for every discount field and readout in the app: the user types the
 // percentage with the legacy ##.## mask (16.67), the app stores the fraction (0.1667), and every

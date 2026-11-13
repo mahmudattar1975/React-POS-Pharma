@@ -9,7 +9,7 @@ test.describe('purchase returns', () => {
   // full suite shares one dev server, so give these two end-to-end flows room.
   test.describe.configure({ timeout: 60_000 });
 
-  test('posts a return against a purchase and restores the stock', async ({ page }) => {
+  test('posts a partial return against a purchase and removes only the returned quantity', async ({ page }) => {
     // 1. Receive 10 units so there is a real delivery to return.
     await page.goto('/purchases');
     await page.getByRole('combobox').first().click();
@@ -42,19 +42,23 @@ test.describe('purchase returns', () => {
     await page.getByRole('option', { name: /RTN-PUR-2026-001/ }).click();
 
     await page.getByLabel('Return No').fill('CN-2026-001');
-    await expect(page.getByRole('row', { name: /Paracetamol 500mg/ })).toContainText('10');
+    // The linked line is prefilled with the full purchased quantity, but it is editable: return
+    // only 4 of the 10 Panadol received.
+    await expect(page.getByLabel('Return paid qty Paracetamol 500mg')).toHaveValue('10');
+    await page.getByLabel('Return paid qty Paracetamol 500mg').fill('4');
+    await expect(page.getByRole('row', { name: /Paracetamol 500mg/ })).toContainText('14.00');
     await page.getByRole('button', { name: 'Post Return' }).click();
 
     await expect(page.getByText(/Return CN-2026-001 recorded/)).toBeVisible();
     const returnRow = page.getByRole('row', { name: /CN-2026-001/ });
     await expect(returnRow).toContainText('RET-000001');
     await expect(returnRow).toContainText('RTN-PUR-2026-001');
-    await expect(returnRow).toContainText('35.00');
+    await expect(returnRow).toContainText('14.00');
 
-    // 3. The returned units are gone from stock again.
+    // 3. Only the 4 returned units left stock; the other 6 are still on the shelf.
     await page.goto('/inventory');
     await page.getByLabel('Scan barcode or type item name / SKU').fill('Paracetamol');
-    await expect(batchRow().getByRole('cell').nth(3)).toHaveText('0');
+    await expect(batchRow().getByRole('cell').nth(3)).toHaveText('6');
 
     // 4. The return is not listed as a purchase invoice (editing/deleting it there would move
     //    stock the wrong way).

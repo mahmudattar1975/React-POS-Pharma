@@ -11,7 +11,12 @@ import type { Item } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
-import { computePurchaseTotals, pricePurchaseLine } from '../../utils/purchasing';
+import {
+  computePurchaseTotals,
+  pricePurchaseLine,
+  purchaseReturnLineKey,
+  returnedQuantitiesByLine,
+} from '../../utils/purchasing';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
@@ -39,13 +44,13 @@ export default function ReturnPurchaseInvoicePage() {
   const [returnReason, setReturnReason] = useState('');
   const [originalInvoice, setOriginalInvoice] = useState<PurchaseInvoice | null>(null);
 
-  // ---- line entry
+  // ---- line entry (manual returns without a linked purchase)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [qty, setQty] = useState('');
+  const [bonusQty, setBonusQty] = useState('');
   const [batchNo, setBatchNo] = useState('');
   const [unitPurchasePrice, setUnitPurchasePrice] = useState('');
   const [lines, setLines] = useState<PurchaseLine[]>([]);
-  const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [posted, setPosted] = useState<PurchaseInvoice | null>(null);
 
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
@@ -57,14 +62,87 @@ export default function ReturnPurchaseInvoicePage() {
   // Returns are their own documents; the purchase-invoice history deliberately excludes them.
   const postedReturns = useMemo(() => invoices.filter((inv) => inv.isReturn).reverse(), [invoices]);
 
-  const lineValid = !!selectedItem && Number(qty) > 0 && !!batchNo.trim() && Number(unitPurchasePrice) >= 0;
-  const totals = useMemo(() => computePurchaseTotals(lines), [lines]);
-  const invoiceHeaderValid = !!party && !!creditNoteNo.trim() && lines.length > 0;
+  // Zero-quantity rows are drafts the owner has cleared, not return lines - keep them out of the
+  // document and its totals.
+  const returnLines = useMemo(() => lines.filter((l) => l.qty + (l.bonusQty || 0) > 0), [lines]);
+  const totals = useMemo(() => computePurchaseTotals(returnLines), [returnLines]);
+
+  // Everything already credited against the linked purchase, per item + batch. A second return
+  // against the same document may only take what is still left.
+  const alreadyReturned = useMemo(
+    () =>
+      originalInvoice
+        ? returnedQuantitiesByLine(invoices, originalInvoice.vendorId, originalInvoice.vendorInvoiceNo)
+        : new Map<string, { qty: number; bonusQty: number }>(),
+    [invoices, originalInvoice]
+  );
+  const purchasedByLine = useMemo(() => {
+    const purchased = new Map<string, { qty: number; bonusQty: number }>();
+    if (!originalInvoice) return purchased;
+    for (const line of originalInvoice.lines) {
+      const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+      const current = purchased.get(key) ?? { qty: 0, bonusQty: 0 };
+      current.qty += line.qty;
+      current.bonusQty += line.bonusQty || 0;
+      purchased.set(key, current);
+    }
+    return purchased;
+  }, [originalInvoice]);
+
+  function remainingFor(line: PurchaseLine) {
+    const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+    const bought = purchasedByLine.get(key) ?? { qty: line.qty, bonusQty: line.bonusQty || 0 };
+    const previous = alreadyReturned.get(key) ?? { qty: 0, bonusQty: 0 };
+    return {
+      qty: Math.max(0, bought.qty - previous.qty),
+      bonusQty: Math.max(0, bought.bonusQty - previous.bonusQty),
+    };
+  }
+
+  const overReturnedLines = originalInvoice
+    ? returnLines.filter((line) => {
+        const remaining = remainingFor(line);
+        return line.qty > remaining.qty + 1e-9 || line.bonusQty > remaining.bonusQty + 1e-9;
+      })
+    : [];
+
+  const lineValid = !!selectedItem && (Number(qty) > 0 || Number(bonusQty) > 0) && !!batchNo.trim() && Number(unitPurchasePrice) >= 0;
+  const invoiceHeaderValid = !!party && !!creditNoteNo.trim() && returnLines.length > 0 && overReturnedLines.length === 0;
+
+  // Re-price a row when the owner edits its quantity. The linked line keeps the original vendor
+  // discount tiers and unit price - a partial return is the same purchase, just fewer units.
+  function repriceLine(line: PurchaseLine, nextQty: number, nextBonusQty: number): PurchaseLine {
+    const paid = Math.max(0, Number.isFinite(nextQty) ? nextQty : 0);
+    const bonus = Math.max(0, Number.isFinite(nextBonusQty) ? nextBonusQty : 0);
+    const item = items.find((i) => i.id === line.itemId);
+    if (!item) return { ...line, qty: paid, bonusQty: bonus, totalQty: paid + bonus };
+    return pricePurchaseLine({
+      item,
+      qty: paid,
+      bonusQty: bonus,
+      packLevel: line.packLevel,
+      batchNo: line.batchNo,
+      expiryDate: line.expiryDate,
+      unitPurchasePrice: line.unitPurchasePrice,
+      discountTiers: [line.discount1Percent, line.discount2Percent, line.discount3Percent],
+      existingId: line.id,
+    });
+  }
+
+  function updateLine(lineId: string, patch: { qty?: number; bonusQty?: number }) {
+    setLines((current) =>
+      current.map((line) =>
+        line.id === lineId
+          ? repriceLine(line, patch.qty ?? line.qty, patch.bonusQty ?? line.bonusQty)
+          : line
+      )
+    );
+  }
 
   function resetLineEntry() {
-    setEditingLineId(null);
     setSelectedItem(null);
     setQty('');
+    setBonusQty('');
     setBatchNo('');
     setUnitPurchasePrice('');
   }
@@ -74,28 +152,39 @@ export default function ReturnPurchaseInvoicePage() {
     const line = pricePurchaseLine({
       item: selectedItem,
       qty: Number(qty),
-      bonusQty: 0,
+      bonusQty: Number(bonusQty) || 0,
       batchNo: batchNo.trim(),
       expiryDate: '',
       unitPurchasePrice: Number(unitPurchasePrice),
       discountTiers: [0, 0, 0],
     });
-    if (editingLineId) {
-      setLines((ls) => ls.map((existing) => (existing.id === editingLineId ? { ...line, id: editingLineId } : existing)));
-    } else {
-      setLines((ls) => [...ls, line]);
-    }
+    setLines((current) => [...current, line]);
     resetLineEntry();
   }
 
   function handleOriginalInvoiceSelect(inv: PurchaseInvoice | null) {
     setOriginalInvoice(inv);
-    if (inv) {
-      setLines(inv.lines);
-      setCostCenterId(inv.costCenterId);
-    } else {
+    if (!inv) {
       setLines([]);
+      return;
     }
+    // Prefill each line with what is STILL returnable, not the full original quantity. Returning
+    // 20 of 100 Panadol is then just a matter of typing 20 over the prefilled row (or leaving it
+    // alone for a full return). Lines already fully returned disappear from the form.
+    const previousReturns = returnedQuantitiesByLine(invoices, inv.vendorId, inv.vendorInvoiceNo);
+    const remaining = inv.lines
+      .map((line) => {
+        const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+        const previous = previousReturns.get(key) ?? { qty: 0, bonusQty: 0 };
+        return repriceLine(
+          line,
+          Math.max(0, line.qty - previous.qty),
+          Math.max(0, (line.bonusQty || 0) - previous.bonusQty)
+        );
+      })
+      .filter((line) => line.qty + line.bonusQty > 0);
+    setLines(remaining);
+    setCostCenterId(inv.costCenterId);
   }
 
   function post() {
@@ -118,7 +207,7 @@ export default function ReturnPurchaseInvoicePage() {
         returnReason: returnReason.trim(),
         receivedAt: new Date().toISOString(),
         receivedBy: cashierName,
-        lines,
+        lines: returnLines,
         ...totals,
       };
       receiveReturnInvoice(returnInv);
@@ -156,13 +245,22 @@ export default function ReturnPurchaseInvoicePage() {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Purchase Return Details</Typography>
           <Stack spacing={2}>
             <FormControlLabel
-              control={<Checkbox checked={partyType === PARTY_TYPE_FLAG.customer} onChange={(e) => setPartyType(e.target.checked ? PARTY_TYPE_FLAG.customer : PARTY_TYPE_FLAG.vendor)} />}
+              control={<Checkbox checked={partyType === PARTY_TYPE_FLAG.customer} onChange={(e) => {
+                setPartyType(e.target.checked ? PARTY_TYPE_FLAG.customer : PARTY_TYPE_FLAG.vendor);
+                setPartyId('');
+                setOriginalInvoice(null);
+                setLines([]);
+              }} />}
               label="Customer Return"
             />
             <Stack direction="row" spacing={2}>
               <FormControl size="small" fullWidth>
                 <InputLabel>Party</InputLabel>
-                <Select value={partyId} label="Party" onChange={(e) => setPartyId(e.target.value)}>
+                <Select value={partyId} label="Party" onChange={(e) => {
+                  setPartyId(e.target.value);
+                  setOriginalInvoice(null);
+                  setLines([]);
+                }}>
                   {partyOptions.map((p) => <MenuItem key={p.id} value={p.id}>{p.no} — {p.nameEn}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -189,27 +287,96 @@ export default function ReturnPurchaseInvoicePage() {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Returned Items</Typography>
           <Stack spacing={2}>
             {!originalInvoice && (
-              <Autocomplete options={items} value={selectedItem} onChange={(_, v) => setSelectedItem(v)} getOptionLabel={(o) => o.nameEn} renderInput={(params) => <TextField {...params} label="Search item" size="small" />} />
+              <>
+                <Autocomplete options={items} value={selectedItem} onChange={(_, v) => setSelectedItem(v)} getOptionLabel={(o) => o.nameEn} renderInput={(params) => <TextField {...params} label="Search item" size="small" />} />
+                <Stack direction="row" spacing={2}>
+                  <TextField label="Qty" type="number" value={qty} onChange={(e) => setQty(e.target.value)} size="small" fullWidth />
+                  <TextField label="Bonus" type="number" value={bonusQty} onChange={(e) => setBonusQty(e.target.value)} size="small" fullWidth />
+                  <TextField label="Batch" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
+                  <TextField label="Price" type="number" value={unitPurchasePrice} onChange={(e) => setUnitPurchasePrice(e.target.value)} size="small" fullWidth />
+                </Stack>
+                <Button variant="outlined" disabled={!lineValid} onClick={addLine}>Add line</Button>
+              </>
             )}
-            <Stack direction="row" spacing={2}>
-               <TextField label="Qty" type="number" value={qty} onChange={(e) => setQty(e.target.value)} size="small" fullWidth />
-               <TextField label="Batch" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
-               <TextField label="Price" type="number" value={unitPurchasePrice} onChange={(e) => setUnitPurchasePrice(e.target.value)} size="small" fullWidth />
-            </Stack>
-            <Button variant="outlined" disabled={!lineValid} onClick={addLine}>Add line</Button>
+            {originalInvoice && (
+              <Typography variant="body2" color="text.secondary">
+                Linked to {originalInvoice.invoiceNo} · party doc. {originalInvoice.vendorInvoiceNo}. Quantities are
+                prefilled with what is still returnable — lower them for a partial return.
+              </Typography>
+            )}
+            {originalInvoice && lines.length === 0 && (
+              <Alert severity="info">This invoice has already been fully returned.</Alert>
+            )}
             {lines.length > 0 && (
               <TableContainer>
                 <Table size="small">
-                  <TableHead><TableRow><TableCell>Item</TableCell><TableCell align="right">Qty</TableCell><TableCell>Batch</TableCell><TableCell align="right">Total</TableCell><TableCell /></TableRow></TableHead>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Item</TableCell>
+                      <TableCell align="right">Paid qty</TableCell>
+                      <TableCell align="right">Bonus qty</TableCell>
+                      <TableCell>Batch</TableCell>
+                      {originalInvoice && <TableCell align="right">Still returnable</TableCell>}
+                      <TableCell align="right">Total</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
                   <TableBody>
-                    {lines.map((l) => (
-                      <TableRow key={l.id}><TableCell>{l.itemNameEn}</TableCell><TableCell align="right">{l.qty}</TableCell><TableCell>{l.batchNo}</TableCell><TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell><TableCell><IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}><DeleteOutlineIcon fontSize="small" /></IconButton></TableCell></TableRow>
-                    ))}
+                    {lines.map((l) => {
+                      const remaining = remainingFor(l);
+                      return (
+                        <TableRow key={l.id}>
+                          <TableCell>{l.itemNameEn}</TableCell>
+                          <TableCell align="right">
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={l.qty || ''}
+                              onChange={(e) => updateLine(l.id, { qty: Number(e.target.value) })}
+                              sx={{ width: 90 }}
+                              slotProps={{ htmlInput: { min: 0, 'aria-label': `Return paid qty ${l.itemNameEn}` } }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={l.bonusQty || ''}
+                              onChange={(e) => updateLine(l.id, { bonusQty: Number(e.target.value) })}
+                              sx={{ width: 90 }}
+                              slotProps={{ htmlInput: { min: 0, 'aria-label': `Return bonus qty ${l.itemNameEn}` } }}
+                            />
+                          </TableCell>
+                          <TableCell>{l.batchNo}</TableCell>
+                          {originalInvoice && (
+                            <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
+                          )}
+                          <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
             )}
-            {lines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong>Total Return: SAR {totals.totalInclVat.toFixed(2)}</strong></Typography></Box>}
+            {overReturnedLines.length > 0 && (
+              <Alert severity="warning">
+                A return cannot exceed what was purchased and not already returned:{' '}
+                {overReturnedLines
+                  .map((l) => {
+                    const remaining = remainingFor(l);
+                    return `${l.itemNameEn} (max ${remaining.qty} paid + ${remaining.bonusQty} bonus)`;
+                  })
+                  .join('; ')}
+                .
+              </Alert>
+            )}
+            {returnLines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong>Total Return: SAR {totals.totalInclVat.toFixed(2)}</strong></Typography></Box>}
           </Stack>
         </Paper>
 

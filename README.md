@@ -66,7 +66,8 @@ client-side QR, and the POS still uses local seed data - rather than blocking th
 - **Purchasing** — purchase invoices against a shared FCODCSVN-style party table (vendors and
   business customers in one master, tagged `type_flag`), up to three cascading vendor discount
   tiers, per-line batch/lot and expiry, bonus quantities, invoice edit/delete with stock reversal,
-  purchase returns/credit notes, an A4 goods-received document (not a ZATCA tax invoice), and
+  purchase returns/credit notes (partial returns per line, capped at the quantity still returnable
+  on the original invoice), an A4 goods-received document (not a ZATCA tax invoice), and
   stock receiving from a distributor or head office.
 - **One discount convention everywhere** — every discount field uses the shared `##.##`
   percentage mask, stores a fraction, and prints back as a percentage. See
