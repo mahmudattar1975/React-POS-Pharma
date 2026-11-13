@@ -7,6 +7,7 @@ import type { ControlledStatus } from '../../types/catalog';
 import { resolveSalePrice } from '../../utils/pricing';
 import { formatPackShort, tabletsPerBox } from '../../utils/packUnits';
 import { itemCodes } from '../../utils/itemMaster';
+import { formatDiscountPercent } from '../../utils/purchasing';
 
 export default function InventoryPage() {
   const { items, batches, setControlledStatus } = useCatalogStore();
@@ -80,7 +81,7 @@ export default function InventoryPage() {
                   )}
                 </TableCell>
                 <TableCell align="right">{(batch.purchasePrice ?? 0).toFixed(3)}</TableCell>
-                <TableCell align="right">{batch.purchaseDiscountPercent ? `${(batch.purchaseDiscountPercent * 100).toFixed(2)}%` : '—'}</TableCell>
+                <TableCell align="right">{batch.purchaseDiscountPercent ? formatDiscountPercent(batch.purchaseDiscountPercent) : '—'}</TableCell>
                 <TableCell align="right">
                   {(batch.costPrice ?? 0).toFixed(3)}
                   {item.pack && (

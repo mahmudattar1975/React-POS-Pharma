@@ -16,6 +16,7 @@
 //     live row: 8100.081 net / 500 = 16.200162.
 import type { Item, PackLevel } from '../types/catalog';
 import type { PurchaseLine, Vendor } from '../types/purchasing';
+import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../types/party';
 import { computeCostPrice } from './pricing';
 import { PACK_LEVEL_LABEL } from './packUnits';
 import { groupVatByRate, round2, round3, type VatBucket } from './vat';
@@ -57,6 +58,34 @@ export function maxVendorNumber(vendors: Pick<Vendor, 'vendorNo'>[]): number {
 // that actually assigns it, exactly like nextPurchaseNo vs receivePurchaseInvoice).
 export function nextVendorNumber(vendors: Pick<Vendor, 'vendorNo'>[]): string {
   return formatVendorNumber(maxVendorNumber(vendors) + 1);
+}
+
+// Customer accounts (FCODCSVN type_flag = 2) share the same table and the same gap-free numbering
+// rule, but a CUS- prefix keeps the two sides readable at a glance.
+export const CUSTOMER_NO_PREFIX = 'CUS-';
+
+export function formatCustomerNo(n: number): string {
+  return `${CUSTOMER_NO_PREFIX}${String(n).padStart(6, '0')}`;
+}
+
+export function maxCustomerNumber(parties: Pick<Vendor, 'vendorNo'>[]): number {
+  let max = 0;
+  for (const p of parties) {
+    const match = /^CUS-(\d+)$/.exec(p.vendorNo ?? '');
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return max;
+}
+
+export function nextCustomerNumber(parties: Pick<Vendor, 'vendorNo'>[]): string {
+  return formatCustomerNo(maxCustomerNumber(parties) + 1);
+}
+
+// Generic helper for the shared party table: the next number on the requested side.
+export function nextPartyNumber(parties: Pick<Vendor, 'vendorNo'>[], typeFlag: PartyTypeFlag): string {
+  return typeFlag === PARTY_TYPE_FLAG.customer
+    ? nextCustomerNumber(parties)
+    : nextVendorNumber(parties);
 }
 
 export interface PricePurchaseLineInput {
@@ -211,4 +240,37 @@ export function computePurchaseTotals(lines: PurchaseLine[]): PurchaseTotals {
   const netExclVat = round2(lines.reduce((s, l) => s + l.netExclVat, 0));
 
   return { subtotalExclVat, totalDiscount, totalBonusValue, netExclVat, totalVatAmount, totalInclVat, vatByRate };
+}
+
+// The single convention for every discount field and readout in the app: the user types the
+// percentage with the legacy ##.## mask (16.67), the app stores the fraction (0.1667), and every
+// readout prints it back as 16.67%.
+export const DISCOUNT_FRACTION_HINT = 'e.g. 0.1667 = 16.67%';
+
+// Up to two digits before and two after the decimal - the same 00.00 mask the legacy screens used.
+export const DISCOUNT_INPUT_PATTERN = /^\d{0,2}(\.\d{0,2})?$/;
+
+// The discount fields use a fixed ##.## mask, so the user never has to type the point: digits only
+// insert it automatically after the second digit (1214 -> 12.14, 1667 -> 16.67). An explicitly
+// typed point still works and is validated by the same mask. Returns null for anything that must
+// be ignored - letters, a third decimal place - so the field keeps its last good value.
+export function applyDiscountMask(raw: string): string | null {
+  if (!/^[\d.]*$/.test(raw)) return null;
+  if (raw.includes('.')) return DISCOUNT_INPUT_PATTERN.test(raw) ? raw : null;
+  if (raw.length <= 2) return raw;
+  return `${raw.slice(0, 2)}.${raw.slice(2, 4)}`;
+}
+
+// Seed an edit field from the stored fraction: 0.1667 -> "16.67", 0.05 -> "5.00".
+export function formatDiscountInput(fraction: number): string {
+  return (fraction * 100).toFixed(2);
+}
+
+// Convert the typed ##.## percentage back to the fraction the pricing/store layer expects.
+export function discountInputToFraction(value: string): number {
+  return (Number(value) || 0) / 100;
+}
+
+export function formatDiscountPercent(percent: number): string {
+  return `${(percent * 100).toFixed(2)}%`;
 }

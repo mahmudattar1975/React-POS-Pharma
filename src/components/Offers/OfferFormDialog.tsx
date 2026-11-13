@@ -4,6 +4,8 @@ import {
   FormControl, InputLabel, ToggleButtonGroup, ToggleButton, InputAdornment,
 } from '@mui/material';
 import type { Item, Offer, OfferType } from '../../types/catalog';
+import { discountInputToFraction, formatDiscountInput } from '../../utils/purchasing';
+import DiscountInput from '../common/DiscountInput';
 
 interface Props {
   open: boolean;
@@ -20,7 +22,7 @@ function today(): string {
 export default function OfferFormDialog({ open, items, offer, onSave, onClose }: Props) {
   const [itemId, setItemId] = useState('');
   const [type, setType] = useState<OfferType>('percent');
-  const [percentInput, setPercentInput] = useState(''); // whole percentage points, e.g. "20"
+  const [percentInput, setPercentInput] = useState(''); // whole percentage, e.g. "20" = 20%
   const [valueInput, setValueInput] = useState('');
   const [buyQtyInput, setBuyQtyInput] = useState('');
   const [freeQtyInput, setFreeQtyInput] = useState('');
@@ -36,7 +38,7 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
     if (offer) {
       setItemId(offer.itemId);
       setType(offer.type);
-      setPercentInput(offer.percent ? String(Math.round(offer.percent * 100)) : '');
+      setPercentInput(offer.percent ? formatDiscountInput(offer.percent) : '');
       setValueInput(offer.value ? String(offer.value) : '');
       setBuyQtyInput(offer.buyQty ? String(offer.buyQty) : '');
       setFreeQtyInput(offer.freeQty ? String(offer.freeQty) : '');
@@ -70,7 +72,7 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
       label: label.trim(),
       activeFrom,
       activeTo,
-      percent: type === 'percent' ? Number(percentInput) / 100 : undefined,
+      percent: type === 'percent' ? discountInputToFraction(percentInput) : undefined,
       value: type === 'value' ? Number(valueInput) : undefined,
       buyQty: type === 'bogo' ? Number(buyQtyInput) : undefined,
       freeQty: type === 'bogo' ? Number(freeQtyInput) : undefined,
@@ -99,13 +101,10 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
           </ToggleButtonGroup>
 
           {type === 'percent' && (
-            <TextField
+            <DiscountInput
               label="Discount"
-              type="number"
               value={percentInput}
-              onChange={(e) => setPercentInput(e.target.value)}
-              helperText="e.g. 20 for 20% off"
-              slotProps={{ input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }, htmlInput: { min: 0, max: 100, step: '1' } }}
+              onChange={setPercentInput}
               fullWidth
             />
           )}

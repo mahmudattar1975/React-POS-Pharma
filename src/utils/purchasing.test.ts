@@ -14,10 +14,15 @@ import { computeCostPrice } from './pricing';
 import {
   MAX_PURCHASE_DISCOUNT_TIERS,
   VENDOR_NO_PREFIX,
+  DISCOUNT_INPUT_PATTERN,
+  applyDiscountMask,
   batchReceiveDiscount,
   computePurchaseTotals,
   dilutedUnitCost,
+  discountInputToFraction,
   effectiveTierDiscount,
+  formatDiscountInput,
+  formatDiscountPercent,
   formatVendorNo,
   maxVendorNumber,
   nextVendorNumber,
@@ -399,7 +404,7 @@ describe('vendor dedup semantics', () => {
   it('documents the Vendor shape used by the store seed and page', () => {
     // Not assertive math - a shape guard so the seed data (utils/seedData.ts seedVendors) and the
     // page stay honest about what a vendor record carries.
-    const v: Vendor = { id: 'ven-1', vendorNo: 'VEN-000001', nameAr: 'مورد', nameEn: 'Vendor', phone: '0114445566', vatNumber: '310555123400003' };
+    const v: Vendor = { id: 'ven-1', typeFlag: 1, vendorNo: 'VEN-000001', nameAr: 'مورد', nameEn: 'Vendor', phone: '0114445566', vatNumber: '310555123400003' };
     expect(v.vendorNo).toBe('VEN-000001');
     expect(v.id).toBeTruthy();
     expect(v.nameEn).toBeTruthy();
@@ -442,5 +447,77 @@ describe('system-assigned vendor numbers', () => {
 
   it('pads past 999999 rather than wrapping (numbers must stay unique)', () => {
     expect(nextVendorNumber(vendors('VEN-999999'))).toBe('VEN-1000000');
+  });
+});
+
+describe('formatDiscountPercent', () => {
+  it('renders the stored fraction as a percentage - 0.1667 prints 16.67%', () => {
+    expect(formatDiscountPercent(0.1667)).toBe('16.67%');
+    expect(formatDiscountPercent(1 / 6)).toBe('16.67%');
+  });
+
+  it('keeps exact rates exact', () => {
+    expect(formatDiscountPercent(0.05)).toBe('5.00%');
+    expect(formatDiscountPercent(0.1)).toBe('10.00%');
+    expect(formatDiscountPercent(0)).toBe('0.00%');
+  });
+
+  it('always renders two decimals with the ##.## mask', () => {
+    expect(formatDiscountPercent(0.1234)).toBe('12.34%');
+    expect(formatDiscountPercent(0.5)).toBe('50.00%');
+  });
+});
+
+describe('discount input mask', () => {
+  it('accepts at most two digits before and after the decimal point', () => {
+    for (const value of ['', '1', '16', '16.', '.', '.5', '16.6', '16.67', '00.00', '5.00']) {
+      expect(DISCOUNT_INPUT_PATTERN.test(value)).toBe(true);
+    }
+    for (const value of ['123', '16.678', '16..7', '1e3', '-5', '16,67', ' 16.67']) {
+      expect(DISCOUNT_INPUT_PATTERN.test(value)).toBe(false);
+    }
+  });
+
+  it('inserts the decimal point automatically after two digits', () => {
+    expect(applyDiscountMask('1')).toBe('1');
+    expect(applyDiscountMask('12')).toBe('12');
+    expect(applyDiscountMask('121')).toBe('12.1');
+    expect(applyDiscountMask('1214')).toBe('12.14');
+    expect(applyDiscountMask('1667')).toBe('16.67');
+  });
+
+  it('keeps an explicitly typed point and rejects a third decimal', () => {
+    expect(applyDiscountMask('16.')).toBe('16.');
+    expect(applyDiscountMask('16.67')).toBe('16.67');
+    expect(applyDiscountMask('16.678')).toBeNull();
+  });
+
+  it('ignores characters outside the mask', () => {
+    expect(applyDiscountMask('16a')).toBeNull();
+    expect(applyDiscountMask('-5')).toBeNull();
+    expect(applyDiscountMask('1,5')).toBeNull();
+  });
+
+  it('never produces more than two decimals', () => {
+    expect(applyDiscountMask('12345')).toBe('12.34');
+  });
+
+  it('seeds an edit field from the stored fraction with two decimals', () => {
+    expect(formatDiscountInput(0.1667)).toBe('16.67');
+    expect(formatDiscountInput(0.05)).toBe('5.00');
+    expect(formatDiscountInput(0.1)).toBe('10.00');
+    expect(formatDiscountInput(0)).toBe('0.00');
+  });
+
+  it('converts the typed whole percentage back to the stored fraction', () => {
+    expect(discountInputToFraction('16.67')).toBeCloseTo(0.1667, 10);
+    expect(discountInputToFraction('5')).toBeCloseTo(0.05, 10);
+    expect(discountInputToFraction('')).toBe(0);
+    expect(discountInputToFraction('abc')).toBe(0);
+  });
+
+  it('round-trips a typed percentage through storage and back into the field', () => {
+    const typed = '16.67';
+    expect(formatDiscountInput(discountInputToFraction(typed))).toBe(typed);
   });
 });

@@ -71,7 +71,7 @@ test.describe('BOGO offer across batches', () => {
     const discountB = discountButton(page, BATCH_B);
     await expect(discountB).toBeEnabled();
     await discountB.click();
-    await page.getByLabel('Discount fraction').fill('0.15');
+    await page.getByLabel('Discount %').fill('15');
     await page.getByRole('button', { name: 'Apply' }).click();
     await expect(cartRow(page, BATCH_B).getByText('-0.68')).toBeVisible();
 

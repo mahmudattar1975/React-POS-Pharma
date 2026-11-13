@@ -9,9 +9,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import { useCatalogStore } from '../../store/catalogStore';
 import type { Offer } from '../../types/catalog';
 import OfferFormDialog from './OfferFormDialog';
+import { formatDiscountPercent } from '../../utils/purchasing';
 
 function offerDetails(offer: Offer): string {
-  if (offer.type === 'percent') return `${Math.round((offer.percent ?? 0) * 100)}% off`;
+  if (offer.type === 'percent') return `${formatDiscountPercent(offer.percent ?? 0)} off`;
   if (offer.type === 'value') return `SAR ${(offer.value ?? 0).toFixed(2)} off per unit`;
   return `Buy ${offer.buyQty} Get ${offer.freeQty} Free`;
 }

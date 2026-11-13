@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Box, TextField, Button, Paper, Stack, Select, MenuItem, FormControl, InputLabel, Alert, InputAdornment, Typography } from '@mui/material';
+import { Box, TextField, Button, Paper, Stack, Select, MenuItem, FormControl, InputLabel, Alert, Typography } from '@mui/material';
 import { useCatalogStore } from '../../store/catalogStore';
 import { computeCostPrice } from '../../utils/pricing';
+import { discountInputToFraction } from '../../utils/purchasing';
+import DiscountInput from '../common/DiscountInput';
 import type { PackLevel } from '../../types/catalog';
 import { PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
 import { itemCodes } from '../../utils/itemMaster';
@@ -14,7 +16,7 @@ export default function ReceivingPage() {
   const [qty, setQty] = useState('');
   const [receiveUnit, setReceiveUnit] = useState<PackLevel>('box');
   const [purchasePrice, setPurchasePrice] = useState('');
-  const [discountPercent, setDiscountPercent] = useState(''); // whole percentage points, e.g. "10"
+  const [discountPercent, setDiscountPercent] = useState(''); // whole percentage, e.g. "10" = 10%
   const [done, setDone] = useState(false);
 
   const item = itemById(itemId);
@@ -26,7 +28,7 @@ export default function ReceivingPage() {
   // item this cost is per TABLET (the unit stock is kept in), converted from the invoice unit.
   const costPrice = computeCostPrice(
     (Number(purchasePrice) || 0) / perUnit,
-    (Number(discountPercent) || 0) / 100
+    discountInputToFraction(discountPercent)
   );
 
   const valid =
@@ -42,7 +44,7 @@ export default function ReceivingPage() {
       expiryDate,
       qty: Number(qty),
       purchasePrice: Number(purchasePrice),
-      purchaseDiscountPercent: Number(discountPercent) / 100,
+      purchaseDiscountPercent: discountInputToFraction(discountPercent),
       source: 'vendor',
       packLevel: pack ? receiveUnit : undefined,
     });
@@ -113,12 +115,10 @@ export default function ReceivingPage() {
             slotProps={{ htmlInput: { step: '0.001' } }}
             fullWidth
           />
-          <TextField
+          <DiscountInput
             label="Discount"
-            type="number"
             value={discountPercent}
-            onChange={(e) => setDiscountPercent(e.target.value)}
-            slotProps={{ input: { endAdornment: <InputAdornment position="end">%</InputAdornment> }, htmlInput: { min: 0, max: 100, step: '0.1' } }}
+            onChange={setDiscountPercent}
             fullWidth
           />
           <TextField

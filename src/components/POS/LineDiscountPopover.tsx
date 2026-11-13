@@ -1,20 +1,25 @@
 import { useState } from 'react';
 import { Popover, Stack, ToggleButtonGroup, ToggleButton, TextField, Button, InputAdornment } from '@mui/material';
+import { discountInputToFraction, formatDiscountInput } from '../../utils/purchasing';
+import DiscountInput from '../common/DiscountInput';
 
 interface Props {
   anchorEl: HTMLElement | null;
   type?: 'amount' | 'percent';
-  value?: number;
+  value?: number; // fraction for 'percent' (0.15), SAR for 'amount'
   onApply: (discount: { type: 'amount' | 'percent'; value: number } | null) => void;
   onClose: () => void;
 }
 
 export default function LineDiscountPopover({ anchorEl, type, value, onApply, onClose }: Props) {
   const [kind, setKind] = useState<'amount' | 'percent'>(type ?? 'percent');
-  const [input, setInput] = useState(value ? String(value) : '');
+  // Percent is typed as whole points ("15") and stored as a fraction (0.15); amount is SAR as typed.
+  const [input, setInput] = useState(
+    value ? (type === 'percent' ? formatDiscountInput(value) : String(value)) : ''
+  );
 
   function apply() {
-    const n = Number(input);
+    const n = kind === 'percent' ? discountInputToFraction(input) : Number(input);
     onApply(n > 0 ? { type: kind, value: n } : null);
     onClose();
   }
@@ -37,22 +42,30 @@ export default function LineDiscountPopover({ anchorEl, type, value, onApply, on
           <ToggleButton value="percent">%</ToggleButton>
           <ToggleButton value="amount">SAR</ToggleButton>
         </ToggleButtonGroup>
-        <TextField
-          autoFocus
-          type="number"
-          size="small"
-          label={kind === 'percent' ? 'Discount fraction' : 'Discount amount'}
-          helperText={kind === 'percent' ? 'e.g. 0.15 = 15%' : undefined}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && apply()}
-          slotProps={{
-            input: {
-              endAdornment: kind === 'amount' ? <InputAdornment position="end">SAR</InputAdornment> : undefined,
-            },
-            htmlInput: { min: 0, max: kind === 'percent' ? 1 : undefined, step: '0.01' },
-          }}
-        />
+        {kind === 'percent' ? (
+          <DiscountInput
+            label="Discount %"
+            value={input}
+            onChange={setInput}
+            size="small"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && apply()}
+          />
+        ) : (
+          <TextField
+            autoFocus
+            type="number"
+            size="small"
+            label="Discount amount"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && apply()}
+            slotProps={{
+              input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> },
+              htmlInput: { min: 0, step: '0.01' },
+            }}
+          />
+        )}
         <Stack direction="row" spacing={1}>
           <Button size="small" onClick={clear} disabled={!type}>
             Clear
