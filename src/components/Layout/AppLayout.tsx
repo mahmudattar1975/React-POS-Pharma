@@ -7,7 +7,6 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import InsightsIcon from '@mui/icons-material/Insights';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -26,8 +25,7 @@ const NAV = [
   { to: '/purchases', label: 'Purchasing & Receiving', icon: <ReceiptLongIcon fontSize="small" />, color: '#5d4037' },
   { to: '/offers', label: 'Offers & Promotions', icon: <LocalOfferIcon fontSize="small" />, color: '#e65100' },
   { to: '/cost-centers', label: 'Cost Centers & Expenses', icon: <AccountTreeIcon fontSize="small" />, color: '#4527a0' },
-  { to: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" />, color: '#00695c' },
-  { to: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" />, color: '#00838f' },
+  { to: '/dashboard', label: 'Dashboard & Reports', icon: <InsightsIcon fontSize="small" />, color: '#00695c' },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon fontSize="small" />, color: '#546e7a' },
 ];
 
@@ -38,6 +36,7 @@ const HUB_PATHS: Record<string, string[]> = {
   '/inventory': ['/inventory', '/items', '/manufacturers', '/dosages', '/wasfaty-mapping'],
   '/purchases': ['/purchases', '/purchase-returns', '/vendors', '/receiving', '/head-office-receiving'],
   '/cost-centers': ['/cost-centers', '/category-map', '/expenses'],
+  '/dashboard': ['/dashboard', '/reports'],
 };
 
 export default function AppLayout() {

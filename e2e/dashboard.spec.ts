@@ -1,12 +1,16 @@
 import { test, expect } from './fixtures';
 
-// The dashboard is a read-only analysis screen: it must open from the sidebar, show every named
-// section, and keep returns as their own positive figures instead of minus rows.
+// The dashboard is a read-only analysis screen: it must open from the single sidebar entry, show
+// every named section, and keep returns as their own positive figures instead of minus rows.
 test.describe('business dashboard', () => {
   test('opens from the sidebar and shows every analysis section', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await page.getByRole('link', { name: 'Dashboard & Reports' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
+
+    // Dashboard and Reports share one workspace, so both tabs are always present.
+    await expect(page.getByRole('tab', { name: 'Dashboard' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Reports' })).toBeVisible();
 
     await expect(page.getByRole('heading', { name: 'Business Dashboard' })).toBeVisible();
     await expect(page.getByText('Goods on the Shelf', { exact: true })).toBeVisible();
@@ -25,10 +29,16 @@ test.describe('business dashboard', () => {
     await page.getByRole('button', { name: 'Last 30 days' }).click();
     await expect(page.getByRole('button', { name: 'Last 30 days' })).toHaveClass(/MuiChip-filled/);
 
-    // And the owner can jump to the detailed, printable reports.
+    // And the owner can jump to the detailed, printable reports in the same workspace.
     await page.getByRole('button', { name: 'Detailed reports' }).click();
     await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByRole('tab', { name: 'Reports' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByText('Stagnant Items', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Days Idle', { exact: true })).toBeVisible();
+
+    // The tab strip itself switches back without touching the sidebar.
+    await page.getByRole('tab', { name: 'Dashboard' }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole('heading', { name: 'Business Dashboard' })).toBeVisible();
   });
 });
