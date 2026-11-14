@@ -54,7 +54,7 @@ test.describe('purchase returns', () => {
     await expect(returnLine).toContainText('14.00');
     await page.getByRole('button', { name: 'Post Return' }).click();
 
-    await expect(page.getByText(/Return CN-2026-001 recorded/)).toBeVisible();
+    await expect(page.getByText(/Return CN-2026-001 saved/)).toBeVisible();
     const returnRow = page.getByRole('row', { name: /CN-2026-001/ });
     await expect(returnRow).toContainText('RET-000001');
     await expect(returnRow).toContainText('RTN-PUR-2026-001');
@@ -124,7 +124,7 @@ test.describe('purchase returns', () => {
     await page.getByRole('button', { name: 'Add line' }).click();
 
     await page.getByRole('button', { name: 'Post Return' }).click();
-    await expect(page.getByText(/Return CN-CUS-2026-001 recorded/)).toBeVisible();
+    await expect(page.getByText(/Return CN-CUS-2026-001 saved/)).toBeVisible();
     const customerReturnRow = page.getByRole('row', { name: /CN-CUS-2026-001/ });
     await expect(customerReturnRow).toContainText('RET-000001');
     await expect(customerReturnRow).toContainText('CUS-000001');
@@ -136,5 +136,74 @@ test.describe('purchase returns', () => {
 
     await page.goto('/purchases');
     await expect(page.getByRole('row', { name: /CN-CUS-2026-001/ })).toHaveCount(0);
+  });
+
+  test('views, modifies and deletes a posted return from the history row actions', async ({ page }) => {
+    // 1. Receive 10 units so there is a real delivery to return.
+    await page.goto('/purchases');
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
+    await page.getByLabel("Vendor's invoice no").fill('ACT-RTN-2026-001');
+
+    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
+    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Qty (paid)').fill('10');
+    await page.getByLabel('Batch / Lot No.').fill('ACT26A01');
+    await page.getByLabel('Expiry Date').fill('2028-09-30');
+    await page.getByLabel('Unit purchase price (excl. VAT)').fill('3.5');
+    await page.getByRole('button', { name: 'Add line to invoice' }).click();
+    await page.getByRole('button', { name: /Receive into stock/ }).click();
+    await expect(page.getByText(/received from Al-Hayat/)).toBeVisible();
+
+    // 2. Post a 4-unit linked return.
+    await page.goto('/purchase-returns');
+    await page.getByLabel('Link to original invoice').fill('PUR-000001');
+    await page.getByRole('option', { name: /PUR-000001/ }).click();
+    await page.getByLabel('Return No').fill('CN-ACT-2026-001');
+
+    const originalLine = page
+      .getByRole('table', { name: 'Original invoice lines' })
+      .getByRole('row', { name: /Paracetamol 500mg/ });
+    await originalLine.getByRole('button', { name: 'Add to return' }).click();
+    await page.getByLabel('Return paid qty Paracetamol 500mg').fill('4');
+    await page.getByRole('button', { name: 'Post Return' }).click();
+    await expect(page.getByText(/Return CN-ACT-2026-001 saved/)).toBeVisible();
+
+    const returnRow = () => page.getByRole('row', { name: /CN-ACT-2026-001/ });
+
+    // 3. View shows the document details and lines.
+    await returnRow().getByLabel('View return').click();
+    const viewDialog = page.getByRole('dialog');
+    await expect(viewDialog).toContainText('RET-000001');
+    await expect(viewDialog).toContainText('Purchase return');
+    await expect(viewDialog).toContainText('Paracetamol 500mg');
+    await viewDialog.getByRole('button', { name: 'Close' }).last().click();
+
+    // 4. Modify lowers the return from 4 to 2 units; stock moves from 6 back up to 8.
+    await returnRow().getByLabel('Modify return').click();
+    await expect(page.getByText(/Editing return RET-000001/)).toBeVisible();
+    await expect(page.getByLabel('Return paid qty Paracetamol 500mg')).toHaveValue('4');
+    await page.getByLabel('Return paid qty Paracetamol 500mg').fill('2');
+    await page.getByRole('button', { name: 'Update Return' }).click();
+    await expect(page.getByText(/Return CN-ACT-2026-001 saved/)).toBeVisible();
+    await expect(returnRow()).toContainText('7.00');
+    await expect(returnRow()).toContainText('RET-000001');
+
+    await page.goto('/inventory');
+    await page.getByLabel('Scan barcode or type item name / SKU').fill('Paracetamol');
+    const batchRow = () => page.getByRole('row', { name: /ACT26A01/ });
+    await expect(batchRow().getByRole('cell').nth(3)).toHaveText('8');
+
+    // 5. Delete puts the remaining units back and removes the document from history.
+    await page.goto('/purchase-returns');
+    await returnRow().getByLabel('Delete return').click();
+    const deleteDialog = page.getByRole('dialog');
+    await expect(deleteDialog).toContainText('Delete RET-000001?');
+    await deleteDialog.getByRole('button', { name: 'Delete Return' }).click();
+    await expect(page.getByText('No purchase returns posted yet.')).toBeVisible();
+
+    await page.goto('/inventory');
+    await page.getByLabel('Scan barcode or type item name / SKU').fill('Paracetamol');
+    await expect(page.getByRole('row', { name: /ACT26A01/ }).getByRole('cell').nth(3)).toHaveText('10');
   });
 });

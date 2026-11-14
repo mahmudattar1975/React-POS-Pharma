@@ -356,4 +356,82 @@ describe('inventory movement', () => {
     expect(qtyOf('bat-1a')).toBe(120);
     expect(purchasing.getState().invoices).toHaveLength(3); // purchase + two returns
   });
+
+  it('edits a return down to a smaller quantity and puts the difference back on the shelf', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice()); // 127
+    purchasing.getState().receiveReturnInvoice(returnInvoice()); // -7 => 120
+    expect(qtyOf('bat-1a')).toBe(120);
+
+    // Same document, only 2 paid units go back now. Saving reverses the old -7 and posts -2.
+    purchasing.getState().updateReturnInvoice('ret-test-1', {
+      ...returnInvoice({ qty: 2, bonusQty: 0, totalQty: 2, bonusValue: 0, netExclVat: 7, totalInclVat: 7 }),
+    });
+
+    expect(qtyOf('bat-1a')).toBe(125);
+    expect(purchasing.getState().invoices).toHaveLength(2);
+    expect(purchasing.getState().invoices[1]).toMatchObject({ id: 'ret-test-1', invoiceNo: 'RET-000001', isReturn: true });
+    expect(purchasing.getState().invoices[1].lines[0]).toMatchObject({ qty: 2, bonusQty: 0 });
+    // The RET sequence is untouched by an edit.
+    expect(purchasing.getState().nextReturnNo()).toBe('RET-000002');
+  });
+
+  it('edits a partial return upward, excluding its own old quantity from the cap', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice()); // 5 paid + 2 bonus = 7
+    purchasing.getState().receiveReturnInvoice(
+      returnInvoice({ qty: 2, bonusQty: 0, totalQty: 2, bonusValue: 0, netExclVat: 7, totalInclVat: 7 })
+    );
+    expect(qtyOf('bat-1a')).toBe(125);
+
+    // Growing the same return to the full 5 + 2 is allowed: the 2 already returned are its own.
+    purchasing.getState().updateReturnInvoice('ret-test-1', { ...returnInvoice() });
+
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(purchasing.getState().invoices[1].lines[0]).toMatchObject({ qty: 5, bonusQty: 2 });
+    expect(purchasing.getState().invoices).toHaveLength(2);
+  });
+
+  it('refuses an edited return beyond what the purchase allows and moves nothing', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice()); // 7 units
+    purchasing.getState().receiveReturnInvoice(
+      returnInvoice({ qty: 2, bonusQty: 0, totalQty: 2, bonusValue: 0, netExclVat: 7, totalInclVat: 7 })
+    );
+    expect(qtyOf('bat-1a')).toBe(125);
+
+    // 6 paid is more than the 5 the purchase ever had, even counting this return's own 2.
+    expect(() =>
+      purchasing.getState().updateReturnInvoice('ret-test-1', {
+        ...returnInvoice({ qty: 6, bonusQty: 0, totalQty: 6, bonusValue: 0, netExclVat: 21, totalInclVat: 21 }),
+      })
+    ).toThrow(/still returnable/i);
+
+    expect(qtyOf('bat-1a')).toBe(125);
+    expect(purchasing.getState().invoices[1].lines[0]).toMatchObject({ qty: 2, bonusQty: 0 });
+    expect(catalog.getState().receivingLog).toHaveLength(2); // purchase + the untouched return
+  });
+
+  it('does not touch stock when only a return header is corrected', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice());
+    purchasing.getState().receiveReturnInvoice(returnInvoice());
+    expect(qtyOf('bat-1a')).toBe(120);
+
+    purchasing.getState().updateReturnInvoice('ret-test-1', { ...returnInvoice(), date: '2026-11-01' });
+
+    expect(qtyOf('bat-1a')).toBe(120);
+    expect(catalog.getState().receivingLog).toHaveLength(2);
+    expect(purchasing.getState().invoices[1]).toMatchObject({ date: '2026-11-01', invoiceNo: 'RET-000001' });
+  });
+
+  it('deletes a return, puts the units back and leaves the RET sequence intact', () => {
+    purchasing.getState().receivePurchaseInvoice(invoice()); // 127
+    purchasing.getState().receiveReturnInvoice(returnInvoice()); // -7 => 120
+    expect(qtyOf('bat-1a')).toBe(120);
+
+    purchasing.getState().deletePurchaseInvoice('ret-test-1');
+
+    // The negative receiving event is reversed, so the 7 units return to the batch.
+    expect(qtyOf('bat-1a')).toBe(127);
+    expect(catalog.getState().receivingLog).toHaveLength(1);
+    expect(purchasing.getState().invoices).toHaveLength(1);
+    expect(purchasing.getState().nextReturnNo()).toBe('RET-000002');
+  });
 });

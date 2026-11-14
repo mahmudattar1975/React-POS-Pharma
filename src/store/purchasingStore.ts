@@ -48,6 +48,10 @@ interface PurchasingState {
   updatePurchaseInvoice: (id: string, invoice: PurchaseInvoice) => void;
   deletePurchaseInvoice: (id: string) => void;
   receiveReturnInvoice: (invoice: PurchaseInvoice) => void;
+  // Modifying a return reverses its own outgoing stock, then posts the corrected lines. The RET
+  // number and document id stay fixed; the return being edited does not count against its own
+  // purchase cap and its old units count as available stock.
+  updateReturnInvoice: (id: string, invoice: PurchaseInvoice) => void;
 }
 
 // Posts every line of an invoice into stock through catalogStore's receiveStock, so batch
@@ -98,6 +102,144 @@ function postInvoiceStock(invoice: PurchaseInvoice): void {
 function sameStockLines(a: PurchaseInvoice, b: PurchaseInvoice): boolean {
   if (a.lines.length !== b.lines.length) return false;
   return a.lines.every((line, i) => JSON.stringify(line) === JSON.stringify(b.lines[i]));
+}
+
+// A purchase return takes goods OFF the shelf: every line posts a negative physical quantity
+// (paid + bonus) through catalogStore.receiveStock, and catalogStore.reversePurchaseInvoice can
+// later reverse those negative events to put the units back on the same batches.
+type ReturnRequestLine = { itemId: string; batchNo: string; itemNameEn: string; qty: number; bonusQty: number };
+
+function requestedReturnLines(invoice: PurchaseInvoice): Map<string, ReturnRequestLine> {
+  const requested = new Map<string, ReturnRequestLine>();
+  for (const line of invoice.lines) {
+    const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+    const current = requested.get(key);
+    if (current) {
+      current.qty += line.qty;
+      current.bonusQty += line.bonusQty || 0;
+    } else {
+      requested.set(key, {
+        itemId: line.itemId,
+        batchNo: line.batchNo,
+        itemNameEn: line.itemNameEn,
+        qty: line.qty,
+        bonusQty: line.bonusQty || 0,
+      });
+    }
+  }
+  return requested;
+}
+
+function assertReturnItemsExist(invoice: PurchaseInvoice): void {
+  for (const line of invoice.lines) {
+    if (!useCatalogStore.getState().itemById(line.itemId)) {
+      throw new Error(
+        `Item ${line.itemNameEn} (${line.itemId}) is not in the catalog - return ${invoice.invoiceNo} cannot be posted.`
+      );
+    }
+  }
+}
+
+// Partial returns: when the return is linked to an original purchase, the sum of every return
+// against that document may never exceed what was bought. Stock on hand alone is not enough - a
+// batch can also hold units from other deliveries, so a 100-unit purchase could otherwise be
+// "returned" twice as long as the shelf still has stock. `excludeInvoiceId` lets an edit ignore
+// the return being replaced, whose old quantities become available again.
+function assertReturnWithinPurchase(
+  invoices: PurchaseInvoice[],
+  invoice: PurchaseInvoice,
+  requested: Map<string, ReturnRequestLine>,
+  excludeInvoiceId?: string
+): void {
+  if (!invoice.originalInvoiceNo) return;
+  const original = invoices.find(
+    (i) =>
+      !i.isReturn &&
+      i.vendorId === invoice.vendorId &&
+      i.vendorInvoiceNo === invoice.originalInvoiceNo
+  );
+  if (!original) return;
+
+  const purchased = new Map<string, { qty: number; bonusQty: number }>();
+  for (const line of original.lines) {
+    const key = purchaseReturnLineKey(line.itemId, line.batchNo);
+    const current = purchased.get(key) ?? { qty: 0, bonusQty: 0 };
+    current.qty += line.qty;
+    current.bonusQty += line.bonusQty || 0;
+    purchased.set(key, current);
+  }
+  const alreadyReturned = returnedQuantitiesByLine(
+    invoices,
+    invoice.vendorId,
+    invoice.originalInvoiceNo,
+    excludeInvoiceId
+  );
+  for (const [key, req] of requested) {
+    const bought = purchased.get(key);
+    if (!bought) {
+      throw new Error(
+        `Batch ${req.batchNo} (${req.itemNameEn}) is not on original invoice ${invoice.originalInvoiceNo} - ` +
+        `return ${invoice.invoiceNo} cannot be posted against it.`
+      );
+    }
+    const previous = alreadyReturned.get(key) ?? { qty: 0, bonusQty: 0 };
+    const remainingQty = Math.max(0, bought.qty - previous.qty);
+    const remainingBonus = Math.max(0, bought.bonusQty - previous.bonusQty);
+    if (req.qty > remainingQty + 1e-9 || req.bonusQty > remainingBonus + 1e-9) {
+      throw new Error(
+        `Only ${remainingQty} paid + ${remainingBonus} bonus unit(s) of ${req.itemNameEn} ` +
+        `(batch ${req.batchNo}) are still returnable against ${invoice.originalInvoiceNo}; ` +
+        `this return asks for ${req.qty} paid + ${req.bonusQty} bonus.`
+      );
+    }
+  }
+}
+
+// Refuse before moving anything when the batch is not in stock or no longer holds what the return
+// asks for - otherwise the return would create negative stock. `restored` is the edited return's
+// own outgoing quantities: an edit reverses it first, so those units count as available.
+function assertReturnStockAvailable(
+  invoice: PurchaseInvoice,
+  requested: Map<string, ReturnRequestLine>,
+  restored?: Map<string, ReturnRequestLine>
+): void {
+  for (const [key, req] of requested) {
+    const batch = useCatalogStore.getState().batches.find(
+      (b) => b.itemId === req.itemId && b.batchNo === req.batchNo
+    );
+    if (!batch) {
+      throw new Error(`Batch ${req.batchNo} is not in stock - return ${invoice.invoiceNo} cannot be posted.`);
+    }
+    const back = restored?.get(key);
+    const restoredQty = (back?.qty ?? 0) + (back?.bonusQty ?? 0);
+    if (batch.qtyOnHand + restoredQty + 1e-9 < req.qty + req.bonusQty) {
+      throw new Error(
+        `Batch ${req.batchNo} has ${batch.qtyOnHand} on hand but the return asks for ${req.qty + req.bonusQty}. ` +
+        `Only goods still in stock can be returned; return ${invoice.invoiceNo} was not posted.`
+      );
+    }
+  }
+}
+
+function postReturnStock(invoice: PurchaseInvoice): void {
+  for (const line of invoice.lines) {
+    useCatalogStore.getState().receiveStock({
+      itemId: line.itemId,
+      batchNo: line.batchNo,
+      expiryDate: line.expiryDate,
+      qty: -(line.qty + line.bonusQty),
+      purchasePrice: line.unitPurchasePrice,
+      purchaseDiscountPercent: batchReceiveDiscount(
+        line.netExclVat,
+        line.totalQty,
+        line.unitPurchasePrice
+      ),
+      source: 'vendor',
+      purchaseInvoiceNo: invoice.invoiceNo,
+      bonusQty: -(line.bonusQty || 0),
+      packLevel: line.packLevel,
+    });
+  }
 }
 
 export const usePurchasingStore = create<PurchasingState>()(
@@ -208,122 +350,40 @@ export const usePurchasingStore = create<PurchasingState>()(
         set((s) => ({ invoices: s.invoices.filter((i) => i.id !== id) }));
       },
       receiveReturnInvoice: (invoice) => {
-        // Validate items before reversing
-        for (const line of invoice.lines) {
-          if (!useCatalogStore.getState().itemById(line.itemId)) {
-            throw new Error(
-              'Item ' + line.itemNameEn + ' (' + line.itemId + ') is not in the catalog - return ' + invoice.invoiceNo + ' cannot be posted.'
-            );
-          }
-        }
-
-        // A purchase return takes goods OFF the shelf and sends them back to the supplier. Refuse
-        // before moving anything when the batch is not in stock or no longer holds what the return
-        // asks for - otherwise the return would create negative stock. Same rule the invoice
-        // delete/edit path uses, aggregated per item+batch because one return can repeat a lot.
-        const requested = new Map<string, { itemId: string; batchNo: string; itemNameEn: string; qty: number; bonusQty: number }>();
-        for (const line of invoice.lines) {
-          const key = purchaseReturnLineKey(line.itemId, line.batchNo);
-          const current = requested.get(key);
-          if (current) {
-            current.qty += line.qty;
-            current.bonusQty += line.bonusQty || 0;
-          } else {
-            requested.set(key, {
-              itemId: line.itemId,
-              batchNo: line.batchNo,
-              itemNameEn: line.itemNameEn,
-              qty: line.qty,
-              bonusQty: line.bonusQty || 0,
-            });
-          }
-        }
-
-        // Partial returns: when the return is linked to an original purchase, the sum of every
-        // return against that document may never exceed what was bought. Stock on hand alone is
-        // not enough - a batch can also hold units from other deliveries, so a 100-unit purchase
-        // could otherwise be "returned" twice as long as the shelf still has stock.
-        const original = invoice.originalInvoiceNo
-          ? get().invoices.find(
-              (i) =>
-                !i.isReturn &&
-                i.vendorId === invoice.vendorId &&
-                i.vendorInvoiceNo === invoice.originalInvoiceNo
-            )
-          : undefined;
-        if (original) {
-          const purchased = new Map<string, { qty: number; bonusQty: number }>();
-          for (const line of original.lines) {
-            const key = purchaseReturnLineKey(line.itemId, line.batchNo);
-            const current = purchased.get(key) ?? { qty: 0, bonusQty: 0 };
-            current.qty += line.qty;
-            current.bonusQty += line.bonusQty || 0;
-            purchased.set(key, current);
-          }
-          const alreadyReturned = returnedQuantitiesByLine(
-            get().invoices,
-            invoice.vendorId,
-            invoice.originalInvoiceNo!
-          );
-          for (const [key, req] of requested) {
-            const bought = purchased.get(key);
-            if (!bought) {
-              throw new Error(
-                `Batch ${req.batchNo} (${req.itemNameEn}) is not on original invoice ${invoice.originalInvoiceNo} - ` +
-                `return ${invoice.invoiceNo} cannot be posted against it.`
-              );
-            }
-            const previous = alreadyReturned.get(key) ?? { qty: 0, bonusQty: 0 };
-            const remainingQty = Math.max(0, bought.qty - previous.qty);
-            const remainingBonus = Math.max(0, bought.bonusQty - previous.bonusQty);
-            if (req.qty > remainingQty + 1e-9 || req.bonusQty > remainingBonus + 1e-9) {
-              throw new Error(
-                `Only ${remainingQty} paid + ${remainingBonus} bonus unit(s) of ${req.itemNameEn} ` +
-                `(batch ${req.batchNo}) are still returnable against ${invoice.originalInvoiceNo}; ` +
-                `this return asks for ${req.qty} paid + ${req.bonusQty} bonus.`
-              );
-            }
-          }
-        }
-
-        for (const { itemId, batchNo, qty, bonusQty } of requested.values()) {
-          const batch = useCatalogStore.getState().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
-          if (!batch) {
-            throw new Error(
-              `Batch ${batchNo} is not in stock - return ${invoice.invoiceNo} cannot be posted.`
-            );
-          }
-          if (batch.qtyOnHand + 1e-9 < qty + bonusQty) {
-            throw new Error(
-              `Batch ${batchNo} has ${batch.qtyOnHand} on hand but the return asks for ${qty + bonusQty}. ` +
-              `Only goods still in stock can be returned; return ${invoice.invoiceNo} was not posted.`
-            );
-          }
-        }
-
-        // Reverse stock: negate quantities (physical and bonus)
-        for (const line of invoice.lines) {
-          useCatalogStore.getState().receiveStock({
-            itemId: line.itemId,
-            batchNo: line.batchNo,
-            expiryDate: line.expiryDate,
-            qty: -(line.qty + line.bonusQty),
-            purchasePrice: line.unitPurchasePrice,
-            purchaseDiscountPercent: batchReceiveDiscount(
-              line.netExclVat,
-              line.totalQty,
-              line.unitPurchasePrice
-            ),
-            source: 'vendor',
-            purchaseInvoiceNo: invoice.invoiceNo,
-            bonusQty: -(line.bonusQty || 0),
-            packLevel: line.packLevel,
-          });
-        }
-
+        assertReturnItemsExist(invoice);
+        const requested = requestedReturnLines(invoice);
+        assertReturnWithinPurchase(get().invoices, invoice, requested);
+        assertReturnStockAvailable(invoice, requested);
+        postReturnStock(invoice);
         set((s) => ({
           invoices: [...s.invoices, invoice],
           returnCounter: s.returnCounter + 1,
+        }));
+      },
+
+      updateReturnInvoice: (id, invoice) => {
+        const existing = get().invoices.find((i) => i.id === id);
+        if (!existing) throw new Error(`Purchase return ${id} is no longer in the history.`);
+        if (!existing.isReturn) throw new Error(`Invoice ${existing.invoiceNo} is not a purchase return.`);
+        assertReturnItemsExist(invoice);
+        const requested = requestedReturnLines(invoice);
+        // The return being edited no longer counts against the purchase cap, and its own outgoing
+        // units count as available stock because saving reverses it before posting the replacement.
+        assertReturnWithinPurchase(get().invoices, invoice, requested, existing.id);
+        assertReturnStockAvailable(invoice, requested, requestedReturnLines(existing));
+        if (!sameStockLines(existing, invoice)) {
+          // Refuses when the old return is no longer fully on hand - see catalogStore.
+          useCatalogStore.getState().reversePurchaseInvoice(existing.invoiceNo);
+          postReturnStock(invoice);
+        }
+        set((s) => ({
+          invoices: s.invoices.map((i) =>
+            i.id === id
+              // Identity, system number and the return flag stay fixed: they key the stock
+              // movements and the RET sequence.
+              ? { ...invoice, id: existing.id, invoiceNo: existing.invoiceNo, isReturn: true }
+              : i
+          ),
         }));
       },
 

@@ -258,10 +258,12 @@ export interface ReturnedQuantities {
 export function returnedQuantitiesByLine(
   invoices: PurchaseInvoice[],
   vendorId: string,
-  originalInvoiceNo: string
+  originalInvoiceNo: string,
+  excludeInvoiceId?: string
 ): Map<string, ReturnedQuantities> {
   const returned = new Map<string, ReturnedQuantities>();
   for (const invoice of invoices) {
+    if (invoice.id === excludeInvoiceId) continue;
     if (!invoice.isReturn || invoice.vendorId !== vendorId || invoice.originalInvoiceNo !== originalInvoiceNo) {
       continue;
     }

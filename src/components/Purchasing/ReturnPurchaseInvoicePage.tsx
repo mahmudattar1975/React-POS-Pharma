@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert, Autocomplete, Box, Button, Checkbox, FormControl, FormControlLabel,
-  IconButton, InputLabel, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent,
+  DialogTitle, Divider, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper,
+  Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
+  Typography,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintIcon from '@mui/icons-material/Print';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import type { Item } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
+import { alertWithSound } from '../../utils/alertSound';
 import {
   computePurchaseTotals,
   pricePurchaseLine,
@@ -28,6 +33,8 @@ export default function ReturnPurchaseInvoicePage() {
     vendors,
     invoices,
     receiveReturnInvoice,
+    updateReturnInvoice,
+    deletePurchaseInvoice,
     nextReturnNo,
   } = usePurchasingStore();
   const { items } = useCatalogStore();
@@ -52,6 +59,11 @@ export default function ReturnPurchaseInvoicePage() {
   const [unitPurchasePrice, setUnitPurchasePrice] = useState('');
   const [lines, setLines] = useState<PurchaseLine[]>([]);
   const [posted, setPosted] = useState<PurchaseInvoice | null>(null);
+  // Posted-return row actions: inspect, print, modify or delete a return exactly like a purchase.
+  const [viewing, setViewing] = useState<PurchaseInvoice | null>(null);
+  const [editing, setEditing] = useState<PurchaseInvoice | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PurchaseInvoice | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
 
@@ -74,13 +86,19 @@ export default function ReturnPurchaseInvoicePage() {
   const totals = useMemo(() => computePurchaseTotals(returnLines), [returnLines]);
 
   // Everything already credited against the linked purchase, per item + batch. A second return
-  // against the same document may only take what is still left.
+  // against the same document may only take what is still left. When editing, the return being
+  // replaced is excluded: its old quantities become available again.
   const alreadyReturned = useMemo(
     () =>
       originalInvoice
-        ? returnedQuantitiesByLine(invoices, originalInvoice.vendorId, originalInvoice.vendorInvoiceNo)
+        ? returnedQuantitiesByLine(
+            invoices,
+            originalInvoice.vendorId,
+            originalInvoice.vendorInvoiceNo,
+            editing?.id
+          )
         : new Map<string, { qty: number; bonusQty: number }>(),
-    [invoices, originalInvoice]
+    [invoices, originalInvoice, editing]
   );
   const purchasedByLine = useMemo(() => {
     const purchased = new Map<string, { qty: number; bonusQty: number }>();
@@ -200,8 +218,8 @@ export default function ReturnPurchaseInvoicePage() {
     if (!invoiceHeaderValid || !party) return;
     try {
       const returnInv: PurchaseInvoice = {
-        id: 'ret-' + Date.now(),
-        invoiceNo: nextReturnNo(),
+        id: editing?.id ?? 'ret-' + Date.now(),
+        invoiceNo: editing?.invoiceNo ?? nextReturnNo(),
         vendorInvoiceNo: creditNoteNo.trim(),
         partyType,
         vendorId: party.id,
@@ -214,19 +232,72 @@ export default function ReturnPurchaseInvoicePage() {
         isReturn: true,
         originalInvoiceNo: originalInvoice?.vendorInvoiceNo,
         returnReason: returnReason.trim(),
-        receivedAt: new Date().toISOString(),
-        receivedBy: cashierName,
+        // The receipt stamp belongs to the original posting; an edit must not pretend the goods
+        // were sent back again.
+        receivedAt: editing?.receivedAt ?? new Date().toISOString(),
+        receivedBy: editing?.receivedBy ?? cashierName,
         lines: returnLines,
         ...totals,
       };
-      receiveReturnInvoice(returnInv);
+      if (editing) updateReturnInvoice(editing.id, returnInv);
+      else receiveReturnInvoice(returnInv);
       setPosted(returnInv);
+      setEditing(null);
       setLines([]);
       setCreditNoteNo('');
       setReturnReason('');
       setOriginalInvoice(null);
     } catch (err) {
-      alert(String(err));
+      alertWithSound(String(err));
+    }
+  }
+
+  // Load a posted return into the form. Stock is not touched until Update is pressed, so
+  // cancelling leaves the original return and its stock movement untouched.
+  function beginEdit(invoice: PurchaseInvoice) {
+    setEditing(invoice);
+    setViewing(null);
+    setPosted(null);
+    resetLineEntry();
+    setPartyType(invoice.partyType ?? PARTY_TYPE_FLAG.vendor);
+    setPartyId(invoice.vendorId);
+    setCostCenterId(invoice.costCenterId);
+    setCreditNoteNo(invoice.vendorInvoiceNo);
+    setDate(invoice.date);
+    setReturnReason(invoice.returnReason ?? invoice.notes ?? '');
+    setOriginalInvoice(
+      invoice.originalInvoiceNo
+        ? invoices.find(
+            (i) =>
+              !i.isReturn &&
+              i.vendorId === invoice.vendorId &&
+              i.vendorInvoiceNo === invoice.originalInvoiceNo
+          ) ?? null
+        : null
+    );
+    setLines(invoice.lines);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setLines([]);
+    resetLineEntry();
+    setCreditNoteNo('');
+    setReturnReason('');
+    setOriginalInvoice(null);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      // Reverses the return's negative stock events, putting the units back on their batches.
+      deletePurchaseInvoice(deleteTarget.id);
+      setDeleteTarget(null);
+      setDeleteError(null);
+      if (editing?.id === deleteTarget.id) cancelEdit();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -246,7 +317,18 @@ export default function ReturnPurchaseInvoicePage() {
               </Button>
             }
           >
-            Return {posted.vendorInvoiceNo} recorded for {posted.vendorNameEn}. Stock has been adjusted.
+            Return {posted.vendorInvoiceNo} saved for {posted.vendorNameEn}. Stock has been adjusted.
+          </Alert>
+        )}
+
+        {editing && (
+          <Alert
+            severity="info"
+            action={<Button color="inherit" size="small" onClick={cancelEdit}>Cancel edit</Button>}
+          >
+            Editing return {editing.invoiceNo} · {editing.vendorInvoiceNo} · {editing.vendorNameEn}. Saving
+            reverses this return's stock movement and posts the corrected lines; cancelling leaves it
+            untouched.
           </Alert>
         )}
 
@@ -295,7 +377,7 @@ export default function ReturnPurchaseInvoicePage() {
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
-              <TextField label="Return seq." value={nextReturnNo()} size="small" fullWidth slotProps={{ input: { readOnly: true } }} helperText="System number — assigned when posted" />
+              <TextField label="Return seq." value={editing?.invoiceNo ?? nextReturnNo()} size="small" fullWidth slotProps={{ input: { readOnly: true } }} helperText={editing ? 'System number — fixed on modify' : 'System number — assigned when posted'} />
               <TextField label="Return No" value={creditNoteNo} onChange={(e) => setCreditNoteNo(e.target.value)} size="small" fullWidth helperText="Party credit note no" />
               <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
             </Stack>
@@ -454,7 +536,7 @@ export default function ReturnPurchaseInvoicePage() {
         </Paper>
 
         <Button variant="contained" size="large" color="warning" startIcon={<AssignmentReturnIcon />} onClick={post} disabled={!invoiceHeaderValid}>
-          Post Return
+          {editing ? 'Update Return' : 'Post Return'}
         </Button>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
@@ -486,9 +568,23 @@ export default function ReturnPurchaseInvoicePage() {
                       <TableCell>{r.originalInvoiceNo ?? '—'}</TableCell>
                       <TableCell align="right">{r.lines.length}</TableCell>
                       <TableCell align="right">{r.totalInclVat.toFixed(2)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" aria-label="Print return" onClick={() => setPrinting(r)}>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        <IconButton size="small" onClick={() => setViewing(r)} aria-label="View return">
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => setPrinting(r)} aria-label="Print return">
                           <PrintIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => beginEdit(r)} aria-label="Modify return">
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => { setDeleteError(null); setDeleteTarget(r); }}
+                          aria-label="Delete return"
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </TableCell>
                     </TableRow>
@@ -499,6 +595,118 @@ export default function ReturnPurchaseInvoicePage() {
           )}
         </Paper>
       </Stack>
+
+      <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {viewing?.invoiceNo}
+          <IconButton size="small" onClick={() => setViewing(null)} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewing && (
+            <Stack spacing={1}>
+              <Typography variant="body2" component="div" sx={{ fontWeight: 700 }}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={viewing.partyType === PARTY_TYPE_FLAG.customer ? 'Customer return' : 'Purchase return'}
+                  sx={{ mr: 1 }}
+                />
+                {viewing.vendorNo ?? vendors.find((v) => v.id === viewing.vendorId)?.vendorNo ?? '—'}
+                {' · '}
+                {viewing.vendorNameAr}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Party credit note no: <strong>{viewing.vendorInvoiceNo}</strong>
+                {viewing.originalInvoiceNo ? ` · against ${viewing.originalInvoiceNo}` : ' · manual return'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {viewing.vendorNameEn} · {viewing.date} · sent back by {viewing.receivedBy}
+                {viewing.returnReason ? ` · ${viewing.returnReason}` : ''}
+              </Typography>
+              <Divider />
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Item</TableCell>
+                    <TableCell align="right">Paid qty</TableCell>
+                    <TableCell align="right">Bonus qty</TableCell>
+                    <TableCell>Batch / expiry</TableCell>
+                    <TableCell align="right">Unit price</TableCell>
+                    <TableCell align="right">Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {viewing.lines.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell>{l.itemNameEn}</TableCell>
+                      <TableCell align="right">{l.qty}</TableCell>
+                      <TableCell align="right">{l.bonusQty || 0}</TableCell>
+                      <TableCell>{l.batchNo} · {l.expiryDate}</TableCell>
+                      <TableCell align="right">{l.unitPurchasePrice.toFixed(3)}</TableCell>
+                      <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Divider />
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="body2">Subtotal (excl. VAT)</Typography>
+                <Typography variant="body2">{viewing.subtotalExclVat.toFixed(2)}</Typography>
+              </Stack>
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="body2">VAT</Typography>
+                <Typography variant="body2">{viewing.totalVatAmount.toFixed(2)}</Typography>
+              </Stack>
+              <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>Total credited (SAR)</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{viewing.totalInclVat.toFixed(2)}</Typography>
+              </Stack>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={() => {
+              setPrinting(viewing);
+              setViewing(null);
+            }}
+          >
+            Print A4
+          </Button>
+          <Button
+            startIcon={<EditOutlinedIcon />}
+            onClick={() => { if (viewing) beginEdit(viewing); }}
+          >
+            Modify
+          </Button>
+          <Button onClick={() => setViewing(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete {deleteTarget?.invoiceNo}?</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+            {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
+            <Typography variant="body2">
+              This removes the return from history and puts its returned units back into the batches
+              it came from.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              If part of the returned goods has already been sold or moved, deletion is refused.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}>Delete Return</Button>
+        </DialogActions>
+      </Dialog>
+
       <PurchaseInvoiceDocument open={printing !== null} invoice={printing} party={printingParty} costCenterLabel={printingCenter ? (printingCenter.code + ' · ' + printingCenter.nameEn) : undefined} onClose={() => setPrinting(null)} />
     </Box>
   );
