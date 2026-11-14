@@ -18,6 +18,7 @@ import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, format
 import { itemCodes } from '../../utils/itemMaster';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels } from '../../utils/packUnits';
 import { cleanVatNumberInput, isVatNumberComplete, isVatNumberEmptyOrComplete } from '../../utils/vat';
+import { alertWithSound } from '../../utils/alertSound';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
@@ -285,7 +286,7 @@ export default function PurchaseInvoicePage() {
     } catch (err) {
       // The store validates every line and checks the old stock is still on hand before touching
       // anything, so reaching here means nothing moved and the entered form is preserved for retry.
-      alert(String(err));
+      alertWithSound(String(err));
     }
   }
 

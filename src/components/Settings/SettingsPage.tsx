@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, TextField, Button, Paper, Stack, Alert, Divider, Tab, Tabs,
+  Box, Typography, TextField, Button, Checkbox, FormControlLabel, Paper, Stack, Alert, Divider, Tab, Tabs,
 } from '@mui/material';
 import { useSettingsStore } from '../../store/settingsStore';
 import { cleanVatNumberInput, isVatNumberComplete } from '../../utils/vat';
+import { playAlertSound } from '../../utils/alertSound';
 import ZatcaIdentityPanel from '../Zatca/ZatcaIdentityPanel';
 import ZatcaOnboardingPanel from '../Zatca/ZatcaOnboardingPanel';
 import ErpTestPanel from './ErpTestPanel';
@@ -73,6 +74,21 @@ export default function SettingsPage() {
           <TextField label="Commercial Registration (CR) No." {...field('crNumber')} fullWidth />
           <Divider />
           <TextField label="Cashier Name" {...field('cashierName')} fullWidth />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={form.alertSoundsEnabled !== false}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setForm((f) => ({ ...f, alertSoundsEnabled: enabled }));
+                  // The click is a user gesture, so this preview also unlocks audio for later
+                  // messages without waiting for the next alert.
+                  if (enabled) playAlertSound('success');
+                }}
+              />
+            }
+            label="Play a sound when a message appears"
+          />
           {saved && <Alert severity="success">Settings saved.</Alert>}
           <Button variant="contained" onClick={save} disabled={!vatNoValid}>Save Settings</Button>
         </Stack>

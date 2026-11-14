@@ -19,6 +19,7 @@ export const useSettingsStore = create<SettingsState>()(
         defaultVatRate: 0.15,
         currency: 'SAR',
         cashierName: 'Cashier 1',
+        alertSoundsEnabled: true,
         // This demo register belongs to the Riyadh branch (see seedCostCenters in
         // utils/seedData.ts) - sales/purchases post under its cost center by default.
         costCenterId: 'cc-br-001',

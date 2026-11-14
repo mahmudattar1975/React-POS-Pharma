@@ -15,8 +15,13 @@ import CostCentersHubPage from './components/CostCenters/CostCentersHubPage';
 import ReportsPage from './components/Reports/ReportsPage';
 import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
 import SettingsPage from './components/Settings/SettingsPage';
+import { useAlertSounds } from './hooks/useAlertSounds';
 
 export default function App() {
+  // Every success / error / warning / info alert gets a matching short tone, so a message is
+  // noticed even when the cashier's eyes are on the customer rather than the screen.
+  useAlertSounds();
+
   // Retries any sale/return/receiving backup that failed earlier (server was down, etc.) - once
   // on load, then periodically, so a server that comes back online catches the SQL mirror back up
   // on its own instead of a human having to notice and fix drifted quantities by hand (see
