@@ -14,6 +14,7 @@ test.describe('business dashboard', () => {
     await expect(page.getByText('Purchasing Analysis', { exact: true })).toBeVisible();
     await expect(page.getByText('Returns Watch', { exact: true })).toBeVisible();
     await expect(page.getByText('Vendors & Customers', { exact: true })).toBeVisible();
+    await expect(page.getByText('Stagnant Items', { exact: true })).toBeVisible();
 
     // Return figures are their own cards, not a minus row inside sales/purchases.
     await expect(page.getByText('Sales returns', { exact: true }).first()).toBeVisible();
@@ -27,5 +28,7 @@ test.describe('business dashboard', () => {
     // And the owner can jump to the detailed, printable reports.
     await page.getByRole('button', { name: 'Detailed reports' }).click();
     await expect(page).toHaveURL(/\/reports$/);
+    await expect(page.getByText('Stagnant Items', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Days Idle', { exact: true })).toBeVisible();
   });
 });

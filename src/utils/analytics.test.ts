@@ -4,8 +4,8 @@ import type { PurchaseInvoice, Vendor } from '../types/purchasing';
 import type { Item, Batch } from '../types/catalog';
 import type { Customer } from '../types/customer';
 import {
-  monthlyTrend, monthsBack, summariseParties, summarisePurchases, summariseSales, summariseStock,
-  withinPeriod,
+  monthlyTrend, monthsBack, summariseParties, summarisePurchases, summariseSales, summariseStagnant,
+  summariseStock, withinPeriod,
 } from './analytics';
 
 function sale(overrides: Partial<SaleHeader> = {}): SaleHeader {
@@ -134,6 +134,29 @@ describe('dashboard analytics', () => {
     const summary = summariseStock([{ ...item, reorderLevel: 12 }], [batch], '2026-11-14');
     expect(summary.lowStock).toHaveLength(1);
     expect(summary.lowStock[0]).toMatchObject({ name: 'Panadol', qty: 10, reorderLevel: 12 });
+  });
+
+  it('finds stock that has not sold within the window, oldest money first', () => {
+    const oldSale = sale({ date: '2026-06-01T10:00:00.000Z' });
+    const recentSale = sale({ id: 's2', date: '2026-11-10T10:00:00.000Z' });
+    const summary = summariseStagnant([item], [batch], [oldSale, recentSale], 90, '2026-11-14');
+    expect(summary.count).toBe(0); // the item sold inside 90 days
+
+    const stagnant = summariseStagnant([item], [batch], [oldSale], 90, '2026-11-14');
+    expect(stagnant.count).toBe(1);
+    expect(stagnant.rows[0]).toMatchObject({
+      itemId: 'i1', name: 'Panadol', qtyOnHand: 10, costValue: 100, retailValue: 200,
+      lastSoldDate: '2026-06-01',
+    });
+    expect(stagnant.rows[0].daysIdle).toBe(166);
+    expect(stagnant.costValue).toBe(100);
+  });
+
+  it('treats never-sold stock as stagnant', () => {
+    const summary = summariseStagnant([item], [batch], [], 90, '2026-11-14');
+    expect(summary.count).toBe(1);
+    expect(summary.rows[0].lastSoldDate).toBeUndefined();
+    expect(summary.rows[0].daysIdle).toBeNull();
   });
 
   it('rolls the six-month trend without a minus row', () => {

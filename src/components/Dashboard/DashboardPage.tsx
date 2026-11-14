@@ -22,6 +22,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import PeopleIcon from '@mui/icons-material/People';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { useSalesStore } from '../../store/salesStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCatalogStore } from '../../store/catalogStore';
@@ -29,8 +30,8 @@ import { useCustomerStore } from '../../store/customerStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { formatQty, formatSar } from '../../utils/format';
 import {
-  latestActivity, monthlyTrend, summariseParties, summarisePurchases, summariseSales, summariseStock,
-  withinPeriod,
+  latestActivity, monthlyTrend, summariseParties, summarisePurchases, summariseSales, summariseStagnant,
+  summariseStock, withinPeriod,
 } from '../../utils/analytics';
 import type { NamedValue, TrendPoint } from '../../utils/analytics';
 
@@ -261,6 +262,12 @@ export default function DashboardPage() {
   );
   const purchaseSummary = useMemo(() => summarisePurchases(filteredPurchases), [filteredPurchases]);
   const stockSummary = useMemo(() => summariseStock(items, batches, today), [items, batches, today]);
+  // Dead stock is always measured over 90 days, independent of the period chips: "has not sold this
+  // quarter" is the business question, not "has not sold in the selected report window".
+  const stagnant = useMemo(
+    () => summariseStagnant(items, batches, sales, 90, today),
+    [items, batches, sales, today]
+  );
   const parties = useMemo(
     () => summariseParties(vendors, customers, filteredPurchases, filteredSales),
     [vendors, customers, filteredPurchases, filteredSales]
@@ -370,6 +377,13 @@ export default function DashboardPage() {
             label="Stock at retail"
             value={formatSar(stockSummary.retailValue)}
             hint={`Potential margin ${formatSar(stockSummary.margin)}`}
+          />
+          <StatTile
+            icon={HourglassEmptyIcon}
+            color="#b8862c"
+            label="Stagnant stock (90 days)"
+            value={formatSar(stagnant.costValue)}
+            hint={`${stagnant.count} item${stagnant.count === 1 ? '' : 's'} · no sale in 90 days`}
           />
         </Box>
 
@@ -495,6 +509,63 @@ export default function DashboardPage() {
             )}
           </Paper>
         </Box>
+
+        {/* ---- stagnant stock ---- */}
+        <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+          <SectionHeader
+            icon={HourglassEmptyIcon}
+            color="#b8862c"
+            title="Stagnant Items"
+            subtitle="Stock on hand with no sale in the last 90 days, ranked by the money tied up"
+            action={(
+              <Stack direction="row" spacing={1}>
+                <Chip size="small" color="warning" variant="outlined" label={`${stagnant.count} items`} />
+                <Chip size="small" color="warning" variant="outlined" label={`${formatSar(stagnant.costValue)} at cost`} />
+              </Stack>
+            )}
+          />
+          {stagnant.rows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              Every item in stock has sold within the last 90 days.
+            </Typography>
+          ) : (
+            <>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Item</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell align="right">On hand</TableCell>
+                    <TableCell align="right">At cost</TableCell>
+                    <TableCell align="right">At retail</TableCell>
+                    <TableCell>Last sold</TableCell>
+                    <TableCell align="right">Idle</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {stagnant.rows.slice(0, 10).map((row) => (
+                    <TableRow key={row.itemId} hover>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.category || '—'}</TableCell>
+                      <TableCell align="right">{formatQty(row.qtyOnHand)}</TableCell>
+                      <TableCell align="right">{formatSar(row.costValue)}</TableCell>
+                      <TableCell align="right">{formatSar(row.retailValue)}</TableCell>
+                      <TableCell>{row.lastSoldDate ?? 'Never sold'}</TableCell>
+                      <TableCell align="right">
+                        {row.daysIdle === null ? '—' : `${formatQty(row.daysIdle)} days`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {stagnant.rows.length > 10 && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Showing the 10 largest of {stagnant.count} stagnant items. The full list is in Reports.
+                </Typography>
+              )}
+            </>
+          )}
+        </Paper>
 
         {/* ---- sales + purchases ---- */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2, mb: 2 }}>

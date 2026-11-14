@@ -8,6 +8,7 @@ import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import PaidIcon from '@mui/icons-material/Paid';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import StarsIcon from '@mui/icons-material/Stars';
@@ -17,6 +18,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { round2 } from '../../utils/vat';
 import { pointsToSar } from '../../utils/loyalty';
 import { formatMoney, formatQty, formatSar, formatUnitPrice } from '../../utils/format';
+import { summariseStagnant } from '../../utils/analytics';
 
 // Each report gets its own name and a coloured icon, so the page reads as a set of separate
 // reports rather than one long table. The tint is the same hue at low opacity so the icon never
@@ -62,7 +64,7 @@ export default function ReportsPage() {
   const navigate = useNavigate();
   const { invoices } = useSalesStore();
   const { customers } = useCustomerStore();
-  const { receivingLog } = useCatalogStore();
+  const { receivingLog, items, batches } = useCatalogStore();
 
   // Receiving events include purchase returns as negative quantities. They are NOT netted into the
   // stock report: a return gets its own report below and is shown as a positive "units returned"
@@ -88,6 +90,13 @@ export default function ReportsPage() {
       credit: round2(rows.reduce((s, r) => s + Math.abs(r.qty) * r.costPrice, 0)),
     };
   }, [receivingLog]);
+
+  // Dead stock is a full report of its own: stock still on the shelf with no sale for 90 days.
+  // The window is fixed so the report always answers the same question, whatever month it is run.
+  const stagnant = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return summariseStagnant(items, batches, invoices, 90, today);
+  }, [items, batches, invoices]);
 
   // Net of any return clawback/refund already applied - see ReturnsPage's cumulative-ratio
   // logic, which keeps pointsEarnedClawedBack/pointsRedeemedRefunded in step with returns.
@@ -412,6 +421,57 @@ export default function ReportsPage() {
                 </TableCell>
                 <TableCell align="right">{formatUnitPrice(r.costPrice)}</TableCell>
                 <TableCell align="right">{formatMoney(Math.abs(r.qty * r.costPrice))}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <SectionTitle
+        icon={HourglassEmptyIcon}
+        color="#b8862c"
+        title="Stagnant Items"
+        subtitle="Stock still on the shelf with no sale in the last 90 days"
+      />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        {[
+          { label: 'Stagnant Items', value: stagnant.count },
+          { label: 'Units Tied Up', value: formatQty(stagnant.units) },
+          { label: 'Cost Value', value: formatSar(stagnant.costValue) },
+          { label: 'Retail Value', value: formatSar(stagnant.retailValue) },
+        ].map((s) => (
+          <Paper key={s.label} variant="outlined" sx={{ p: 2, flex: '1 1 180px' }}>
+            <Typography variant="caption" color="text.secondary">{s.label}</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>{s.value}</Typography>
+          </Paper>
+        ))}
+      </Box>
+      <Paper variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Item</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell align="right">Qty on Hand</TableCell>
+              <TableCell align="right">Cost Value</TableCell>
+              <TableCell align="right">Retail Value</TableCell>
+              <TableCell>Last Sold</TableCell>
+              <TableCell align="right">Days Idle</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {stagnant.rows.length === 0 && (
+              <TableRow><TableCell colSpan={7}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>Every item in stock has sold within the last 90 days.</Typography></TableCell></TableRow>
+            )}
+            {stagnant.rows.map((row) => (
+              <TableRow key={row.itemId} hover>
+                <TableCell>{row.name}</TableCell>
+                <TableCell>{row.category || '—'}</TableCell>
+                <TableCell align="right">{formatQty(row.qtyOnHand)}</TableCell>
+                <TableCell align="right">{formatMoney(row.costValue)}</TableCell>
+                <TableCell align="right">{formatMoney(row.retailValue)}</TableCell>
+                <TableCell>{row.lastSoldDate ?? 'Never sold'}</TableCell>
+                <TableCell align="right">{row.daysIdle === null ? '—' : formatQty(row.daysIdle)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

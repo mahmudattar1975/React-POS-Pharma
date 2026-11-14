@@ -304,6 +304,106 @@ export function summariseStock(items: Item[], batches: Batch[], todayISO: string
 }
 
 // ---------------------------------------------------------------------------------------------
+// Stagnant stock
+// ---------------------------------------------------------------------------------------------
+
+export interface StagnantRow {
+  itemId: string;
+  name: string;
+  category: string;
+  qtyOnHand: number;
+  costValue: number;
+  retailValue: number;
+  lastSoldDate?: string;
+  daysIdle: number | null; // null = never sold on this device
+}
+
+export interface StagnantSummary {
+  days: number;
+  count: number;
+  units: number;
+  costValue: number;
+  retailValue: number;
+  rows: StagnantRow[];
+}
+
+function daysBetween(fromISO: string, toISO: string): number {
+  const from = Date.parse(`${fromISO.slice(0, 10)}T00:00:00Z`);
+  const to = Date.parse(`${toISO.slice(0, 10)}T00:00:00Z`);
+  return Math.max(0, Math.round((to - from) / 86_400_000));
+}
+
+// An item is stagnant when it still has stock on the shelf but has not sold a single unit for
+// `days`. New stock that has never sold counts too - it is money sitting in the store either way.
+// Rows are ranked by the cost value tied up, so the biggest dead-stock problem is addressed first.
+export function summariseStagnant(
+  items: Item[],
+  batches: Batch[],
+  sales: SaleHeader[],
+  days: number,
+  todayISO: string
+): StagnantSummary {
+  const itemById = new Map(items.map((i) => [i.id, i]));
+  const stock = new Map<string, { qty: number; cost: number; retail: number }>();
+
+  for (const batch of batches) {
+    if (batch.qtyOnHand <= 0) continue;
+    const item = itemById.get(batch.itemId);
+    if (!item) continue;
+    const row = stock.get(item.id) ?? { qty: 0, cost: 0, retail: 0 };
+    row.qty += batch.qtyOnHand;
+    row.cost += batch.qtyOnHand * batch.costPrice;
+    const salePrice = batch.salePriceOverride ?? item.basePrice;
+    row.retail += item.pack
+      ? (batch.qtyOnHand / tabletsPerBox(item.pack)) * salePrice
+      : batch.qtyOnHand * salePrice;
+    stock.set(item.id, row);
+  }
+
+  // Last sale date per item, across every posted invoice. A line's itemId is stable even after an
+  // item is renamed, so history is attributed to the right product.
+  const lastSold = new Map<string, string>();
+  for (const invoice of sales) {
+    const day = invoice.date.slice(0, 10);
+    for (const line of invoice.lines) {
+      if (!lastSold.has(line.itemId) || day > lastSold.get(line.itemId)!) {
+        lastSold.set(line.itemId, day);
+      }
+    }
+  }
+
+  const cutoff = periodCutoff(days, todayISO);
+  const rows: StagnantRow[] = [];
+  for (const [itemId, row] of stock.entries()) {
+    const item = itemById.get(itemId);
+    if (!item) continue;
+    const sold = lastSold.get(itemId);
+    if (sold && sold > cutoff) continue; // sold within the window - not stagnant
+    rows.push({
+      itemId,
+      name: item.nameEn || item.nameAr,
+      category: item.category,
+      qtyOnHand: round2(item.pack ? row.qty / tabletsPerBox(item.pack) : row.qty),
+      costValue: round2(row.cost),
+      retailValue: round2(row.retail),
+      lastSoldDate: sold,
+      daysIdle: sold ? daysBetween(sold, todayISO) : null,
+    });
+  }
+
+  rows.sort((a, b) => b.costValue - a.costValue);
+
+  return {
+    days,
+    count: rows.length,
+    units: round2(rows.reduce((s, r) => s + r.qtyOnHand, 0)),
+    costValue: round2(rows.reduce((s, r) => s + r.costValue, 0)),
+    retailValue: round2(rows.reduce((s, r) => s + r.retailValue, 0)),
+    rows,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Vendors and customers
 // ---------------------------------------------------------------------------------------------
 
