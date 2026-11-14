@@ -39,6 +39,7 @@ import {
   zatcaSummary,
 } from '../../utils/zatcaInvoice';
 import { hasDosages } from '../../utils/dosages';
+import { formatMoney } from '../../utils/format';
 import TaxInvoiceDocument from './TaxInvoiceDocument';
 import DosagePrintView from '../POS/DosagePrintView';
 import ReceiptView from '../POS/ReceiptView';
@@ -264,7 +265,7 @@ export default function ZatcaInvoicesPanel() {
                     <TableCell sx={{ fontWeight: 600 }}>{inv.invoiceNo}</TableCell>
                     <TableCell>{inv.invoiceType === 'standard' ? 'Standard' : 'Simplified'}</TableCell>
                     <TableCell>{inv.customerNameEn || inv.customerNameAr || 'Walk-in'}</TableCell>
-                    <TableCell align="right">{inv.totalInclVat.toFixed(2)}</TableCell>
+                    <TableCell align="right">{formatMoney(inv.totalInclVat)}</TableCell>
                     <TableCell>
                       <Chip size="small" color={label.color} label={label.label} title={label.help} />
                       {inv.zatcaFailureReason && canRetry && (

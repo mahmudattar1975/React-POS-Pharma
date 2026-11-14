@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import * as erpApi from '../../api/erpApi';
 import type { Item } from '../../types/catalog';
+import { formatQty } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -73,7 +74,7 @@ export default function OtherBranchStockDialog({ open, item, onClose }: Props) {
               {state.branches.map((b) => (
                 <ListItem key={b.storeNo} disableGutters sx={{ justifyContent: 'space-between' }}>
                   <ListItemText primary={b.storeNameEn} secondary={b.storeNameAr} />
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{b.qtyOnHand}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatQty(b.qtyOnHand)}</Typography>
                 </ListItem>
               ))}
             </List>

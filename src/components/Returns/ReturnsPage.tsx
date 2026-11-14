@@ -8,6 +8,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useCustomerStore } from '../../store/customerStore';
 import type { ReturnHeader, ReturnLine, SaleHeader } from '../../types/sales';
 import { round2 } from '../../utils/vat';
+import { formatMoney, formatQty } from '../../utils/format';
 import * as posApi from '../../api/posApi';
 
 // Loyalty points earned/redeemed on a sale are proportional to money, so a return claws back /
@@ -172,7 +173,7 @@ export default function ReturnsPage() {
       }
     }
 
-    let msg = `Refunded SAR ${totalRefund.toFixed(2)} — ${ret.returnNo}`;
+    let msg = `Refunded SAR ${formatMoney(totalRefund)} — ${ret.returnNo}`;
     if (pointsClawedBackThisReturn > 0) msg += ` · ${pointsClawedBackThisReturn} points clawed back`;
     if (pointsRefundedThisReturn > 0) msg += ` · ${pointsRefundedThisReturn} points refunded`;
     setMessage(msg);
@@ -216,7 +217,7 @@ export default function ReturnsPage() {
                 <ListItemButton key={inv.id} onClick={() => pick(inv)}>
                   <ListItemText
                     primary={`${inv.invoiceNo} · ${name}`}
-                    secondary={`${new Date(inv.date).toLocaleString()}${phone ? ` · ${phone}` : ''} · SAR ${inv.totalInclVat.toFixed(2)}`}
+                    secondary={`${new Date(inv.date).toLocaleString()}${phone ? ` · ${phone}` : ''} · SAR ${formatMoney(inv.totalInclVat)}`}
                   />
                   {inv.status === 'returned' && <Chip size="small" label="Returned" />}
                   {inv.status === 'partially_returned' && <Chip size="small" color="warning" label="Part returned" />}
@@ -263,8 +264,8 @@ export default function ReturnsPage() {
                         {l.unit ? ` · ${l.unit}` : ''}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">{l.qty}</TableCell>
-                    <TableCell align="right">{l.returnedQty}</TableCell>
+                    <TableCell align="right">{formatQty(l.qty)}</TableCell>
+                    <TableCell align="right">{formatQty(l.returnedQty)}</TableCell>
                     <TableCell align="right">
                       <TextField
                         type="number"

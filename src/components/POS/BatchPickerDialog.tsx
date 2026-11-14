@@ -1,6 +1,7 @@
 import { Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Chip, Stack, Typography } from '@mui/material';
 import type { Item, Batch } from '../../types/catalog';
 import { isNearExpiry } from '../../utils/fefo';
+import { formatQty } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -27,7 +28,7 @@ export default function BatchPickerDialog({ open, item, batches, onPick, onClose
             <ListItemButton key={b.id} onClick={() => onPick(b)} divider>
               <ListItemText
                 primary={`Batch ${b.batchNo}`}
-                secondary={`Expires ${b.expiryDate} · ${b.qtyOnHand} in stock`}
+                secondary={`Expires ${b.expiryDate} · ${formatQty(b.qtyOnHand)} in stock`}
               />
               <Stack direction="row" spacing={1}>
                 {idx === 0 && <Chip size="small" color="primary" label="FEFO suggested" />}

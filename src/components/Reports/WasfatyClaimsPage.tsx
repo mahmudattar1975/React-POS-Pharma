@@ -21,6 +21,7 @@ import {
   buildWasfatyClaimRows, claimMonths, claimsToAoa, claimsToCsv, summariseWasfatyClaims,
   summariseWasfatyClaimsByItem,
 } from '../../utils/wasfaty';
+import { formatMoney, formatQty } from '../../utils/format';
 import type { WasfatyClaim } from '../../types/wasfaty';
 import * as wasfatyApi from '../../api/wasfatyApi';
 import WasfatyClaimsPrintDialog from './WasfatyClaimsPrintDialog';
@@ -223,8 +224,8 @@ export default function WasfatyClaimsPage() {
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2 }}>
         <Chip size="small" variant="outlined" label={`${summary.rows} lines`} />
         <Chip size="small" variant="outlined" color="primary" label={`${summary.invoices} invoices`} />
-        <Chip size="small" variant="outlined" color="success" label={`Claim SAR ${summary.claimAmount.toFixed(2)}`} />
-        <Chip size="small" variant="outlined" label={`Patient share SAR ${summary.patientShare.toFixed(2)}`} />
+        <Chip size="small" variant="outlined" color="success" label={`Claim SAR ${formatMoney(summary.claimAmount)}`} />
+        <Chip size="small" variant="outlined" label={`Patient share SAR ${formatMoney(summary.patientShare)}`} />
         <Chip
           size="small"
           variant={summary.exceptions > 0 ? 'filled' : 'outlined'}
@@ -305,9 +306,9 @@ export default function WasfatyClaimsPage() {
                   <Typography variant="caption" color="text.secondary">{row.itemNameAr} · batch {row.batchNo}</Typography>
                 </TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.nupcoCode || '—'}</TableCell>
-                <TableCell align="right">{row.qty} {row.unit}</TableCell>
-                <TableCell align="right">{row.claimAmount.toFixed(2)}</TableCell>
-                <TableCell align="right">{row.patientShare.toFixed(2)}</TableCell>
+                <TableCell align="right">{formatQty(row.qty)} {row.unit}</TableCell>
+                <TableCell align="right">{formatMoney(row.claimAmount)}</TableCell>
+                <TableCell align="right">{formatMoney(row.patientShare)}</TableCell>
                 <TableCell><Chip size="small" variant="outlined" label={row.status} /></TableCell>
                 <TableCell>
                   {row.exception ? <Chip size="small" color="warning" label={row.exception} /> : <Typography variant="caption" color="text.secondary">—</Typography>}
@@ -378,9 +379,9 @@ export default function WasfatyClaimsPage() {
                       <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{claim.dispenseId}</TableCell>
                       <TableCell>{claim.invoiceNo ?? '—'}</TableCell>
                       <TableCell>{claim.month}</TableCell>
-                      <TableCell align="right">{claim.expectedAmount.toFixed(2)}</TableCell>
-                      <TableCell align="right">{claim.reportedAmount?.toFixed(2) ?? '—'}</TableCell>
-                      <TableCell align="right">{claim.paidAmount?.toFixed(2) ?? '—'}</TableCell>
+                      <TableCell align="right">{formatMoney(claim.expectedAmount)}</TableCell>
+                      <TableCell align="right">{claim.reportedAmount == null ? '—' : formatMoney(claim.reportedAmount)}</TableCell>
+                      <TableCell align="right">{claim.paidAmount == null ? '—' : formatMoney(claim.paidAmount)}</TableCell>
                       <TableCell>
                         <Chip size="small" variant="outlined" label={claim.status} />
                         {claim.varianceReason && (

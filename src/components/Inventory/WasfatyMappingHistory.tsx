@@ -15,12 +15,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HistoryIcon from '@mui/icons-material/History';
 import { useCatalogStore } from '../../store/catalogStore';
 import type { WasfatyMappingSnapshot } from '../../types/wasfaty';
+import { formatSar } from '../../utils/format';
 
 const VISIBLE_LIMIT = 50;
 
 function snapshotText(snapshot: WasfatyMappingSnapshot): string {
   const code = snapshot.nupcoCode || 'No code';
-  const price = snapshot.wasfatyPrice === undefined ? 'sale price' : `SAR ${snapshot.wasfatyPrice.toFixed(2)}`;
+  const price = snapshot.wasfatyPrice === undefined ? 'sale price' : formatSar(snapshot.wasfatyPrice);
   const eligible = snapshot.wasfatyEligible ? 'on list' : 'not on list';
   return `${code} · ${price} · ${eligible}`;
 }

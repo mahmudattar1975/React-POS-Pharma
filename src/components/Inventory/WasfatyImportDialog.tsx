@@ -22,6 +22,7 @@ import type { Item } from '../../types/catalog';
 import {
   planWasfatyImport, WASFATY_IMPORT_COLUMNS, type WasfatyImportStatus, type WasfatyMappingUpdate,
 } from '../../utils/wasfatyImport';
+import { formatMoney } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -214,7 +215,7 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
                             )}
                           </TableCell>
                           <TableCell align="right">
-                            {row.price === undefined ? '—' : row.price.toFixed(2)}
+                            {row.price === undefined ? '—' : formatMoney(row.price)}
                           </TableCell>
                           <TableCell>
                             <Typography variant="caption" color="text.secondary">

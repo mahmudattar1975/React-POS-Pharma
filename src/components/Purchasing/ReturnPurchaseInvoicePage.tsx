@@ -16,6 +16,7 @@ import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
 import { alertWithSound } from '../../utils/alertSound';
+import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import {
   computePurchaseTotals,
   pricePurchaseLine,
@@ -333,7 +334,10 @@ export default function ReturnPurchaseInvoicePage() {
         )}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Purchase Return Details</Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
+            <AssignmentReturnIcon sx={{ color: '#e65100' }} fontSize="small" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Purchase Return Details</Typography>
+          </Stack>
           <Stack spacing={2}>
             <FormControlLabel
               control={<Checkbox checked={partyType === PARTY_TYPE_FLAG.customer} onChange={(e) => {
@@ -432,9 +436,9 @@ export default function ReturnPurchaseInvoicePage() {
                           <TableRow key={line.id}>
                             <TableCell>{line.itemNameEn}</TableCell>
                             <TableCell>{line.batchNo}</TableCell>
-                            <TableCell align="right">{line.qty} + {line.bonusQty || 0} bonus</TableCell>
-                            <TableCell align="right">{previous.qty} + {previous.bonusQty} bonus</TableCell>
-                            <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
+                            <TableCell align="right">{formatQty(line.qty)} + {formatQty(line.bonusQty || 0)} bonus</TableCell>
+                            <TableCell align="right">{formatQty(previous.qty)} + {formatQty(previous.bonusQty)} bonus</TableCell>
+                            <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} bonus</TableCell>
                             <TableCell align="right">
                               <Button
                                 size="small"
@@ -503,9 +507,9 @@ export default function ReturnPurchaseInvoicePage() {
                             </TableCell>
                             <TableCell>{l.batchNo}</TableCell>
                             {originalInvoice && (
-                              <TableCell align="right">{remaining.qty} + {remaining.bonusQty} bonus</TableCell>
+                              <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} bonus</TableCell>
                             )}
-                            <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                            <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                             <TableCell>
                               <IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
                                 <DeleteOutlineIcon fontSize="small" />
@@ -525,13 +529,13 @@ export default function ReturnPurchaseInvoicePage() {
                 {overReturnedLines
                   .map((l) => {
                     const remaining = remainingFor(l);
-                    return `${l.itemNameEn} (max ${remaining.qty} paid + ${remaining.bonusQty} bonus)`;
+                    return `${l.itemNameEn} (max ${formatQty(remaining.qty)} paid + ${formatQty(remaining.bonusQty)} bonus)`;
                   })
                   .join('; ')}
                 .
               </Alert>
             )}
-            {returnLines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong>Total Return: SAR {totals.totalInclVat.toFixed(2)}</strong></Typography></Box>}
+            {returnLines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong>Total Return: SAR {formatMoney(totals.totalInclVat)}</strong></Typography></Box>}
           </Stack>
         </Paper>
 
@@ -540,7 +544,10 @@ export default function ReturnPurchaseInvoicePage() {
         </Button>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Posted Returns</Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
+            <AssignmentReturnIcon sx={{ color: '#c62828' }} fontSize="small" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Returns</Typography>
+          </Stack>
           {postedReturns.length === 0 ? (
             <Typography variant="body2" color="text.secondary">No purchase returns posted yet.</Typography>
           ) : (
@@ -567,15 +574,15 @@ export default function ReturnPurchaseInvoicePage() {
                       <TableCell>{r.date}</TableCell>
                       <TableCell>{r.originalInvoiceNo ?? '—'}</TableCell>
                       <TableCell align="right">{r.lines.length}</TableCell>
-                      <TableCell align="right">{r.totalInclVat.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatMoney(r.totalInclVat)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        <IconButton size="small" onClick={() => setViewing(r)} aria-label="View return">
+                        <IconButton size="small" color="info" onClick={() => setViewing(r)} aria-label="View return">
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={() => setPrinting(r)} aria-label="Print return">
+                        <IconButton size="small" color="primary" onClick={() => setPrinting(r)} aria-label="Print return">
                           <PrintIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={() => beginEdit(r)} aria-label="Modify return">
+                        <IconButton size="small" color="warning" onClick={() => beginEdit(r)} aria-label="Modify return">
                           <EditOutlinedIcon fontSize="small" />
                         </IconButton>
                         <IconButton
@@ -598,7 +605,10 @@ export default function ReturnPurchaseInvoicePage() {
 
       <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {viewing?.invoiceNo}
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <AssignmentReturnIcon color="warning" fontSize="small" />
+            <span>{viewing?.invoiceNo}</span>
+          </Stack>
           <IconButton size="small" onClick={() => setViewing(null)} aria-label="Close">
             <CloseIcon fontSize="small" />
           </IconButton>
@@ -641,11 +651,11 @@ export default function ReturnPurchaseInvoicePage() {
                   {viewing.lines.map((l) => (
                     <TableRow key={l.id}>
                       <TableCell>{l.itemNameEn}</TableCell>
-                      <TableCell align="right">{l.qty}</TableCell>
-                      <TableCell align="right">{l.bonusQty || 0}</TableCell>
+                      <TableCell align="right">{formatQty(l.qty)}</TableCell>
+                      <TableCell align="right">{formatQty(l.bonusQty || 0)}</TableCell>
                       <TableCell>{l.batchNo} · {l.expiryDate}</TableCell>
-                      <TableCell align="right">{l.unitPurchasePrice.toFixed(3)}</TableCell>
-                      <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
+                      <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -653,15 +663,15 @@ export default function ReturnPurchaseInvoicePage() {
               <Divider />
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2">Subtotal (excl. VAT)</Typography>
-                <Typography variant="body2">{viewing.subtotalExclVat.toFixed(2)}</Typography>
+                <Typography variant="body2">{formatMoney(viewing.subtotalExclVat)}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2">VAT</Typography>
-                <Typography variant="body2">{viewing.totalVatAmount.toFixed(2)}</Typography>
+                <Typography variant="body2">{formatMoney(viewing.totalVatAmount)}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>Total credited (SAR)</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>{viewing.totalInclVat.toFixed(2)}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatMoney(viewing.totalInclVat)}</Typography>
               </Stack>
             </Stack>
           )}
@@ -669,6 +679,7 @@ export default function ReturnPurchaseInvoicePage() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button
             variant="outlined"
+            color="primary"
             startIcon={<PrintIcon />}
             onClick={() => {
               setPrinting(viewing);
@@ -678,6 +689,7 @@ export default function ReturnPurchaseInvoicePage() {
             Print A4
           </Button>
           <Button
+            color="warning"
             startIcon={<EditOutlinedIcon />}
             onClick={() => { if (viewing) beginEdit(viewing); }}
           >

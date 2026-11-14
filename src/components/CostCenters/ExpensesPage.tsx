@@ -22,6 +22,7 @@ import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { round2 } from '../../utils/vat';
+import { formatMoney } from '../../utils/format';
 import {
   EXPENSE_ACCOUNT_OPTIONS, expenseTotals, isPostingOpen, observedCategories, orderedCenters,
   todayISO, unmappedCategoryRevenue,
@@ -156,7 +157,7 @@ export default function ExpensesPage() {
             {formError && <Alert severity="error" onClose={() => setFormError(null)}>{formError}</Alert>}
             {entered && (
               <Alert severity="success" onClose={() => setEntered(null)}>
-                Expense {entered.id} - SAR {entered.amount.toFixed(2)} ({entered.expenseAccount}) recorded on{' '}
+                Expense {entered.id} - SAR {formatMoney(entered.amount)} ({entered.expenseAccount}) recorded on{' '}
                 {centers.find((c) => c.id === entered.costCenterId)?.nameEn}.
               </Alert>
             )}
@@ -230,8 +231,8 @@ export default function ExpensesPage() {
         {/* ---- recent entries */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-            Recorded Expenses ({expenses.length} · SAR {totalExpenses.toFixed(2)} total · of which
-            allocatable SAR {totalAllocatable.toFixed(2)})
+            Recorded Expenses ({expenses.length} · SAR {formatMoney(totalExpenses)} total · of which
+            allocatable SAR {formatMoney(totalAllocatable)})
           </Typography>
           {expenses.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
@@ -262,7 +263,7 @@ export default function ExpensesPage() {
                           {c ? `${c.code} — ${c.nameEn}` : '— (unknown center)'}
                         </TableCell>
                         <TableCell>{e.kind}</TableCell>
-                        <TableCell align="right">{e.amount.toFixed(2)}</TableCell>
+                        <TableCell align="right">{formatMoney(e.amount)}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -311,10 +312,10 @@ export default function ExpensesPage() {
                         )}
                       </TableCell>
                       <TableCell>{c.kind}</TableCell>
-                      <TableCell align="right">{(t?.direct ?? 0).toFixed(2)}</TableCell>
-                      <TableCell align="right">{(t?.allocatable ?? 0).toFixed(2)}</TableCell>
-                      <TableCell align="right"><strong>{(t?.subtree ?? 0).toFixed(2)}</strong></TableCell>
-                      <TableCell align="right">{revenue.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatMoney(t?.direct ?? 0)}</TableCell>
+                      <TableCell align="right">{formatMoney(t?.allocatable ?? 0)}</TableCell>
+                      <TableCell align="right"><strong>{formatMoney(t?.subtree ?? 0)}</strong></TableCell>
+                      <TableCell align="right">{formatMoney(revenue)}</TableCell>
                       <TableCell align="right">{ratio === null ? '—' : `${(ratio * 100).toFixed(1)}%`}</TableCell>
                     </TableRow>
                   );
@@ -334,14 +335,14 @@ export default function ExpensesPage() {
             </Typography>
             <Typography variant="body2" color={report.unassignedSalesLines ? 'error' : 'text.secondary'}>
               Sale lines with no cost-center tag at all (ex VAT): {report.unassignedSalesLines > 0
-                ? `${report.unassignedSalesRevenue.toFixed(2)} SAR across ${report.unassignedSalesLines} line${report.unassignedSalesLines === 1 ? '' : 's'}`
+                ? `${formatMoney(report.unassignedSalesRevenue)} SAR across ${report.unassignedSalesLines} line${report.unassignedSalesLines === 1 ? '' : 's'}`
                 : 'none'}
             </Typography>
             <Typography variant="body2" color={categoryCoverage.unmapped.length ? 'error' : 'text.secondary'}>
               Categories with no cost-center rule: {categoryCoverage.unmapped.length} of{' '}
               {categoryCoverage.observed}
               {categoryCoverage.unmapped.length > 0
-                ? ` (${report.categoryRisk.revenue.toFixed(2)} SAR of sales still on the branch default)`
+                ? ` (${formatMoney(report.categoryRisk.revenue)} SAR of sales still on the branch default)`
                 : ''}
             </Typography>
             <Typography variant="body2" color="text.secondary">

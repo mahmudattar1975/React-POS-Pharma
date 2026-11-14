@@ -9,6 +9,7 @@ import {
   TextField, Typography,
 } from '@mui/material';
 import type { WasfatyClaim } from '../../types/wasfaty';
+import { formatMoney } from '../../utils/format';
 
 export interface ReconcileInput {
   reportedAmount: number;
@@ -49,7 +50,7 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
       <DialogTitle>
         Reconcile claim
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {claim.invoiceNo ?? claim.id} · {claim.month} · expected SAR {claim.expectedAmount.toFixed(2)}
+          {claim.invoiceNo ?? claim.id} · {claim.month} · expected SAR {formatMoney(claim.expectedAmount)}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -84,7 +85,7 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
           {variance !== undefined && (
             <Alert severity="warning">
               Paid is {variance > 0 ? 'above' : 'below'} the expected amount by SAR{' '}
-              {Math.abs(variance).toFixed(2)}. The claim will be saved as a variance.
+              {formatMoney(Math.abs(variance))}. The claim will be saved as a variance.
             </Alert>
           )}
           <TextField

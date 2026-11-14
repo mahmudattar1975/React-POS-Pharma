@@ -21,6 +21,7 @@ import type { Payment, SaleHeader, SaleLine } from '../../types/sales';
 import { useSettingsStore } from '../../store/settingsStore';
 import { groupVatByRate, round2 } from '../../utils/vat';
 import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
+import { formatMoney, formatQty } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -241,15 +242,15 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
                   <Typography sx={{ fontSize: 11 }}>{l.itemNameAr}</Typography>
                   <Typography sx={{ fontSize: 10, color: '#444' }}>{l.itemNameEn}</Typography>
                 </Box>
-                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{l.qty}</Box>
-                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{l.unitPrice.toFixed(2)}</Box>
+                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{formatQty(l.qty)}</Box>
+                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{formatMoney(l.unitPrice)}</Box>
                 <Box component="td" sx={{ ...TD, textAlign: 'right' }}>
-                  {l.discountAmount > 0 ? `-${l.discountAmount.toFixed(2)}` : '—'}
+                  {l.discountAmount > 0 ? `-${formatMoney(l.discountAmount)}` : '—'}
                 </Box>
-                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{l.netExclVat.toFixed(2)}</Box>
+                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{formatMoney(l.netExclVat)}</Box>
                 <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{(l.vatRate * 100).toFixed(0)}%</Box>
-                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{l.vatAmount.toFixed(2)}</Box>
-                <Box component="td" sx={{ ...TD, textAlign: 'right', fontWeight: 600 }}>{l.totalInclVat.toFixed(2)}</Box>
+                <Box component="td" sx={{ ...TD, textAlign: 'right' }}>{formatMoney(l.vatAmount)}</Box>
+                <Box component="td" sx={{ ...TD, textAlign: 'right', fontWeight: 600 }}>{formatMoney(l.totalInclVat)}</Box>
               </Box>
             ))}
           </Box>
@@ -260,12 +261,12 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
           <Box sx={{ flex: 1 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between', fontSize: 11, py: 0.25 }}>
               <Typography sx={{ fontSize: 11 }}>الإجمالي قبل الضريبة / Subtotal (excl. VAT)</Typography>
-              <Typography sx={{ fontSize: 11 }}>{invoice.subtotalExclVat.toFixed(2)}</Typography>
+              <Typography sx={{ fontSize: 11 }}>{formatMoney(invoice.subtotalExclVat)}</Typography>
             </Stack>
             {invoice.totalDiscount > 0 && (
               <Stack direction="row" sx={{ justifyContent: 'space-between', fontSize: 11, py: 0.25 }}>
                 <Typography sx={{ fontSize: 11 }}>الخصم / Discount</Typography>
-                <Typography sx={{ fontSize: 11 }}>-{invoice.totalDiscount.toFixed(2)}</Typography>
+                <Typography sx={{ fontSize: 11 }}>-{formatMoney(invoice.totalDiscount)}</Typography>
               </Stack>
             )}
             {vatBuckets.map((b) => (
@@ -273,13 +274,13 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
                 <Typography sx={{ fontSize: 11 }}>
                   ضريبة القيمة المضافة / VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}
                 </Typography>
-                <Typography sx={{ fontSize: 11 }}>{b.vatAmount.toFixed(2)}</Typography>
+                <Typography sx={{ fontSize: 11 }}>{formatMoney(b.vatAmount)}</Typography>
               </Stack>
             ))}
             <Divider sx={{ my: 0.5, borderColor: '#333' }} />
             <Stack direction="row" sx={{ justifyContent: 'space-between', py: 0.25 }}>
               <Typography sx={{ fontSize: 12, fontWeight: 700 }}>الإجمالي / Total (SAR)</Typography>
-              <Typography sx={{ fontSize: 12, fontWeight: 700 }}>{invoice.totalInclVat.toFixed(2)}</Typography>
+              <Typography sx={{ fontSize: 12, fontWeight: 700 }}>{formatMoney(invoice.totalInclVat)}</Typography>
             </Stack>
           </Box>
 

@@ -7,6 +7,7 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import type { WasfatyClaimRow, WasfatyClaimSummary } from '../../types/wasfaty';
+import { formatMoney, formatQty } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -35,7 +36,7 @@ const HEADERS = [
 ];
 
 function money(value: number): string {
-  return value.toFixed(2);
+  return formatMoney(value);
 }
 
 export default function WasfatyClaimsPrintDialog({
@@ -151,7 +152,7 @@ export default function WasfatyClaimsPrintDialog({
                     <span style={{ color: '#555' }}>{row.expiryDate || '—'}</span>
                   </td>
                   <td style={{ borderBottom: '1px solid #ddd', padding: '2px 4px', textAlign: 'right' }}>
-                    {row.qty} {row.unit}
+                    {formatQty(row.qty)} {row.unit}
                   </td>
                   <td style={{ borderBottom: '1px solid #ddd', padding: '2px 4px', textAlign: 'right' }}>
                     {money(row.nupcoUnitPrice)}

@@ -24,6 +24,7 @@ import { useCostCenterStore } from '../../store/costCenterStore';
 import { useSalesStore } from '../../store/salesStore';
 import { useAuthStore } from '../../store/authStore';
 import { round2 } from '../../utils/vat';
+import { formatMoney } from '../../utils/format';
 
 export default function CategoryMapPage() {
   const items = useCatalogStore((s) => s.items);
@@ -202,7 +203,7 @@ export default function CategoryMapPage() {
               {byKind.unmapped.length > 0 && ` (${byKind.unmapped.map((e) => e.categoryLabel).join(', ')})`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Sales value still on the branch default: SAR {round2(atRisk.revenue).toFixed(2)} across{' '}
+              Sales value still on the branch default: SAR {formatMoney(round2(atRisk.revenue))} across{' '}
               {atRisk.lineCount} sale line{atRisk.lineCount === 1 ? '' : 's'}
             </Typography>
             <Typography variant="body2" color={byKind.stale.length ? 'error' : 'text.secondary'}>

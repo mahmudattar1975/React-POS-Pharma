@@ -15,6 +15,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import type { PurchaseInvoice, PurchaseLine, Vendor } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG } from '../../types/party';
 import { formatDiscountPercent } from '../../utils/purchasing';
+import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import { useSettingsStore } from '../../store/settingsStore';
 
 interface Props {
@@ -177,20 +178,20 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                   {l.unit && <Typography sx={{ fontSize: 9.5, color: '#444' }}>{l.unit}</Typography>}
                 </TableCell>
                 <TableCell sx={TD} align="right">
-                  {l.qty}
+                  {formatQty(l.qty)}
                   {l.bonusQty > 0 && (
-                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>+{l.bonusQty} bonus</Typography>
+                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>+{formatQty(l.bonusQty)} bonus</Typography>
                   )}
                 </TableCell>
                 <TableCell sx={TD}>
                   {l.batchNo}
                   <Typography sx={{ fontSize: 9.5, color: '#444' }}>{l.expiryDate}</Typography>
                 </TableCell>
-                <TableCell sx={TD} align="right">{l.unitPurchasePrice.toFixed(3)}</TableCell>
+                <TableCell sx={TD} align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                 <TableCell sx={TD} align="right">
-                  {lineUnitCost(l).toFixed(3)}
+                  {formatUnitPrice(lineUnitCost(l))}
                   {l.bonusQty > 0 && (
-                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>paid {l.unitCostPrice.toFixed(3)}</Typography>
+                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>paid {formatUnitPrice(l.unitCostPrice)}</Typography>
                   )}
                 </TableCell>
                 <TableCell sx={TD} align="right">
@@ -202,12 +203,12 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                 <TableCell sx={TD} align="right">
                   <PrintLineDiscount percent={l.discount3Percent} amount={l.discount3Amount} />
                 </TableCell>
-                <TableCell sx={TD} align="right">{l.netExclVat.toFixed(2)}</TableCell>
+                <TableCell sx={TD} align="right">{formatMoney(l.netExclVat)}</TableCell>
                 <TableCell sx={TD} align="right">
-                  {l.vatAmount.toFixed(2)}
+                  {formatMoney(l.vatAmount)}
                   <Typography sx={{ fontSize: 9.5, color: '#444' }}>{(l.vatRate * 100).toFixed(0)}%</Typography>
                 </TableCell>
-                <TableCell sx={TD} align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                <TableCell sx={TD} align="right">{formatMoney(l.totalInclVat)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -216,25 +217,25 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         {/* ---- totals ---- */}
         <Stack direction="row" sx={{ justifyContent: 'flex-end', mt: 1.5 }}>
           <Box sx={{ minWidth: 260 }}>
-            <TotalRow label="Subtotal (excl. VAT)" value={invoice.subtotalExclVat.toFixed(2)} />
+            <TotalRow label="Subtotal (excl. VAT)" value={formatMoney(invoice.subtotalExclVat)} />
             {invoice.totalDiscount > 0 && (
-              <TotalRow label="Purchase discounts" value={`-${invoice.totalDiscount.toFixed(2)}`} />
+              <TotalRow label="Purchase discounts" value={`-${formatMoney(invoice.totalDiscount)}`} />
             )}
             {invoice.totalBonusValue > 0 && (
               <TotalRow
                 label="Bonus goods (free - not charged or taxed)"
-                value={invoice.totalBonusValue.toFixed(2)}
+                value={formatMoney(invoice.totalBonusValue)}
               />
             )}
             {invoice.vatByRate.map((b) => (
               <TotalRow
                 key={b.rate}
                 label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
-                value={b.vatAmount.toFixed(2)}
+                value={formatMoney(b.vatAmount)}
               />
             ))}
             <Divider sx={{ my: 0.5 }} />
-            <TotalRow label="Total incl. VAT (SAR)" value={invoice.totalInclVat.toFixed(2)} bold />
+            <TotalRow label="Total incl. VAT (SAR)" value={formatMoney(invoice.totalInclVat)} bold />
           </Box>
         </Stack>
 
@@ -270,7 +271,7 @@ function PrintLineDiscount({ percent, amount }: { percent: number; amount: numbe
   return (
     <>
       {formatDiscountPercent(percent)}
-      <Typography sx={{ fontSize: 9.5, color: '#444' }}>{amount.toFixed(2)}</Typography>
+      <Typography sx={{ fontSize: 9.5, color: '#444' }}>{formatMoney(amount)}</Typography>
     </>
   );
 }

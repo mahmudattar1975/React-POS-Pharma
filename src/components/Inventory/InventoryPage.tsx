@@ -8,6 +8,7 @@ import { resolveSalePrice } from '../../utils/pricing';
 import { formatPackShort, tabletsPerBox } from '../../utils/packUnits';
 import { itemCodes } from '../../utils/itemMaster';
 import { formatDiscountPercent } from '../../utils/purchasing';
+import { formatQty, formatUnitPrice } from '../../utils/format';
 
 export default function InventoryPage() {
   const { items, batches, setControlledStatus } = useCatalogStore();
@@ -73,17 +74,17 @@ export default function InventoryPage() {
                     <>
                       <Typography variant="body2">{formatPackShort(item.pack, batch.qtyOnHand)}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {batch.qtyOnHand} tablets
+                        {formatQty(batch.qtyOnHand)} tablets
                       </Typography>
                     </>
                   ) : (
                     batch.qtyOnHand
                   )}
                 </TableCell>
-                <TableCell align="right">{(batch.purchasePrice ?? 0).toFixed(3)}</TableCell>
+                <TableCell align="right">{formatUnitPrice(batch.purchasePrice ?? 0)}</TableCell>
                 <TableCell align="right">{batch.purchaseDiscountPercent ? formatDiscountPercent(batch.purchaseDiscountPercent) : '—'}</TableCell>
                 <TableCell align="right">
-                  {(batch.costPrice ?? 0).toFixed(3)}
+                  {formatUnitPrice(batch.costPrice ?? 0)}
                   {item.pack && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                       per tablet
@@ -91,10 +92,10 @@ export default function InventoryPage() {
                   )}
                 </TableCell>
                 <TableCell align="right">
-                  {resolveSalePrice(item, batch).toFixed(3)}
+                  {formatUnitPrice(resolveSalePrice(item, batch))}
                   {item.pack && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      box · {(item.basePrice / tabletsPerBox(item.pack)).toFixed(3)}/tab
+                      box · {formatUnitPrice(item.basePrice / tabletsPerBox(item.pack))}/tab
                     </Typography>
                   )}
                 </TableCell>

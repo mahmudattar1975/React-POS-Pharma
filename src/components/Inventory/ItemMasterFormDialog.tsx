@@ -44,6 +44,7 @@ import {
   PACK_LEVEL_LABEL_PLURAL,
 } from '../../utils/packUnits';
 import { CONTROLLED_STATUS_LABEL, CONTROLLED_STATUS_OPTIONS } from '../../utils/controlledSubstances';
+import { formatMoney, formatQty } from '../../utils/format';
 import DosageLinkEditor from './DosageLinkEditor';
 
 interface Props {
@@ -819,14 +820,14 @@ export default function ItemMasterFormDialog({
                   gap: 1.25,
                 }}
               >
-                <Stat label="Total purchased" value={`${totals.purchasedQty} ${movementUnit}`} hint={`incl. ${totals.bonusReceivedQty} bonus`} />
-                <Stat label="Total sold" value={`${totals.soldQty} ${movementUnit}`} />
-                <Stat label="Sales returns" value={`${totals.salesReturnQty} ${movementUnit}`} />
-                <Stat label="Stock cost value" value={`SAR ${totals.stockCostValue.toFixed(2)}`} />
-                <Stat label="Stock retail value" value={`SAR ${totals.stockRetailValue.toFixed(2)}`} />
+                <Stat label="Total purchased" value={`${formatQty(totals.purchasedQty)} ${movementUnit}`} hint={`incl. ${formatQty(totals.bonusReceivedQty)} bonus`} />
+                <Stat label="Total sold" value={`${formatQty(totals.soldQty)} ${movementUnit}`} />
+                <Stat label="Sales returns" value={`${formatQty(totals.salesReturnQty)} ${movementUnit}`} />
+                <Stat label="Stock cost value" value={`SAR ${formatMoney(totals.stockCostValue)}`} />
+                <Stat label="Stock retail value" value={`SAR ${formatMoney(totals.stockRetailValue)}`} />
                 <Stat
                   label="On hand"
-                  value={`${totals.onHandQty} ${movementUnit}`}
+                  value={`${formatQty(totals.onHandQty)} ${movementUnit}`}
                   hint={
                     showPackLimits && packPreview
                       ? formatPackBreakdown(packPreview, totals.onHandQty)

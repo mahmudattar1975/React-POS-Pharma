@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import type { SaleHeader, SaleLine, CardNetwork, Payment } from '../../types/sales';
 import { useSettingsStore } from '../../store/settingsStore';
 import { groupVatByRate, round2 } from '../../utils/vat';
+import { formatMoney, formatQty } from '../../utils/format';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { PACK_LEVELS, PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL } from '../../utils/packUnits';
 import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
@@ -218,10 +219,10 @@ export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel =
               </Typography>
               <Stack direction="row" sx={ROW_SX}>
                 <Typography variant="caption" color="text.secondary">
-                  Qty {g.qty}{g.unit ? ` ${printedUnit(g.unit, g.qty)}` : ''}
-                  {g.discountAmount > 0 ? ` · discount -${g.discountAmount.toFixed(2)}` : ''}
+                  Qty {formatQty(g.qty)}{g.unit ? ` ${printedUnit(g.unit, g.qty)}` : ''}
+                  {g.discountAmount > 0 ? ` · discount -${formatMoney(g.discountAmount)}` : ''}
                 </Typography>
-                <Typography variant="caption">{g.totalInclVat.toFixed(2)}</Typography>
+                <Typography variant="caption">{formatMoney(g.totalInclVat)}</Typography>
               </Stack>
             </Box>
           ))}
@@ -236,12 +237,12 @@ export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel =
 
           <Stack direction="row" sx={ROW_SX}>
             <Typography variant="body2">الإجمالي قبل الضريبة / Subtotal (excl. VAT)</Typography>
-            <Typography variant="body2">{invoice.subtotalExclVat.toFixed(2)}</Typography>
+            <Typography variant="body2">{formatMoney(invoice.subtotalExclVat)}</Typography>
           </Stack>
           {invoice.totalDiscount > 0 && (
             <Stack direction="row" sx={ROW_SX}>
               <Typography variant="body2">الخصم / Discount</Typography>
-              <Typography variant="body2">-{invoice.totalDiscount.toFixed(2)}</Typography>
+              <Typography variant="body2">-{formatMoney(invoice.totalDiscount)}</Typography>
             </Stack>
           )}
           {groupVatByRate(invoice.lines).map((b) => (
@@ -249,12 +250,12 @@ export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel =
               <Typography variant="body2">
                 ضريبة القيمة المضافة / VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(معفاة / zero-rated)'}
               </Typography>
-              <Typography variant="body2">{b.vatAmount.toFixed(2)}</Typography>
+              <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
             </Stack>
           ))}
           <Stack direction="row" sx={ROW_SX}>
             <Typography sx={{ fontWeight: 700 }}>الإجمالي / Total (SAR)</Typography>
-            <Typography sx={{ fontWeight: 700 }}>{invoice.totalInclVat.toFixed(2)}</Typography>
+            <Typography sx={{ fontWeight: 700 }}>{formatMoney(invoice.totalInclVat)}</Typography>
           </Stack>
 
           <Divider sx={{ my: 1 }} />
@@ -262,7 +263,7 @@ export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel =
           {invoice.payments.map((p, i) => (
             <Stack key={i} direction="row" sx={ROW_SX}>
               <Typography variant="body2" color="text.secondary">{paymentLabel(p)}</Typography>
-              <Typography variant="body2">{p.amount.toFixed(2)}</Typography>
+              <Typography variant="body2">{formatMoney(p.amount)}</Typography>
             </Stack>
           ))}
 

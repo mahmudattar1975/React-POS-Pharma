@@ -10,6 +10,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintIcon from '@mui/icons-material/Print';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import type { Item, PackLevel } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
@@ -19,6 +20,7 @@ import { itemCodes } from '../../utils/itemMaster';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels } from '../../utils/packUnits';
 import { cleanVatNumberInput, isVatNumberComplete, isVatNumberEmptyOrComplete } from '../../utils/vat';
 import { alertWithSound } from '../../utils/alertSound';
+import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
@@ -335,7 +337,7 @@ export default function PurchaseInvoicePage() {
           <Alert severity="success" onClose={() => setPosted(null)}>
             {posted.partyType === PARTY_TYPE_FLAG.customer ? 'Customer document' : 'Vendor invoice'}{' '}
             {posted.vendorInvoiceNo} · {posted.invoiceNo} received from {posted.vendorNameEn} - {posted.lines.length} line(s),
-            SAR {posted.totalInclVat.toFixed(2)} incl. VAT. Stock has been posted.
+            SAR {formatMoney(posted.totalInclVat)} incl. VAT. Stock has been posted.
           </Alert>
         )}
 
@@ -624,7 +626,7 @@ export default function PurchaseInvoicePage() {
               />
               <TextField
                 label="Unit cost (computed)"
-                value={lineValid ? entryUnitCost.toFixed(3) : ''}
+                value={lineValid ? formatUnitPrice(entryUnitCost) : ''}
                 disabled
                 size="small"
                 helperText="Per unit received (paid + bonus), after discounts"
@@ -696,19 +698,19 @@ export default function PurchaseInvoicePage() {
                       <TableRow key={l.id}>
                         <TableCell>{l.itemNameEn}</TableCell>
                         <TableCell align="right">
-                          {l.qty}
+                          {formatQty(l.qty)}
                           {l.bonusQty > 0 && (
-                            <Typography variant="caption" color="text.secondary"> + {l.bonusQty} bonus</Typography>
+                            <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} bonus</Typography>
                           )}
                         </TableCell>
                         <TableCell>{l.batchNo}</TableCell>
                         <TableCell>{l.expiryDate}</TableCell>
-                        <TableCell align="right">{l.unitPurchasePrice.toFixed(3)}</TableCell>
+                        <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                         <TableCell align="right">
-                          {lineUnitCost(l).toFixed(3)}
+                          {formatUnitPrice(lineUnitCost(l))}
                           {l.bonusQty > 0 && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              paid-unit {l.unitCostPrice.toFixed(3)}
+                              paid-unit {formatUnitPrice(l.unitCostPrice)}
                             </Typography>
                           )}
                         </TableCell>
@@ -721,9 +723,9 @@ export default function PurchaseInvoicePage() {
                         <TableCell align="right">
                           <LineDiscount percent={l.discount3Percent} amount={l.discount3Amount} />
                         </TableCell>
-                        <TableCell align="right">{l.netExclVat.toFixed(2)}</TableCell>
-                        <TableCell align="right">{l.vatAmount.toFixed(2)}</TableCell>
-                        <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                        <TableCell align="right">{formatMoney(l.netExclVat)}</TableCell>
+                        <TableCell align="right">{formatMoney(l.vatAmount)}</TableCell>
+                        <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <IconButton size="small" onClick={() => beginLineEdit(l)} aria-label="Modify line">
                             <EditOutlinedIcon fontSize="small" />
@@ -750,24 +752,24 @@ export default function PurchaseInvoicePage() {
             {lines.length > 0 && (
               <Box sx={{ alignSelf: 'flex-end', minWidth: 300 }}>
                 <Stack spacing={0.5} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                  <Row label="Subtotal (excl. VAT)" value={totals.subtotalExclVat.toFixed(2)} />
-                  <Row label="Purchase discounts" value={`-${totals.totalDiscount.toFixed(2)}`} />
+                  <Row label="Subtotal (excl. VAT)" value={formatMoney(totals.subtotalExclVat)} />
+                  <Row label="Purchase discounts" value={`-${formatMoney(totals.totalDiscount)}`} />
                   {totals.totalBonusValue > 0 && (
                     <Row
                       label="Bonus goods (free - not charged or taxed)"
-                      value={totals.totalBonusValue.toFixed(2)}
+                      value={formatMoney(totals.totalBonusValue)}
                     />
                   )}
-                  <Row label="Net before VAT" value={totals.netExclVat.toFixed(2)} />
+                  <Row label="Net before VAT" value={formatMoney(totals.netExclVat)} />
                   {totals.vatByRate.map((b) => (
                     <Row
                       key={b.rate}
                       label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
-                      value={b.vatAmount.toFixed(2)}
+                      value={formatMoney(b.vatAmount)}
                     />
                   ))}
                   <Divider />
-                  <Row label="Total incl. VAT (SAR)" value={totals.totalInclVat.toFixed(2)} bold />
+                  <Row label="Total incl. VAT (SAR)" value={formatMoney(totals.totalInclVat)} bold />
                 </Stack>
               </Box>
             )}
@@ -782,8 +784,8 @@ export default function PurchaseInvoicePage() {
             disabled={!invoiceHeaderValid}
           >
             {editing
-              ? `Save changes to ${editing.invoiceNo} (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${totals.totalInclVat.toFixed(2)}`
-              : `Receive into stock (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${totals.totalInclVat.toFixed(2)}`}
+              ? `Save changes to ${editing.invoiceNo} (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${formatMoney(totals.totalInclVat)}`
+              : `Receive into stock (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${formatMoney(totals.totalInclVat)}`}
           </Button>
           {editing && (
             <Button size="large" color="inherit" onClick={cancelEdit}>
@@ -795,7 +797,10 @@ export default function PurchaseInvoicePage() {
         {/* ---- posted history */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Invoices</Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <ReceiptLongIcon sx={{ color: '#1565c0' }} fontSize="small" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Invoices</Typography>
+            </Stack>
             <TextField
               size="small"
               label="Search posted invoices"
@@ -850,14 +855,15 @@ export default function PurchaseInvoicePage() {
                           : '—'}
                       </TableCell>
                       <TableCell align="right">{inv.lines.length}</TableCell>
-                      <TableCell align="right">{inv.totalInclVat.toFixed(2)}</TableCell>
-                      <TableCell align="right">{inv.totalVatAmount.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatMoney(inv.totalInclVat)}</TableCell>
+                      <TableCell align="right">{formatMoney(inv.totalVatAmount)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        <IconButton size="small" onClick={() => setViewing(inv)} aria-label="View invoice">
+                        <IconButton size="small" color="info" onClick={() => setViewing(inv)} aria-label="View invoice">
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                         <IconButton
                           size="small"
+                          color="primary"
                           onClick={() => setPrinting(inv)}
                           aria-label="Print purchase invoice"
                         >
@@ -865,6 +871,7 @@ export default function PurchaseInvoicePage() {
                         </IconButton>
                         <IconButton
                           size="small"
+                          color="warning"
                           onClick={() => beginEdit(inv)}
                           aria-label="Modify purchase invoice"
                         >
@@ -890,7 +897,10 @@ export default function PurchaseInvoicePage() {
 
       <Dialog open={!!viewing} onClose={() => setViewing(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {viewing?.invoiceNo}
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <ReceiptLongIcon color="primary" fontSize="small" />
+            <span>{viewing?.invoiceNo}</span>
+          </Stack>
           <IconButton size="small" onClick={() => setViewing(null)} aria-label="Close">
             <CloseIcon fontSize="small" />
           </IconButton>
@@ -937,18 +947,18 @@ export default function PurchaseInvoicePage() {
                     <TableRow key={l.id}>
                       <TableCell>{l.itemNameEn}</TableCell>
                       <TableCell align="right">
-                        {l.qty}
+                        {formatQty(l.qty)}
                         {l.bonusQty > 0 && (
-                          <Typography variant="caption" color="text.secondary"> + {l.bonusQty} bonus</Typography>
+                          <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} bonus</Typography>
                         )}
                       </TableCell>
                       <TableCell>{l.batchNo} · {l.expiryDate}</TableCell>
-                      <TableCell align="right">{l.unitPurchasePrice.toFixed(3)}</TableCell>
+                      <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                       <TableCell align="right">
-                        {lineUnitCost(l).toFixed(3)}
+                        {formatUnitPrice(lineUnitCost(l))}
                         {l.bonusQty > 0 && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            paid-unit {l.unitCostPrice.toFixed(3)}
+                            paid-unit {formatUnitPrice(l.unitCostPrice)}
                           </Typography>
                         )}
                       </TableCell>
@@ -961,31 +971,32 @@ export default function PurchaseInvoicePage() {
                       <TableCell align="right">
                         <LineDiscount percent={l.discount3Percent} amount={l.discount3Amount} />
                       </TableCell>
-                      <TableCell align="right">{l.totalInclVat.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               <Divider />
-              <Row label="Subtotal (excl. VAT)" value={viewing.subtotalExclVat.toFixed(2)} />
-              <Row label="Purchase discounts" value={`-${viewing.totalDiscount.toFixed(2)}`} />
+              <Row label="Subtotal (excl. VAT)" value={formatMoney(viewing.subtotalExclVat)} />
+              <Row label="Purchase discounts" value={`-${formatMoney(viewing.totalDiscount)}`} />
               {viewing.totalBonusValue > 0 && (
-                <Row label="Bonus goods (free - not charged or taxed)" value={viewing.totalBonusValue.toFixed(2)} />
+                <Row label="Bonus goods (free - not charged or taxed)" value={formatMoney(viewing.totalBonusValue)} />
               )}
               {viewing.vatByRate.map((b) => (
                 <Row
                   key={b.rate}
                   label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
-                  value={b.vatAmount.toFixed(2)}
+                  value={formatMoney(b.vatAmount)}
                 />
               ))}
-              <Row label="Total incl. VAT (SAR)" value={viewing.totalInclVat.toFixed(2)} bold />
+              <Row label="Total incl. VAT (SAR)" value={formatMoney(viewing.totalInclVat)} bold />
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button
             variant="outlined"
+            color="primary"
             startIcon={<PrintIcon />}
             onClick={() => {
               setPrinting(viewing);
@@ -995,6 +1006,7 @@ export default function PurchaseInvoicePage() {
             Print A4
           </Button>
           <Button
+            color="warning"
             startIcon={<EditOutlinedIcon />}
             onClick={() => { if (viewing) beginEdit(viewing); }}
           >
@@ -1058,7 +1070,7 @@ function LineDiscount({ percent, amount }: { percent: number; amount: number }) 
         {formatDiscountPercent(percent)}
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        {amount.toFixed(2)}
+        {formatMoney(amount)}
       </Typography>
     </>
   );

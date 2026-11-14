@@ -7,6 +7,7 @@ import DiscountInput from '../common/DiscountInput';
 import type { PackLevel } from '../../types/catalog';
 import { PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
 import { itemCodes } from '../../utils/itemMaster';
+import { formatUnitPrice } from '../../utils/format';
 
 export default function ReceivingPage() {
   const { items, receiveStock, itemById } = useCatalogStore();
@@ -127,7 +128,7 @@ export default function ReceivingPage() {
             disabled
             helperText={
               pack
-                ? `Cost per tablet after the discount above (${Number(purchasePrice) / perUnit || 0} SAR per ${PACK_LEVEL_LABEL[receiveUnit].toLowerCase()}) - recorded as the batch's cost.`
+                ? `Cost per tablet after the discount above (${formatUnitPrice(Number(purchasePrice) / perUnit || 0)} SAR per ${PACK_LEVEL_LABEL[receiveUnit].toLowerCase()}) - recorded as the batch's cost.`
                 : 'Purchase price after the discount above - this is what gets recorded as the batch\'s cost.'
             }
             fullWidth

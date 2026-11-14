@@ -28,6 +28,7 @@ import { buildDosageText } from '../../utils/dosages';
 import { manufacturerDisplayName } from '../../utils/manufacturers';
 import { formatPackShort } from '../../utils/packUnits';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
+import { formatMoney, formatQty } from '../../utils/format';
 import ItemMasterFormDialog from './ItemMasterFormDialog';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -286,7 +287,7 @@ export default function ItemMasterPage() {
                   <TableCell align="center">
                     <Chip size="small" variant="outlined" label={`${Math.round(item.vatRate * 100)}%`} />
                   </TableCell>
-                  <TableCell align="right">{item.basePrice.toFixed(2)}</TableCell>
+                  <TableCell align="right">{formatMoney(item.basePrice)}</TableCell>
                   <TableCell align="right">
                     {item.pack ? (
                       <>
@@ -297,7 +298,7 @@ export default function ItemMasterPage() {
                       </>
                     ) : (
                       <>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{totals.onHandQty}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatQty(totals.onHandQty)}</Typography>
                         {low && <Chip size="small" color="warning" label="Reorder" sx={{ mt: 0.25 }} />}
                       </>
                     )}

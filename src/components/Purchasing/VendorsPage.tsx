@@ -26,6 +26,7 @@ import {
   formatCustomerNo, formatVendorNo, maxCustomerNumber, maxVendorNumber, nextCustomerNumber,
   nextVendorNumber,
 } from '../../utils/purchasing';
+import { formatMoney } from '../../utils/format';
 import VendorFormDialog from './VendorFormDialog';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -169,7 +170,7 @@ export default function VendorsPage() {
           <Chip size="small" variant="outlined" color="primary" label={`Next vendor ${nextVendorNumber(vendors)}`} />
           <Chip size="small" variant="outlined" label={`Last customer ${lastCustomerNumber ? formatCustomerNo(lastCustomerNumber) : '—'}`} />
           <Chip size="small" variant="outlined" color="secondary" label={`Next customer ${nextCustomerNumber(vendors)}`} />
-          <Chip size="small" variant="outlined" label={`Purchases ${totalPurchases.toFixed(2)} SAR`} />
+          <Chip size="small" variant="outlined" label={`Purchases ${formatMoney(totalPurchases)} SAR`} />
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
           <Button variant="outlined" startIcon={<AddIcon />} onClick={() => openCreate(PARTY_TYPE_FLAG.customer)}>
@@ -296,7 +297,7 @@ export default function VendorsPage() {
                 <TableCell align="right">
                   {purchases.count > 0 ? (
                     <>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{purchases.total.toFixed(2)}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatMoney(purchases.total)}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {purchases.count} invoice{purchases.count === 1 ? '' : 's'}
                       </Typography>

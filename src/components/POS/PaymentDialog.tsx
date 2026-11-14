@@ -12,6 +12,7 @@ import CardNetworkPicker from './CardNetworkPicker';
 import { round2 } from '../../utils/vat';
 import { maskNationalId } from '../../utils/wasfaty';
 import { pointsToSar, sarToPoints } from '../../utils/loyalty';
+import { formatMoney } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -90,7 +91,7 @@ export default function PaymentDialog({
     if (r.method === 'card' && !r.cardNetwork) return 'Select a card network.';
     if (r.method === 'insurance' && !r.insuranceCompany.trim()) return 'Enter the insurance company.';
     if (r.method === 'points' && totalPointsSarUsed > pointsAvailableSar + EPSILON) {
-      return `Only SAR ${pointsAvailableSar.toFixed(2)} in points available.`;
+      return `Only SAR ${formatMoney(pointsAvailableSar)} in points available.`;
     }
     return null;
   });
@@ -156,14 +157,14 @@ export default function PaymentDialog({
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="caption" color="text.secondary">NUPCO coverage</Typography>
                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                  SAR {wasfaty.coveredAmount.toFixed(2)}
+                  SAR {formatMoney(wasfaty.coveredAmount)}
                 </Typography>
               </Stack>
               <Divider sx={{ my: 0.75 }} />
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>Patient share</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  SAR {totalDue.toFixed(2)}
+                  SAR {formatMoney(totalDue)}
                 </Typography>
               </Stack>
               {fullyCovered && (
@@ -174,11 +175,11 @@ export default function PaymentDialog({
             </Paper>
           )}
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            SAR {totalDue.toFixed(2)}
+            SAR {formatMoney(totalDue)}
           </Typography>
           {wasfaty && wasfaty.invoiceTotal > totalDue + EPSILON && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-              Invoice total is SAR {wasfaty.invoiceTotal.toFixed(2)}; the difference is the Wasfaty
+              Invoice total is SAR {formatMoney(wasfaty.invoiceTotal)}; the difference is the Wasfaty
               coverage tender, recorded on the invoice automatically.
             </Typography>
           )}
@@ -238,7 +239,7 @@ export default function PaymentDialog({
                     fullWidth
                     helperText={
                       row.method === 'points'
-                        ? `= ${sarToPoints(Number(row.amount) || 0)} points (balance worth SAR ${pointsAvailableSar.toFixed(2)})`
+                        ? `= ${sarToPoints(Number(row.amount) || 0)} points (balance worth SAR ${formatMoney(pointsAvailableSar)})`
                         : undefined
                     }
                   />
@@ -284,11 +285,11 @@ export default function PaymentDialog({
           )}
 
           {stillOwing ? (
-            <Alert severity="warning">SAR {remaining.toFixed(2)} still due.</Alert>
+            <Alert severity="warning">SAR {formatMoney(remaining)} still due.</Alert>
           ) : changeDue > 0 ? (
             canGiveChange ? (
               <Typography variant="body2" color="text.secondary">
-                Change due: SAR {changeDue.toFixed(2)}
+                Change due: SAR {formatMoney(changeDue)}
               </Typography>
             ) : (
               <Alert severity="error">Change can only be given in cash - add a cash row or reduce the amount.</Alert>

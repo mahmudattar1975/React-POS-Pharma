@@ -7,6 +7,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { useCustomerStore } from '../../store/customerStore';
 import type { Customer, CustomerTier } from '../../types/customer';
 import { pointsToSar } from '../../utils/loyalty';
+import { formatMoney } from '../../utils/format';
 
 interface Props {
   open: boolean;
@@ -105,7 +106,7 @@ export default function CustomerLookupDialog({ open, onClose, onSelect }: Props)
                     primary={`${c.nameEn}${c.nameAr ? ` · ${c.nameAr}` : ''} ${c.tier !== 'normal' ? `(${TIER_LABEL[c.tier]})` : ''}`}
                     secondary={
                       `${c.phone}${c.email ? ` · ${c.email}` : ''}${c.nationalId ? ` · ID ${c.nationalId}` : ''} · ` +
-                      `${balance} points (SAR ${pointsToSar(balance).toFixed(2)})` +
+                      `${balance} points (SAR ${formatMoney(pointsToSar(balance))})` +
                       (mainAccount ? ` · household of ${mainAccount.nameEn}` : '')
                     }
                   />

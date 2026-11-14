@@ -12,6 +12,7 @@ import {
 import type { CostCenter, CostCenterKind } from '../../types/costCenters';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { expenseTotals, orderedCenters, todayISO } from '../../utils/costCenters';
+import { formatMoney } from '../../utils/format';
 
 const KIND_LABEL: Record<CostCenterKind, string> = {
   branch: 'Branch',
@@ -59,13 +60,13 @@ function CenterNode({ center, depth, totals, centers, onAddChild, onEditDrivers 
         {!center.IsPostingAllowed && <Chip size="small" variant="outlined" label="No posting" />}
         <Box sx={{ flex: 1, minWidth: 180, textAlign: 'right' }}>
           <Typography variant="body2">
-            own SAR {(t?.direct ?? 0).toFixed(2)}
+            own SAR {formatMoney(t?.direct ?? 0)}
             {' · rolled-up SAR '}
-            <strong>{(t?.subtree ?? 0).toFixed(2)}</strong>
+            <strong>{formatMoney(t?.subtree ?? 0)}</strong>
           </Typography>
           {(t?.allocatable ?? 0) > 0 && (
             <Typography variant="caption" color="text.secondary">
-              of which allocatable SAR {(t?.allocatable ?? 0).toFixed(2)}
+              of which allocatable SAR {formatMoney(t?.allocatable ?? 0)}
             </Typography>
           )}
         </Box>

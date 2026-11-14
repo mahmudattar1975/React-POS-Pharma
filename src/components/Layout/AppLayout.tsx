@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useAuthStore } from '../../store/authStore';
 import { useShiftStore } from '../../store/shiftStore';
 import CloseDrawerDialog from '../Auth/CloseDrawerDialog';
+import { formatMoney } from '../../utils/format';
 
 // Each module gets its own icon color so the sidebar reads as a colorful, scannable icon set
 // rather than uniform gray glyphs - blue (the selected/brand color) is reserved for the active
@@ -97,7 +98,7 @@ export default function AppLayout() {
           <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>VAT {settings.vatRegistrationNo}</Typography>
           {shift && (
             <Chip
-              label={`Drawer open • float ${shift.openingFloat.toFixed(2)} SAR`}
+              label={`Drawer open • float ${formatMoney(shift.openingFloat)} SAR`}
               size="small"
               color="success"
               variant="outlined"

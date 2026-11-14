@@ -10,11 +10,12 @@ import { useCatalogStore } from '../../store/catalogStore';
 import type { Offer } from '../../types/catalog';
 import OfferFormDialog from './OfferFormDialog';
 import { formatDiscountPercent } from '../../utils/purchasing';
+import { formatMoney, formatQty } from '../../utils/format';
 
 function offerDetails(offer: Offer): string {
   if (offer.type === 'percent') return `${formatDiscountPercent(offer.percent ?? 0)} off`;
-  if (offer.type === 'value') return `SAR ${(offer.value ?? 0).toFixed(2)} off per unit`;
-  return `Buy ${offer.buyQty} Get ${offer.freeQty} Free`;
+  if (offer.type === 'value') return `SAR ${formatMoney(offer.value ?? 0)} off per unit`;
+  return `Buy ${formatQty(offer.buyQty)} Get ${formatQty(offer.freeQty)} Free`;
 }
 
 function offerStatus(offer: Offer, today: string): { label: string; color: 'success' | 'info' | 'default' } {

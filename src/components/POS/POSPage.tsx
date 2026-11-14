@@ -30,6 +30,7 @@ import { activeOfferFor } from '../../utils/pricing';
 import { formatUnitPrice, PACK_LEVEL_LABEL_PLURAL, PACK_LEVEL_UNIT_CODE, SELLABLE_PACK_LEVELS } from '../../utils/packUnits';
 import { pointsEarnedFor, sarToPoints } from '../../utils/loyalty';
 import { round2 } from '../../utils/vat';
+import { formatMoney, formatQty } from '../../utils/format';
 import type { SaleHeader, SaleLine, Payment, ZatcaSubmissionStatus, PrescriptionInfo } from '../../types/sales';
 import type { WasfatyDispenseLineInput } from '../../types/wasfaty';
 import { hasDosages } from '../../utils/dosages';
@@ -667,7 +668,7 @@ export default function POSPage() {
           </Typography>
           <Typography variant="caption" component="div">
             {coveredLines.length > 0
-              ? `${coveredLines.length} line(s) covered by NUPCO · SAR ${coveredTotal.toFixed(2)}; the patient pays SAR ${patientDue.toFixed(2)}.`
+              ? `${coveredLines.length} line(s) covered by NUPCO · SAR ${formatMoney(coveredTotal)}; the patient pays SAR ${formatMoney(patientDue)}.`
               : 'No item on the counter is on the NUPCO approved list yet — covered items are invoiced at the approved price and paid by Wasfaty.'}
           </Typography>
           {unmappedWasfaty.length > 0 && (
@@ -833,7 +834,7 @@ export default function POSPage() {
                         const isErpItem = lineItem?.id.startsWith('erp-');
                         const levelLabel = l.packLevel ? PACK_LEVEL_LABEL_PLURAL[l.packLevel] : 'units';
                         notify(
-                          `Only ${appliedQty} ${levelLabel.toLowerCase()} in stock for ${l.itemNameEn} (requested ${requested}).`,
+                          `Only ${formatQty(appliedQty)} ${levelLabel.toLowerCase()} in stock for ${l.itemNameEn} (requested ${formatQty(requested)}).`,
                           'warning',
                           isErpItem && lineItem ? { label: 'Check other branches', onClick: () => setBranchStockItem(lineItem) } : undefined
                         );
@@ -843,7 +844,7 @@ export default function POSPage() {
                   />
                   {l.packLevel && l.packLevel !== 'tablet' && l.baseQty > 0 && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      = {l.baseQty} tablets
+                      = {formatQty(l.baseQty)} tablets
                     </Typography>
                   )}
                 </TableCell>
@@ -863,14 +864,14 @@ export default function POSPage() {
                         aria-label={`Line discount for ${l.itemNameEn}`}
                         onClick={(e) => setDiscountEditor({ anchorEl: e.currentTarget, lineId: l.id })}
                       >
-                        {l.discountAmount > 0 ? `-${l.discountAmount.toFixed(2)}` : '—'}
+                        {l.discountAmount > 0 ? `-${formatMoney(l.discountAmount)}` : '—'}
                       </Button>
                     </span>
                   </Tooltip>
                 </TableCell>
-                <TableCell align="right">{l.vatAmount.toFixed(2)}</TableCell>
+                <TableCell align="right">{formatMoney(l.vatAmount)}</TableCell>
                 <TableCell align="right">
-                  <Typography sx={{ fontWeight: 600 }}>{l.totalInclVat.toFixed(2)}</Typography>
+                  <Typography sx={{ fontWeight: 600 }}>{formatMoney(l.totalInclVat)}</Typography>
                 </TableCell>
                 <TableCell>
                   <IconButton size="small" onClick={() => removeLine(l.id)}>
@@ -888,18 +889,18 @@ export default function POSPage() {
           <Stack spacing={0.25} sx={{ minWidth: 220 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-              <Typography variant="body2">{t.subtotalExclVat.toFixed(2)}</Typography>
+              <Typography variant="body2">{formatMoney(t.subtotalExclVat)}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">Discount</Typography>
-              <Typography variant="body2">-{t.totalDiscount.toFixed(2)}</Typography>
+              <Typography variant="body2">-{formatMoney(t.totalDiscount)}</Typography>
             </Stack>
             {t.vatByRate.map((b) => (
               <Stack key={b.rate} direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
                   VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}
                 </Typography>
-                <Typography variant="body2">{b.vatAmount.toFixed(2)}</Typography>
+                <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
               </Stack>
             ))}
             {wasfatySession && coveredTotal > 0 && (
@@ -907,17 +908,17 @@ export default function POSPage() {
                 <Typography variant="body2" color="primary">
                   Wasfaty coverage
                 </Typography>
-                <Typography variant="body2" color="primary">{coveredTotal.toFixed(2)}</Typography>
+                <Typography variant="body2" color="primary">{formatMoney(coveredTotal)}</Typography>
               </Stack>
             )}
           </Stack>
           <Stack spacing={1} sx={{ alignItems: 'flex-end' }}>
             <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              SAR {t.totalInclVat.toFixed(2)}
+              SAR {formatMoney(t.totalInclVat)}
             </Typography>
             {wasfatySession && (
               <Typography variant="body2" color="text.secondary">
-                Patient pays SAR {patientDue.toFixed(2)}
+                Patient pays SAR {formatMoney(patientDue)}
               </Typography>
             )}
             <Button

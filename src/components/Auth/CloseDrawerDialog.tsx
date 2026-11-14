@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Alert, Stack, Typography, Divider } from '@mui/material';
 import { useShiftStore } from '../../store/shiftStore';
+import { formatMoney } from '../../utils/format';
 
 export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) {
   const [closingAmount, setClosingAmount] = useState('');
@@ -35,16 +36,16 @@ export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) 
         <DialogTitle>Shift Closed</DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
-            <Row label="Total Sales" value={`${lastClose.totalSales.toFixed(2)} SAR`} />
-            <Row label="Total Returns" value={`${lastClose.totalReturns.toFixed(2)} SAR`} />
+            <Row label="Total Sales" value={`${formatMoney(lastClose.totalSales)} SAR`} />
+            <Row label="Total Returns" value={`${formatMoney(lastClose.totalReturns)} SAR`} />
             <Divider />
-            <Row label="Commission Earned" value={`${lastClose.commissionEarned.toFixed(2)} SAR`} bold />
+            <Row label="Commission Earned" value={`${formatMoney(lastClose.commissionEarned)} SAR`} bold />
             <Divider />
-            <Row label="Expected Cash" value={`${lastClose.expectedCash.toFixed(2)} SAR`} />
-            <Row label="Counted Cash" value={`${(lastClose.closingAmount ?? 0).toFixed(2)} SAR`} />
+            <Row label="Expected Cash" value={`${formatMoney(lastClose.expectedCash)} SAR`} />
+            <Row label="Counted Cash" value={`${formatMoney(lastClose.closingAmount ?? 0)} SAR`} />
             <Row
               label="Cash Variance"
-              value={`${variance >= 0 ? '+' : ''}${variance.toFixed(2)} SAR`}
+              value={`${variance >= 0 ? '+' : ''}${formatMoney(variance)} SAR`}
               color={variance === 0 ? 'text.primary' : variance > 0 ? 'success.main' : 'error.main'}
               bold
             />

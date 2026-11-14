@@ -16,6 +16,7 @@ import { useCustomerStore } from '../../store/customerStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { round2 } from '../../utils/vat';
 import { pointsToSar } from '../../utils/loyalty';
+import { formatMoney, formatQty, formatSar, formatUnitPrice } from '../../utils/format';
 
 // Each report gets its own name and a coloured icon, so the page reads as a set of separate
 // reports rather than one long table. The tint is the same hue at low opacity so the icon never
@@ -130,8 +131,8 @@ export default function ReportsPage() {
 
   const kpis = [
     { label: 'Invoices', value: grand.count, icon: ReceiptLongIcon, color: '#1565c0' },
-    { label: 'Total Sales (incl. VAT)', value: `SAR ${grand.total.toFixed(2)}`, icon: PaidIcon, color: '#2e7d32' },
-    { label: 'Total VAT Collected', value: `SAR ${grand.vat.toFixed(2)}`, icon: AccountBalanceIcon, color: '#6a1b9a' },
+    { label: 'Total Sales (incl. VAT)', value: formatSar(grand.total), icon: PaidIcon, color: '#2e7d32' },
+    { label: 'Total VAT Collected', value: formatSar(grand.vat), icon: AccountBalanceIcon, color: '#6a1b9a' },
     { label: 'Net Points Earned', value: pointsSummary.earned, icon: StarsIcon, color: '#e65100' },
     { label: 'Net Points Redeemed', value: pointsSummary.redeemed, icon: CardGiftcardIcon, color: '#00838f' },
   ];
@@ -227,9 +228,9 @@ export default function ReportsPage() {
               <TableRow key={day} hover>
                 <TableCell>{day}</TableCell>
                 <TableCell align="right">{row.count}</TableCell>
-                <TableCell align="right">{row.subtotal.toFixed(2)}</TableCell>
-                <TableCell align="right">{row.vat.toFixed(2)}</TableCell>
-                <TableCell align="right">{row.total.toFixed(2)}</TableCell>
+                <TableCell align="right">{formatMoney(row.subtotal)}</TableCell>
+                <TableCell align="right">{formatMoney(row.vat)}</TableCell>
+                <TableCell align="right">{formatMoney(row.total)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -261,7 +262,7 @@ export default function ReportsPage() {
                 <TableCell>{c.nameEn}</TableCell>
                 <TableCell>{c.phone}</TableCell>
                 <TableCell align="right">{c.loyaltyPoints}</TableCell>
-                <TableCell align="right">{pointsToSar(c.loyaltyPoints).toFixed(2)}</TableCell>
+                <TableCell align="right">{formatMoney(pointsToSar(c.loyaltyPoints))}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -294,7 +295,7 @@ export default function ReportsPage() {
                 <TableCell>{inv.invoiceType}</TableCell>
                 <TableCell>{inv.customerNameEn || inv.customerNameAr}</TableCell>
                 <TableCell>{inv.status}</TableCell>
-                <TableCell align="right">{inv.totalInclVat.toFixed(2)}</TableCell>
+                <TableCell align="right">{formatMoney(inv.totalInclVat)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -310,8 +311,8 @@ export default function ReportsPage() {
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
         {[
           { label: 'Receiving Events', value: stockReceived.events },
-          { label: 'Total Units Received', value: stockReceived.units },
-          { label: 'Total Cost Value', value: `SAR ${stockReceived.cost.toFixed(2)}` },
+          { label: 'Total Units Received', value: formatQty(stockReceived.units) },
+          { label: 'Total Cost Value', value: formatSar(stockReceived.cost) },
           { label: 'From Vendors', value: stockReceived.vendorCount },
           { label: 'From Head Office', value: stockReceived.headOfficeCount },
         ].map((s) => (
@@ -346,7 +347,7 @@ export default function ReportsPage() {
                 <TableCell>{r.itemNameEn || r.itemNameAr}</TableCell>
                 <TableCell>{r.batchNo}</TableCell>
                 <TableCell>{r.expiryDate}</TableCell>
-                <TableCell align="right">{r.qty}</TableCell>
+                <TableCell align="right">{formatQty(r.qty)}</TableCell>
                 <TableCell>
                   <Chip
                     size="small"
@@ -355,8 +356,8 @@ export default function ReportsPage() {
                   />
                 </TableCell>
                 <TableCell>{r.transferNo ?? '-'}</TableCell>
-                <TableCell align="right">{r.costPrice.toFixed(3)}</TableCell>
-                <TableCell align="right">{(r.qty * r.costPrice).toFixed(2)}</TableCell>
+                <TableCell align="right">{formatUnitPrice(r.costPrice)}</TableCell>
+                <TableCell align="right">{formatMoney(r.qty * r.costPrice)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -372,8 +373,8 @@ export default function ReportsPage() {
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
         {[
           { label: 'Return Events', value: purchaseReturns.events },
-          { label: 'Total Units Returned', value: purchaseReturns.units },
-          { label: 'Total Credit Value', value: `SAR ${purchaseReturns.credit.toFixed(2)}` },
+          { label: 'Total Units Returned', value: formatQty(purchaseReturns.units) },
+          { label: 'Total Credit Value', value: formatSar(purchaseReturns.credit) },
         ].map((s) => (
           <Paper key={s.label} variant="outlined" sx={{ p: 2, flex: '1 1 180px' }}>
             <Typography variant="caption" color="text.secondary">{s.label}</Typography>
@@ -405,12 +406,12 @@ export default function ReportsPage() {
                 <TableCell>{r.itemNameEn || r.itemNameAr}</TableCell>
                 <TableCell>{r.batchNo}</TableCell>
                 <TableCell>{r.expiryDate}</TableCell>
-                <TableCell align="right">{Math.abs(r.qty)}</TableCell>
+                <TableCell align="right">{formatQty(Math.abs(r.qty))}</TableCell>
                 <TableCell>
                   <Chip size="small" label="Vendor return" color="error" variant="outlined" />
                 </TableCell>
-                <TableCell align="right">{r.costPrice.toFixed(3)}</TableCell>
-                <TableCell align="right">{Math.abs(r.qty * r.costPrice).toFixed(2)}</TableCell>
+                <TableCell align="right">{formatUnitPrice(r.costPrice)}</TableCell>
+                <TableCell align="right">{formatMoney(Math.abs(r.qty * r.costPrice))}</TableCell>
               </TableRow>
             ))}
           </TableBody>

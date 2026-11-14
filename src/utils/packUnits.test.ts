@@ -91,5 +91,7 @@ describe('box-only ladder (no carton)', () => {
     expect(formatUnitPrice(0.225)).toBe('0.225');
     expect(formatUnitPrice(0.14)).toBe('0.14');
     expect(formatUnitPrice(1)).toBe('1.00');
+    expect(formatUnitPrice(12500)).toBe('12,500.00');
+    expect(formatUnitPrice(12500.125)).toBe('12,500.125');
   });
 });

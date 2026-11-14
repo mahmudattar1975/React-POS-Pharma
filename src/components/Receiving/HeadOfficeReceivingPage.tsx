@@ -10,6 +10,7 @@ import { getErpStoreNo } from '../../api/erpApi';
 import { parseTransferCode } from '../../utils/transferCode';
 import type { PackLevel } from '../../types/catalog';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
+import { formatQty } from '../../utils/format';
 
 // A transfer-in from head office/another branch is NOT a vendor purchase - there's no supplier
 // negotiating a discount off a box price, so this deliberately does NOT reuse Stock Receiving's
@@ -367,7 +368,7 @@ export default function HeadOfficeReceivingPage() {
                     <TableCell>{r.itemNameEn ?? r.barcode}</TableCell>
                     <TableCell>{r.batchNo}</TableCell>
                     <TableCell>{r.expiryDate}</TableCell>
-                    <TableCell align="right">{r.qty}</TableCell>
+                    <TableCell align="right">{formatQty(r.qty)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

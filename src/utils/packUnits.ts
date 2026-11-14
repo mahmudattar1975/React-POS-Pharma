@@ -162,5 +162,6 @@ export function formatUnitPrice(value: number): string {
   return rounded
     .toFixed(3)
     .replace(/(\.\d\d)0$/, '$1')
-    .replace(/(\.\d)00$/, '$1');
+    .replace(/(\.\d)00$/, '$1')
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }

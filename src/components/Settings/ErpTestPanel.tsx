@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import * as erpApi from '../../api/erpApi';
 import type { ErpItem, ErpBatch, ErpCustomer } from '../../api/erpApi';
+import { formatMoney, formatQty } from '../../utils/format';
 
 export default function ErpTestPanel() {
   const [status, setStatus] = useState<erpApi.ErpStatus | null>(null);
@@ -145,8 +146,8 @@ export default function ErpTestPanel() {
                               <Stack key={b.batchNo + b.expiryDate} direction="row" spacing={2}>
                                 <Typography variant="caption">Batch {b.batchNo}</Typography>
                                 <Typography variant="caption">Exp {b.expiryDate}</Typography>
-                                <Typography variant="caption">Qty {b.qtyOnHand}</Typography>
-                                <Typography variant="caption">Price {b.salePrice.toFixed(2)}</Typography>
+                                <Typography variant="caption">Qty {formatQty(b.qtyOnHand)}</Typography>
+                                <Typography variant="caption">Price {formatMoney(b.salePrice)}</Typography>
                               </Stack>
                             ))}
                           </Stack>

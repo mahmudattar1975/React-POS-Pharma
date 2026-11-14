@@ -23,6 +23,7 @@ import type { DosageInstruction, DosageSnapshot } from '../../types/dosage';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useDosageStore } from '../../store/dosageStore';
 import { buildDosageText, snapshotDosage } from '../../utils/dosages';
+import { formatQty } from '../../utils/format';
 
 export interface DosagePatch {
   lineId: string;
@@ -152,7 +153,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {line.itemNameEn}
                       </Typography>
-                      <Chip size="small" variant="outlined" label={`Qty ${line.qty}${line.unit ? ` ${line.unit}` : ''}`} />
+                      <Chip size="small" variant="outlined" label={`Qty ${formatQty(line.qty)}${line.unit ? ` ${line.unit}` : ''}`} />
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
                       {line.itemNameAr} · batch {line.batchNo}
