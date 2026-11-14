@@ -72,6 +72,16 @@ test.describe('purchase returns', () => {
     await expect(page.getByRole('row', { name: /RTN-PUR-2026-001/ })).toBeVisible();
     // The return has its own RET- sequence, so the next purchase is still PUR-000002.
     await expect(page.getByLabel('Invoice seq.')).toHaveValue('PUR-000002');
+
+    // 5. Reports keep returns in their own named section: the 10 received and the 4 returned are
+    //    both positive figures, never a minus row netted into stock received.
+    await page.goto('/reports');
+    await expect(page.getByText('Stock Received', { exact: true })).toBeVisible();
+    await expect(page.getByText('Purchase Returns', { exact: true })).toBeVisible();
+    await expect(page.getByText('Total Units Received', { exact: true }).locator('..')).toContainText('10');
+    await expect(page.getByText('Total Units Returned', { exact: true }).locator('..')).toContainText('4');
+    await expect(page.getByRole('cell', { name: '-4', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('cell', { name: '-14.00', exact: true })).toHaveCount(0);
   });
 
   test('returns a customer purchase with a manual line and refuses an over-return', async ({ page }) => {
