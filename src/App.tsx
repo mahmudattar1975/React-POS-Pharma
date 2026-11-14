@@ -13,6 +13,7 @@ import PurchasingHubPage from './components/Purchasing/PurchasingHubPage';
 import OffersPage from './components/Offers/OffersPage';
 import CostCentersHubPage from './components/CostCenters/CostCentersHubPage';
 import ReportsPage from './components/Reports/ReportsPage';
+import DashboardPage from './components/Dashboard/DashboardPage';
 import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
 import SettingsPage from './components/Settings/SettingsPage';
 import { useAlertSounds } from './hooks/useAlertSounds';
@@ -60,6 +61,7 @@ export default function App() {
                 <Route path="/expenses" element={<CostCentersHubPage />} />
                 <Route path="/category-map" element={<CostCentersHubPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/wasfaty-claims" element={<WasfatyClaimsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 {/* The invoice ledger lives beside the till now (Point of Sale > ZATCA sales
