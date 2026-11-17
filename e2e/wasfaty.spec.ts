@@ -243,4 +243,49 @@ test.describe('Wasfaty / NUPCO dispensing', () => {
     await expect(row.getByText('variance')).toBeVisible();
     await expect(row.getByText('Paid below expected.')).toBeVisible();
   });
+
+  test('the connector panel reports capabilities and stays honest when the server is down', async ({ page }) => {
+    // Settings > Wasfaty (docs/wasfaty-screens/08-wasfaty-settings.png). The panel must show which
+    // adapter this installation uses and exactly which contract operations NUPCO still has to
+    // supply, and it must degrade to a plain warning - not a blank panel - when the API is down.
+    const cors = { 'access-control-allow-origin': '*' };
+    await page.route('**/api/wasfaty/health', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: cors,
+        json: {
+          ok: true,
+          provider: 'mock',
+          configured: true,
+          environment: 'sandbox',
+          capabilities: {
+            lookupPrescription: true,
+            requestAuthorization: true,
+            submitDispense: true,
+            submitClaim: true,
+          },
+          contract: {
+            source: 'file',
+            version: '1.0',
+            missingOperations: ['cancelDispense', 'reconcileClaim'],
+          },
+          checkedAt: '2026-11-08T08:00:00.000Z',
+        },
+      }),
+    );
+
+    await page.goto('/settings');
+    await expect(page.getByText('Wasfaty / NUPCO connector')).toBeVisible();
+    await expect(page.getByText('Provider: mock')).toBeVisible();
+    await expect(page.getByText('Environment: sandbox')).toBeVisible();
+    await expect(page.getByRole('row', { name: /Prescription lookup/ })).toContainText('Yes');
+    await expect(page.getByRole('row', { name: /Claim submission/ })).toContainText('Yes');
+    await expect(page.getByText(/The contract is missing: cancelDispense, reconcileClaim/)).toBeVisible();
+    await expect(page.getByText('Catalogue coverage')).toBeVisible();
+
+    await page.unroute('**/api/wasfaty/health');
+    await page.route('**/api/wasfaty/health', (route) => route.abort());
+    await page.getByRole('button', { name: /Check connection/ }).click();
+    await expect(page.getByText(/Wasfaty server not reachable/)).toBeVisible();
+  });
 });
