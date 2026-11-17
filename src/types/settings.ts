@@ -4,6 +4,9 @@ export interface StoreSettings {
   vatRegistrationNo: string; // 15 digits, ZATCA requires it start and end with '3'
   crNumber: string; // commercial registration number
   address: string;
+  // Contact number printed on prescription labels (represcription.md Phase 2). Optional: an older
+  // persisted settings object simply has no phone until the owner types one.
+  storePhone?: string;
   defaultVatRate: number;
   currency: string;
   cashierName: string;

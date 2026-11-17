@@ -57,6 +57,12 @@ export default function SettingsPage() {
           <TextField label="Store Name (English)" {...field('storeNameEn')} fullWidth />
           <TextField label="Store Name (Arabic)" {...field('storeNameAr')} fullWidth />
           <TextField label="Address" {...field('address')} fullWidth />
+          <TextField
+            label="Pharmacy phone"
+            {...field('storePhone')}
+            fullWidth
+            helperText="Printed on prescription labels as the pharmacy contact line."
+          />
           <Divider />
           <TextField
             label="VAT Registration Number"

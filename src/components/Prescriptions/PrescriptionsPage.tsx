@@ -9,12 +9,16 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import type { Prescription } from '../../types/prescriptions';
 import { usePrescriptionStore } from '../../store/prescriptionStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import {
   lineRemaining, prescriptionSummary, refillsLeft, statusFor, withStatus,
 } from '../../utils/prescriptionRules';
 import { PRESCRIPTION_STATUS_COLOR, PRESCRIPTION_STATUS_LABEL } from '../../utils/prescriptionStatus';
+import { buildPrescriptionLabels, type PrescriptionLabel } from '../../utils/prescriptionLabel';
+import { buildDosageLabel } from '../../utils/dosages';
 import { formatQty } from '../../utils/format';
 import { maskNationalId } from '../../utils/wasfaty';
+import PrescriptionLabelDialog from './PrescriptionLabelDialog';
 
 function statusOf(rx: Prescription): Prescription['status'] {
   return rx.status === 'cancelled' || rx.status === 'blocked' ? rx.status : statusFor(rx);
@@ -28,9 +32,11 @@ function StatusChip({ rx }: { rx: Prescription }) {
 export default function PrescriptionsPage() {
   const prescriptions = usePrescriptionStore((s) => s.prescriptions);
   const setStatus = usePrescriptionStore((s) => s.setStatus);
+  const settings = useSettingsStore((s) => s.settings);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [labels, setLabels] = useState<PrescriptionLabel[]>([]);
 
   // Statuses are recomputed at read time: a record captured 40 days ago is expired today even if
   // it was stored as 'active'. Cancelled/blocked stay exactly as the pharmacy set them.
@@ -60,6 +66,20 @@ export default function PrescriptionsPage() {
   function closeDetail() {
     setSelectedId(null);
     setConfirmCancel(false);
+  }
+
+  function openLabels(rx: Prescription) {
+    setLabels(
+      buildPrescriptionLabels({
+        prescription: rx,
+        store: {
+          nameEn: settings.storeNameEn,
+          nameAr: settings.storeNameAr,
+          address: settings.address,
+          phone: settings.storePhone,
+        },
+      }),
+    );
   }
 
   return (
@@ -194,6 +214,26 @@ export default function PrescriptionsPage() {
                         <TableCell>
                           <Typography variant="body2">{line.itemNameEn}</Typography>
                           <Typography variant="caption" color="text.secondary">{line.itemNameAr}</Typography>
+                          {line.dosage ? (
+                            <>
+                              <Typography variant="caption" sx={{ display: 'block', mt: 0.25 }}>
+                                {buildDosageLabel(line.dosage).labelEn || '—'}
+                                {line.dosage.durationDays ? ` · ${line.dosage.durationDays} day(s)` : ''}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                dir="rtl"
+                                sx={{ display: 'block', textAlign: 'left' }}
+                              >
+                                {buildDosageLabel(line.dosage).labelAr}
+                              </Typography>
+                            </>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                              No written directions
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="right">{formatQty(line.quantityPrescribed)} {line.unit}</TableCell>
                         <TableCell align="right">{formatQty(line.quantityDispensed)}</TableCell>
@@ -245,11 +285,21 @@ export default function PrescriptionsPage() {
                 <Button color="error" onClick={() => setConfirmCancel(true)}>Cancel prescription</Button>
               )}
               <Box sx={{ flex: 1 }} />
+              <Button variant="outlined" onClick={() => openLabels(selected)}>
+                Print labels
+              </Button>
               <Button onClick={closeDetail}>Close</Button>
             </DialogActions>
           </>
         )}
       </Dialog>
+
+      <PrescriptionLabelDialog
+        open={labels.length > 0}
+        labels={labels}
+        batchKey={labels[0]?.key}
+        onClose={() => setLabels([])}
+      />
 
       <Dialog open={confirmCancel} onClose={() => setConfirmCancel(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Cancel this prescription?</DialogTitle>

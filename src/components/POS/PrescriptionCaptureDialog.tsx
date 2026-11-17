@@ -18,16 +18,20 @@ import {
 } from '@mui/material';
 import type { PrescriptionInfo, PrescriptionSource } from '../../types/sales';
 import type { ControlledStatus } from '../../types/catalog';
+import type { DosageSnapshot } from '../../types/dosage';
 import type { Prescription } from '../../types/prescriptions';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { PRESCRIPTION_STATUS_COLOR, PRESCRIPTION_STATUS_LABEL } from '../../utils/prescriptionStatus';
 import { maskNationalId } from '../../utils/wasfaty';
+import { buildDosageLabel } from '../../utils/dosages';
 import {
   DEFAULT_VALIDITY_DAYS, expiryFor, lineRemaining, planDispense, refillsLeft, statusFor,
   supplyWarnings, todayIso, type DispenseRequest,
 } from '../../utils/prescriptionRules';
 import { usePrescriptionStore } from '../../store/prescriptionStore';
 import { useAuthStore } from '../../store/authStore';
+import { useCatalogStore } from '../../store/catalogStore';
+import DosagePickerDialog from './DosagePickerDialog';
 
 export interface ControlledLine {
   itemId: string;
@@ -36,6 +40,9 @@ export interface ControlledLine {
   unit: string;
   qty: number; // what the cart actually holds - the default quantity to dispense/prescribe
   controlledStatus: ControlledStatus;
+  // Directions already chosen on the cart line (the cashier may have picked them before checkout);
+  // they pre-fill the prescription so the same sig is not typed twice.
+  dosage?: DosageSnapshot;
 }
 
 export interface PrescriptionCaptureResult {
@@ -49,6 +56,9 @@ export interface PrescriptionCaptureResult {
     qty: number;
     unit: string;
   }[];
+  // The sig to mirror onto the matching cart line, so the sale's own directions label and the
+  // prescription agree. Keyed by item id because that is what the cart exposes to this dialog.
+  dosagesByItemId: Record<string, DosageSnapshot | undefined>;
   overrideReason?: string;
 }
 
@@ -68,6 +78,30 @@ function today(): string {
 const STATUS_LABEL = PRESCRIPTION_STATUS_LABEL;
 const STATUS_COLOR = PRESCRIPTION_STATUS_COLOR;
 
+// Compact, label-shaped summary of the sig - the same text the prescription label prints, so what
+// the cashier sees here is what the patient reads on the box.
+function DirectionsSummary({ dosage }: { dosage?: DosageSnapshot }) {
+  if (!dosage) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        No written directions recorded for this item.
+      </Typography>
+    );
+  }
+  const compact = buildDosageLabel(dosage);
+  return (
+    <>
+      <Typography variant="caption" sx={{ display: 'block' }}>
+        {compact.labelEn || '—'}
+        {dosage.durationDays ? ` · ${dosage.durationDays} day(s)` : ''}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" dir="rtl" sx={{ display: 'block', textAlign: 'left' }}>
+        {compact.labelAr}
+      </Typography>
+    </>
+  );
+}
+
 export default function PrescriptionCaptureDialog({
   open, lines, patientNationalId, patientName, onCancel, onConfirm,
 }: Props) {
@@ -75,6 +109,7 @@ export default function PrescriptionCaptureDialog({
   const addPrescription = usePrescriptionStore((s) => s.addPrescription);
   const searchPrescriptions = usePrescriptionStore((s) => s.search);
   const cashierName = useAuthStore((s) => s.session?.fullName) ?? 'cashier';
+  const itemById = useCatalogStore((s) => s.itemById);
 
   const [mode, setMode] = useState<'existing' | 'new'>('new');
   // ---- new prescription form ------------------------------------------------------------------
@@ -87,6 +122,8 @@ export default function PrescriptionCaptureDialog({
   const [nationalId, setNationalId] = useState('');
   const [qtyByItem, setQtyByItem] = useState<Record<string, number>>({});
   const [refillsByItem, setRefillsByItem] = useState<Record<string, number>>({});
+  const [dosageByItem, setDosageByItem] = useState<Record<string, DosageSnapshot | undefined>>({});
+  const [dosagePickerItemId, setDosagePickerItemId] = useState<string | null>(null);
   // ---- existing prescription ------------------------------------------------------------------
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -105,6 +142,8 @@ export default function PrescriptionCaptureDialog({
     setNationalId(patientNationalId ?? '');
     setQtyByItem(Object.fromEntries(lines.map((line) => [line.itemId, line.qty])));
     setRefillsByItem(Object.fromEntries(lines.map((line) => [line.itemId, 0])));
+    setDosageByItem(Object.fromEntries(lines.map((line) => [line.itemId, line.dosage])));
+    setDosagePickerItemId(null);
     setQuery('');
     setSelectedId(null);
     setDispenseQty({});
@@ -153,9 +192,11 @@ export default function PrescriptionCaptureDialog({
           quantityPrescribed: qtyByItem[line.itemId] ?? line.qty,
           quantityDispensed: 0,
           refillsAuthorized: refillsByItem[line.itemId] ?? 0,
+          // The course length comes from the chosen sig; it is what the 90-day cap measures.
+          durationDays: dosageByItem[line.itemId]?.durationDays,
         })),
       ),
-    [lines, qtyByItem, refillsByItem],
+    [lines, qtyByItem, refillsByItem, dosageByItem],
   );
 
   const headerValid =
@@ -208,6 +249,7 @@ export default function PrescriptionCaptureDialog({
           unit: line.unit,
           quantityPrescribed: qtyByItem[line.itemId] ?? line.qty,
           refillsAuthorized: refillsByItem[line.itemId] ?? 0,
+          dosage: dosageByItem[line.itemId],
         })),
         createdBy: cashierName,
       });
@@ -223,6 +265,7 @@ export default function PrescriptionCaptureDialog({
             unit: rxLine.unit,
           };
         }),
+        dosagesByItemId: Object.fromEntries(rx.lines.map((rxLine) => [rxLine.itemId, rxLine.dosage])),
         overrideReason: newExpired ? overrideReason.trim() || undefined : undefined,
       });
       return;
@@ -237,6 +280,14 @@ export default function PrescriptionCaptureDialog({
         qty: line.requested,
         unit: selected.lines.find((rxLine) => rxLine.id === line.prescriptionLineId)?.unit ?? 'unit',
       })),
+      // An existing prescription's sig is frozen at capture; the cart line inherits it so the
+      // directions sheet and the prescription agree instead of the cashier retyping it.
+      dosagesByItemId: Object.fromEntries(
+        lines.map((line) => [
+          line.itemId,
+          selected.lines.find((rxLine) => rxLine.itemId === line.itemId)?.dosage,
+        ]),
+      ),
       overrideReason: overrideReason.trim() || undefined,
     });
   }
@@ -357,6 +408,7 @@ export default function PrescriptionCaptureDialog({
                             Prescribed {rxLine.quantityPrescribed} {rxLine.unit}(s) × {1 + rxLine.refillsAuthorized} fill(s)
                             {' · '}remaining {lineRemaining(rxLine)} · refills left {refillsLeft(rxLine)}
                           </Typography>
+                          <DirectionsSummary dosage={rxLine.dosage} />
                         </Box>
                         <TextField
                           label={`Dispense (${rxLine.unit})`}
@@ -445,35 +497,54 @@ export default function PrescriptionCaptureDialog({
               <Divider />
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Items on this prescription</Typography>
               {lines.map((line) => (
-                <Stack key={line.itemId} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{line.itemNameEn}</Typography>
-                    <Typography variant="caption" color="text.secondary">{line.itemNameAr}</Typography>
-                  </Box>
-                  <TextField
-                    label={`Quantity (${line.unit})`}
-                    type="number"
-                    size="small"
-                    sx={{ width: { xs: '100%', sm: 150 } }}
-                    value={qtyByItem[line.itemId] ?? line.qty}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setQtyByItem((current) => ({ ...current, [line.itemId]: Number.isFinite(value) ? value : 0 }));
-                    }}
-                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
-                  />
-                  <TextField
-                    select
-                    label="Refills"
-                    size="small"
-                    sx={{ width: { xs: '100%', sm: 110 } }}
-                    value={refillsByItem[line.itemId] ?? 0}
-                    onChange={(e) => setRefillsByItem((current) => ({ ...current, [line.itemId]: Number(e.target.value) }))}
-                  >
-                    <MenuItem value={0}>None</MenuItem>
-                    <MenuItem value={1}>1 refill</MenuItem>
-                    <MenuItem value={2}>2 refills</MenuItem>
-                  </TextField>
+                <Stack
+                  key={line.itemId}
+                  spacing={0.75}
+                  sx={{ p: 1.25, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+                >
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{line.itemNameEn}</Typography>
+                      <Typography variant="caption" color="text.secondary">{line.itemNameAr}</Typography>
+                    </Box>
+                    <TextField
+                      label={`Quantity (${line.unit})`}
+                      type="number"
+                      size="small"
+                      sx={{ width: { xs: '100%', sm: 150 } }}
+                      value={qtyByItem[line.itemId] ?? line.qty}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        setQtyByItem((current) => ({ ...current, [line.itemId]: Number.isFinite(value) ? value : 0 }));
+                      }}
+                      slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    />
+                    <TextField
+                      select
+                      label="Refills"
+                      size="small"
+                      sx={{ width: { xs: '100%', sm: 110 } }}
+                      value={refillsByItem[line.itemId] ?? 0}
+                      onChange={(e) => setRefillsByItem((current) => ({ ...current, [line.itemId]: Number(e.target.value) }))}
+                    >
+                      <MenuItem value={0}>None</MenuItem>
+                      <MenuItem value={1}>1 refill</MenuItem>
+                      <MenuItem value={2}>2 refills</MenuItem>
+                    </TextField>
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setDosagePickerItemId(line.itemId)}
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      Directions
+                    </Button>
+                    <Box sx={{ flex: 1, minWidth: 180 }}>
+                      <DirectionsSummary dosage={dosageByItem[line.itemId]} />
+                    </Box>
+                  </Stack>
                 </Stack>
               ))}
               {newLineWarnings.length > 0 && (
@@ -501,6 +572,20 @@ export default function PrescriptionCaptureDialog({
           )}
         </Stack>
       </DialogContent>
+      {/* Sits inside this dialog on purpose: the sig belongs to the line being captured, and MUI
+          portals the nested picker above the parent dialog. */}
+      <DosagePickerDialog
+        open={!!dosagePickerItemId}
+        item={dosagePickerItemId ? itemById(dosagePickerItemId) ?? null : null}
+        selectedCode={dosagePickerItemId ? dosageByItem[dosagePickerItemId]?.code : undefined}
+        onPick={(dosage) => {
+          if (dosagePickerItemId) {
+            setDosageByItem((current) => ({ ...current, [dosagePickerItemId]: dosage }));
+          }
+          setDosagePickerItemId(null);
+        }}
+        onClose={() => setDosagePickerItemId(null)}
+      />
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
         <Button onClick={onCancel}>Cancel</Button>
         <Button variant="contained" disabled={!canConfirm} onClick={confirm}>Continue to Payment</Button>

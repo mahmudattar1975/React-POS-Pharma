@@ -20,6 +20,9 @@ interface Props {
   // after-invoice chain (the label sends itself to the printer straight away) and false for the
   // manual button, which opens the same label as a preview.
   onOpenDosages?: (autoPrint: boolean) => void;
+  // Opens the prescription label (patient, refills left, batch/expiry) for a sale that dispensed
+  // against a registered prescription. Same rule: the parent closes this receipt first.
+  onOpenPrescriptionLabel?: () => void;
   // The receipt is normally the end of a sale, so its dismiss button says "New Sale". When it is
   // reopened later from the invoice ledger (ZATCA Sales Invoices) there is no sale to start, so
   // the caller labels it "Close" instead.
@@ -101,7 +104,9 @@ function paymentLabel(p: Payment): string {
   return 'Cash';
 }
 
-export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel = 'New Sale', onClose }: Props) {
+export default function ReceiptView({
+  open, invoice, onOpenDosages, onOpenPrescriptionLabel, closeLabel = 'New Sale', onClose,
+}: Props) {
   const settings = useSettingsStore((s) => s.settings);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   // On by default when the sale carries directions: the counter wants the invoice and the patient
@@ -349,6 +354,11 @@ export default function ReceiptView({ open, invoice, onOpenDosages, closeLabel =
         {hasDosages(invoice.lines) && onOpenDosages && (
           <Button variant="outlined" color="secondary" startIcon={<MedicationOutlinedIcon />} onClick={() => onOpenDosages(false)}>
             Directions label
+          </Button>
+        )}
+        {onOpenPrescriptionLabel && (
+          <Button variant="outlined" color="secondary" startIcon={<MedicationOutlinedIcon />} onClick={onOpenPrescriptionLabel}>
+            Rx label
           </Button>
         )}
         <Button variant="contained" onClick={onClose} fullWidth>

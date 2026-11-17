@@ -34,6 +34,7 @@ import { formatMoney, formatQty } from '../../utils/format';
 import type { SaleHeader, SaleLine, Payment, ZatcaSubmissionStatus, PrescriptionInfo } from '../../types/sales';
 import type { WasfatyDispenseLineInput } from '../../types/wasfaty';
 import { hasDosages } from '../../utils/dosages';
+import { buildPrescriptionLabels, type PrescriptionLabel } from '../../utils/prescriptionLabel';
 import { maskNationalId, unmappedWasfatyLines } from '../../utils/wasfaty';
 import * as posApi from '../../api/posApi';
 import * as wasfatyApi from '../../api/wasfatyApi';
@@ -50,6 +51,7 @@ import LineDiscountPopover from './LineDiscountPopover';
 import CustomerLookupDialog from './CustomerLookupDialog';
 import OtherBranchStockDialog from './OtherBranchStockDialog';
 import PrescriptionCaptureDialog, { type PrescriptionCaptureResult } from './PrescriptionCaptureDialog';
+import PrescriptionLabelDialog from '../Prescriptions/PrescriptionLabelDialog';
 import WasfatyCaptureDialog from './WasfatyCaptureDialog';
 
 export default function POSPage() {
@@ -104,6 +106,10 @@ export default function POSPage() {
   // exact quantity per line, already validated by planDispense in the dialog.
   const [prescriptionDispense, setPrescriptionDispense] = useState<PrescriptionCaptureResult | null>(null);
   const recordPrescriptionDispense = usePrescriptionStore((s) => s.recordDispense);
+  // Labels for the sale that just finished, built from the registry once the dispense is recorded.
+  // Kept in POS state (not the receipt) because the label dialog and the receipt must never be
+  // mounted together - each owns a different @page rule.
+  const [prescriptionLabels, setPrescriptionLabels] = useState<PrescriptionLabel[]>([]);
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
   const [receipt, setReceipt] = useState<SaleHeader | null>(null);
   // Post-payment directions step (sale paid, receipt not yet shown). Kept separate from `receipt`
@@ -163,6 +169,7 @@ export default function POSPage() {
                 unit: l.unit,
                 qty: l.qty,
                 controlledStatus: status,
+                dosage: l.dosage,
               }
             : null;
         })
@@ -481,7 +488,16 @@ export default function POSPage() {
         dispensedAt: date,
         dispensedBy: settings.cashierName,
         overrideReason: prescriptionDispense.overrideReason,
-        lines: prescriptionDispense.dispenseLines,
+        // Batch and expiry belong to the fill, not the prescription: a later refill can come from a
+        // different batch, and the label has to state the one actually handed over today.
+        lines: prescriptionDispense.dispenseLines.map((line) => {
+          const cartLine = lines.find((candidate) => candidate.itemId === line.itemId);
+          return {
+            ...line,
+            batchNo: cartLine?.batchNo,
+            expiryDate: cartLine?.expiryDate,
+          };
+        }),
       });
     }
 
@@ -550,10 +566,29 @@ export default function POSPage() {
     else setReceipt(invoice);
   }
 
+  // The label is built at click time from the registry, not from the cart, so it states the exact
+  // fill (quantity, batch, expiry) that was recorded and the refills left AFTER it.
+  function openPrescriptionLabels(invoice: SaleHeader) {
+    const registryId = invoice.prescription?.registryId;
+    if (!registryId) return;
+    const rx = usePrescriptionStore.getState().byId(registryId);
+    if (!rx) return;
+    setPrescriptionLabels(
+      buildPrescriptionLabels({
+        prescription: rx,
+        store: {
+          nameEn: settings.storeNameEn,
+          nameAr: settings.storeNameAr,
+          address: settings.address,
+          phone: settings.storePhone,
+        },
+      }),
+    );
+  }
+
   // Rebuilds the immediately-shown receipt from the same patches the store just applied, so the
   // receipt/print sheet in this session match the saved sale without a second store read.
-  function applyDosagePatches(invoice: SaleHeader, patches: DosagePatch[]): SaleHeader {
-    const dosageByLine = new Map(patches.map((patch) => [patch.lineId, patch.dosage]));
+  function applyDosagePatches(invoice: SaleHeader, patches: DosagePatch[]): SaleHeader {    const dosageByLine = new Map(patches.map((patch) => [patch.lineId, patch.dosage]));
     return {
       ...invoice,
       lines: invoice.lines.map((line) =>
@@ -1037,6 +1072,16 @@ export default function POSPage() {
           setDosageInvoice(current);
           setDosageAutoPrint(autoPrint);
         }}
+        onOpenPrescriptionLabel={
+          receipt?.prescription?.registryId
+            ? () => {
+                const current = receipt;
+                if (!current) return;
+                setReceipt(null);
+                openPrescriptionLabels(current);
+              }
+            : undefined
+        }
         onClose={() => setReceipt(null)}
       />
       <DosagePrintView
@@ -1048,6 +1093,12 @@ export default function POSPage() {
           setDosageAutoPrint(false);
         }}
       />
+      <PrescriptionLabelDialog
+        open={prescriptionLabels.length > 0}
+        labels={prescriptionLabels}
+        batchKey={prescriptionLabels[0]?.key}
+        onClose={() => setPrescriptionLabels([])}
+      />
       <OtherBranchStockDialog open={!!branchStockItem} item={branchStockItem} onClose={() => setBranchStockItem(null)} />
       <PrescriptionCaptureDialog
         open={prescriptionDialogOpen}
@@ -1055,6 +1106,12 @@ export default function POSPage() {
         patientNationalId={customer.nationalId}
         onCancel={() => setPrescriptionDialogOpen(false)}
         onConfirm={(result) => {
+          // Mirror the captured sig onto the cart lines so the sale's directions sheet, the receipt
+          // and the prescription label all tell the patient the same thing.
+          lines.forEach((line) => {
+            const dosage = result.dosagesByItemId[line.itemId];
+            if (dosage) setLineDosage(line.id, dosage);
+          });
           setPrescription(result.info);
           setPrescriptionDispense(result);
           setPrescriptionDialogOpen(false);

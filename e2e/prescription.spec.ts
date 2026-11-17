@@ -113,4 +113,48 @@ test.describe('prescription / controlled-substance gate', () => {
     await continueBtn.click();
     await expect(page.getByRole('button', { name: 'Complete Sale' })).toBeVisible();
   });
+
+  test('labels the dispensed box bilingually with the refills left, from the receipt and from the registry', async ({ page }) => {
+    await page.goto('/');
+    const scan = page.getByLabel(/Scan barcode/);
+    await scan.fill(TRAMADOL_BARCODE);
+    await scan.press('Enter');
+    await page.getByRole('button', { name: 'Checkout' }).click();
+
+    // 2 prescribed with 1 refill authorises 4; one fill of 1 leaves one refill.
+    await page.getByLabel('Prescriber name').fill('Dr. Label');
+    await page.getByLabel('Prescription number').fill('RX-E2E-LABEL');
+    await page.getByLabel(/Patient national ID/).fill('1001002006');
+    await page.getByLabel(/^Quantity \(/).fill('2');
+    await page.getByLabel('Refills').click();
+    await page.getByRole('option', { name: '1 refill' }).click();
+
+    // The sig is chosen from the DOS master linked to the item (dos-7: 1 capsule every 8 hours).
+    const capture = page.getByRole('dialog', { name: 'Prescription Required' });
+    await capture.getByRole('button', { name: 'Directions' }).click();
+    await page.getByText('Use only when needed for pain').first().click();
+    await expect(capture.getByText('every 8 hours')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Continue to Payment' }).click();
+    await page.getByRole('button', { name: 'Complete Sale' }).click();
+    await dismissDirectionsIfShown(page);
+
+    // Straight from the receipt.
+    await page.getByRole('button', { name: 'Rx label' }).click();
+    const label = page.getByRole('dialog', { name: /Prescription label/ });
+    await expect(label).toBeVisible();
+    await expect(label.getByText('RX-E2E-LABEL', { exact: false }).first()).toBeVisible();
+    await expect(label.getByText('Refills left: 1')).toBeVisible();
+    await expect(label.getByText('مرات الصرف المتبقية: 1')).toBeVisible();
+    await expect(label.getByText('كبسولة كل 8 ساعات')).toBeVisible();
+    await expect(label.getByText(/Batch TR24L19/)).toBeVisible();
+    await expect(label.getByText(/Qty 1 Strip/)).toBeVisible();
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    // And again later from the registry, which is what a reprint looks like.
+    await page.goto('/prescriptions');
+    await page.getByLabel('View RX-E2E-LABEL').click();
+    await page.getByRole('button', { name: 'Print labels' }).click();
+    await expect(page.getByRole('dialog', { name: /Prescription label/ }).getByText('Refills left: 1')).toBeVisible();
+  });
 });

@@ -99,8 +99,9 @@ export function withStatus(rx: Prescription, today: string = todayIso()): Prescr
 }
 
 export function totalSupplyDays(line: PrescriptionLine): number | undefined {
-  if (!line.durationDays) return undefined;
-  return line.durationDays * (1 + line.refillsAuthorized);
+  const days = lineDurationDays(line);
+  if (!days) return undefined;
+  return days * (1 + line.refillsAuthorized);
 }
 
 // Soft checks shown while capturing a prescription. None of these block the capture: they are the
@@ -130,6 +131,12 @@ export function lastDispenseFor(rx: Prescription, lineId: string): DispenseEvent
     .find((event) => event.lines.some((line) => line.prescriptionLineId === lineId));
 }
 
+// How long one fill is meant to last. New captures keep the course inside the dosage snapshot
+// (alongside the directions the label prints); the flat field is the legacy/manual path.
+export function lineDurationDays(line: PrescriptionLine): number | undefined {
+  return line.dosage?.durationDays ?? line.durationDays;
+}
+
 // True when the dispensed quantity sits exactly on a fill boundary (30 of 30, 60 of 30…) and more
 // authorised quantity remains - i.e. the next dispense opens a refill rather than continuing the
 // current fill.
@@ -150,7 +157,7 @@ export function earlyRefillWarning(
   if (!startsNewFill(line)) return undefined;
   const last = lastDispenseFor(rx, line.id);
   if (!last) return undefined;
-  const supplyDays = line.durationDays ?? DEFAULT_VALIDITY_DAYS;
+  const supplyDays = lineDurationDays(line) ?? DEFAULT_VALIDITY_DAYS;
   const elapsed = daysBetween(last.dispensedAt.slice(0, 10), today);
   if (elapsed >= supplyDays * EARLY_REFILL_RATIO) return undefined;
   return `${line.itemNameEn}: refill after ${elapsed} day(s); the previous fill should cover ${Math.round(

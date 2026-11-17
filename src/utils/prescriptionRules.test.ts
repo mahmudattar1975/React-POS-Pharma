@@ -4,9 +4,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DispenseEvent, Prescription, PrescriptionLine } from '../types/prescriptions';
+import type { DosageSnapshot } from '../types/dosage';
 import {
-  addDays, applyDispense, earlyRefillWarning, expiryFor, isExpired, lineRemaining, planDispense,
-  prescriptionRemaining, refillsLeft, refillsUsed, startsNewFill, statusFor, supplyWarnings, withStatus,
+  addDays, applyDispense, earlyRefillWarning, expiryFor, isExpired, lineDurationDays, lineRemaining,
+  planDispense, prescriptionRemaining, refillsLeft, refillsUsed, startsNewFill, statusFor,
+  supplyWarnings, totalSupplyDays, withStatus,
 } from './prescriptionRules';
 
 function line(overrides: Partial<PrescriptionLine> = {}): PrescriptionLine {
@@ -148,6 +150,26 @@ describe('refills', () => {
     });
     expect(earlyRefillWarning(rx, rx.lines[0], '2026-01-05')).toMatch(/refill after 3 day\(s\)/);
     expect(earlyRefillWarning(rx, rx.lines[0], '2026-01-10')).toBeUndefined();
+  });
+
+  it('reads the course length from the sig, falling back to the legacy field', () => {
+    const dosage = {
+      code: 'DOS-000007',
+      doseAmount: '1',
+      doseUnit: 'capsule',
+      route: 'oral',
+      frequency: 'every_8_hours',
+      timing: 'none',
+      durationDays: 10,
+      textEn: 'Take 1 capsule by mouth every 8 hours for 10 days.',
+      textAr: 'تناول كبسولة كل 8 ساعات لمدة 10 أيام.',
+    } satisfies DosageSnapshot;
+
+    expect(lineDurationDays(line({ dosage }))).toBe(10);
+    // The sig is what the patient's label prints, so it wins over a stale flat field.
+    expect(lineDurationDays(line({ dosage, durationDays: 7 }))).toBe(10);
+    expect(lineDurationDays(line({ durationDays: 7 }))).toBe(7);
+    expect(totalSupplyDays(line({ dosage, refillsAuthorized: 2 }))).toBe(30);
   });
 
   it('flags more than 2 refills and more than 90 days of supply', () => {

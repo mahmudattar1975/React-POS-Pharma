@@ -4,6 +4,7 @@
 // This file is the *registry* record behind it: one prescription can cover several invoices and
 // several fills, so refills, partial dispensing and the controlled register have somewhere to live
 // that is not the invoice. Everything stays local (zustand + persist) - no backend is involved.
+import type { DosageSnapshot } from './dosage';
 
 export type PrescriptionSource = 'private' | 'wasfaty';
 
@@ -33,21 +34,27 @@ export interface PrescriptionLine {
   quantityPrescribed: number;
   quantityDispensed: number;
   refillsAuthorized: number;
-  // Structured sig. Optional in Phase 1; the bilingual label (Phase 2) reads these.
-  dose?: string; // "500 mg"
-  frequency?: string; // "TID" / "3 times daily"
-  route?: string; // "oral"
+  // The prescriber's sig, frozen as a dosage snapshot (types/dosage.ts) exactly like a sale line's
+  // directions: the same structured fields + generated AR/EN sentences the rest of the app already
+  // prints, chosen from the DOS master at capture. A later edit to the master cannot rewrite what
+  // this patient was told. Optional - not every prescription has writable directions.
+  dosage?: DosageSnapshot;
+  // Course length the refill/supply rules measure against, used only for records captured before
+  // `dosage` existed (or typed by hand). New captures keep it inside `dosage.durationDays`.
   durationDays?: number;
-  instructionsAr?: string;
-  instructionsEn?: string;
   substitutionAllowed?: boolean; // false = dispense as written
 }
 
+// Batch and expiry are part of what the patient's label must state, and they are properties of the
+// FILL, not of the prescription (a later refill may come from a different batch). Freezing them on
+// the event is what makes a reprint months later honest.
 export interface DispenseEventLine {
   prescriptionLineId: string;
   itemId: string;
   qty: number;
   unit: string;
+  batchNo?: string;
+  expiryDate?: string;
 }
 
 export interface DispenseEvent {
@@ -101,12 +108,8 @@ export interface PrescriptionInput {
     unit: string;
     quantityPrescribed: number;
     refillsAuthorized: number;
-    dose?: string;
-    frequency?: string;
-    route?: string;
+    dosage?: DosageSnapshot;
     durationDays?: number;
-    instructionsAr?: string;
-    instructionsEn?: string;
     substitutionAllowed?: boolean;
   }[];
   notes?: string;
