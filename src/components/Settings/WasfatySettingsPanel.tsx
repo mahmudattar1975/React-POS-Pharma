@@ -165,7 +165,7 @@ export default function WasfatySettingsPanel() {
         </Box>
         <Typography variant="caption" color="text.secondary">
           Full contract checklist and the complete API surface: see <strong>Wasfaty-API.md</strong> and
-          <strong> Wasfaty.md</strong> in the project root.
+          <strong> Wasfaty.md</strong> in the <code>.mdfile/</code> folder.
         </Typography>
       </Paper>
     </Stack>
