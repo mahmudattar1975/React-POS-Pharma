@@ -611,18 +611,18 @@ export default function POSPage() {
             color={wasfatySession ? 'primary' : 'inherit'}
             startIcon={<LocalPharmacyOutlinedIcon />}
             aria-label={wasfatySession ? 'Wasfaty dispense in progress' : 'Start Wasfaty dispense'}
-            sx={{ justifyContent: 'flex-start', textTransform: 'none', minWidth: 200, height: 56, py: 0, px: 1.5 }}
+            sx={{ justifyContent: 'flex-start', textTransform: 'none', minWidth: 215, height: 56, py: 0, px: 1.5 }}
             onClick={() => setWasfatyDialogOpen(true)}
           >
             <Stack sx={{ alignItems: 'flex-start', minWidth: 0 }}>
-              <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 165 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 200 }}>
                 {wasfatySession ? `Wasfaty · ${wasfatySession.prescriptionNo}` : 'Wasfaty / وصفتي'}
               </Typography>
               <Typography
                 variant="caption"
                 noWrap
                 color={wasfatySession ? 'inherit' : 'text.secondary'}
-                sx={{ maxWidth: 165, opacity: wasfatySession ? 0.85 : 1 }}
+                sx={{ maxWidth: 200, opacity: wasfatySession ? 0.85 : 1 }}
               >
                 {wasfatySession
                   ? `Patient ${maskNationalId(wasfatySession.patientNationalId)} · ${coveredLines.length} covered`
