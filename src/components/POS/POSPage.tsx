@@ -38,6 +38,7 @@ import { maskNationalId, unmappedWasfatyLines } from '../../utils/wasfaty';
 import * as posApi from '../../api/posApi';
 import * as wasfatyApi from '../../api/wasfatyApi';
 import { usePendingSyncStore } from '../../store/pendingSyncStore';
+import { usePrescriptionStore } from '../../store/prescriptionStore';
 import { POS_PAYMENT_METHOD } from '../../types/pos';
 import BatchPickerDialog from './BatchPickerDialog';
 import PaymentDialog from './PaymentDialog';
@@ -48,7 +49,7 @@ import DirectionsCheckoutDialog, { type DosagePatch } from './DirectionsCheckout
 import LineDiscountPopover from './LineDiscountPopover';
 import CustomerLookupDialog from './CustomerLookupDialog';
 import OtherBranchStockDialog from './OtherBranchStockDialog';
-import PrescriptionCaptureDialog from './PrescriptionCaptureDialog';
+import PrescriptionCaptureDialog, { type PrescriptionCaptureResult } from './PrescriptionCaptureDialog';
 import WasfatyCaptureDialog from './WasfatyCaptureDialog';
 
 export default function POSPage() {
@@ -99,6 +100,10 @@ export default function POSPage() {
   const [wasfatyDialogOpen, setWasfatyDialogOpen] = useState(false);
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
   const [prescription, setPrescription] = useState<PrescriptionInfo | null>(null);
+  // The registry side of the same capture: which prescription this sale dispenses against and the
+  // exact quantity per line, already validated by planDispense in the dialog.
+  const [prescriptionDispense, setPrescriptionDispense] = useState<PrescriptionCaptureResult | null>(null);
+  const recordPrescriptionDispense = usePrescriptionStore((s) => s.recordDispense);
   const [isSubmittingSale, setIsSubmittingSale] = useState(false);
   const [receipt, setReceipt] = useState<SaleHeader | null>(null);
   // Post-payment directions step (sale paid, receipt not yet shown). Kept separate from `receipt`
@@ -148,8 +153,20 @@ export default function POSPage() {
   const controlledLines = useMemo(
     () =>
       lines
-        .map((l) => ({ itemNameEn: l.itemNameEn, controlledStatus: itemById(l.itemId)?.controlledStatus }))
-        .filter((l): l is { itemNameEn: string; controlledStatus: NonNullable<typeof l.controlledStatus> } => !!l.controlledStatus),
+        .map((l) => {
+          const status = itemById(l.itemId)?.controlledStatus;
+          return status
+            ? {
+                itemId: l.itemId,
+                itemNameEn: l.itemNameEn,
+                itemNameAr: l.itemNameAr,
+                unit: l.unit,
+                qty: l.qty,
+                controlledStatus: status,
+              }
+            : null;
+        })
+        .filter((l): l is NonNullable<typeof l> => l !== null),
     [lines, itemById]
   );
 
@@ -454,6 +471,20 @@ export default function POSPage() {
     if (pointsEarned > 0) earnPoints(customer.id, pointsEarned);
     recordSale(invoice);
 
+    // Advance the prescription registry only after the sale itself is recorded: a cancelled payment
+    // means nothing was dispensed, so the remaining quantity and refill counters must stay untouched.
+    if (prescriptionDispense) {
+      recordPrescriptionDispense(prescriptionDispense.registryId, {
+        id: crypto.randomUUID(),
+        invoiceId: invoice.id,
+        invoiceNo,
+        dispensedAt: date,
+        dispensedBy: settings.cashierName,
+        overrideReason: prescriptionDispense.overrideReason,
+        lines: prescriptionDispense.dispenseLines,
+      });
+    }
+
     // Mirror the dispense to this app's provider-neutral Wasfaty API. The sale is already final:
     // this is best-effort and a failure is queued, never reversed (same rule as the sale backup).
     if (activeSession) {
@@ -506,6 +537,7 @@ export default function POSPage() {
 
     clear();
     setPrescription(null);
+    setPrescriptionDispense(null);
     setIsSubmittingSale(false);
     setPaymentOpen(false);
     // The money is settled, but directions are often prepared after payment in a real pharmacy.
@@ -1022,8 +1054,9 @@ export default function POSPage() {
         lines={controlledLines}
         patientNationalId={customer.nationalId}
         onCancel={() => setPrescriptionDialogOpen(false)}
-        onConfirm={(info) => {
-          setPrescription(info);
+        onConfirm={(result) => {
+          setPrescription(result.info);
+          setPrescriptionDispense(result);
           setPrescriptionDialogOpen(false);
           setPaymentOpen(true);
         }}

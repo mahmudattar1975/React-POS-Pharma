@@ -11,12 +11,15 @@ import { Box, Tab, Tabs } from '@mui/material';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import MedicationIcon from '@mui/icons-material/Medication';
 import POSPage from '../POS/POSPage';
 import ReturnsPage from '../Returns/ReturnsPage';
+import PrescriptionsPage from '../Prescriptions/PrescriptionsPage';
 import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
+  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" /> },
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
 ];
@@ -44,8 +47,13 @@ export default function SalesHubPage() {
           viewport, so it gets its own scroll container and the same page padding Settings gave it. */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
         {activeTab === 0 && <POSPage />}
-        {activeTab === 1 && <ReturnsPage />}
-        {activeTab === 2 && (
+        {activeTab === 1 && (
+          <Box sx={{ height: '100%', overflow: 'auto' }}>
+            <PrescriptionsPage />
+          </Box>
+        )}
+        {activeTab === 2 && <ReturnsPage />}
+        {activeTab === 3 && (
           <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
             <Box sx={{ maxWidth: 1200 }}>
               <ZatcaInvoicesPanel />

@@ -100,6 +100,10 @@ export interface PrescriptionInfo {
   prescriptionId: string;
   prescriptionDate: string; // ISO date
   patientNationalId: string;
+  // Links this invoice snapshot to the local prescription registry (types/prescriptions.ts). The
+  // snapshot above stays self-contained for SFDA/RASD-shaped reporting; this id is what lets a
+  // later fill/reprint find the same prescription, its refills and its dispense history.
+  registryId?: string;
 }
 
 // 'phase2_cleared'/'phase2_reported': the ZATCA server signed + submitted this invoice and ZATCA
