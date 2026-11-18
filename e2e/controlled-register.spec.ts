@@ -65,6 +65,36 @@ test.describe('controlled drug register', () => {
     await expect(page.getByText('Variance', { exact: false })).toHaveCount(0);
   });
 
+  test('finds an item by name from the search box, even before anything has moved', async ({ page }) => {
+    await page.goto('/controlled-register');
+    const search = page.getByLabel('Search item, Rx, invoice, batch or pharmacist');
+
+    // The reported case: typing part of a name must offer the item, not stay silent until a
+    // register row happens to exist.
+    await search.fill('Aug');
+    const suggestion = page.getByRole('button', { name: /Augmentin 1g/ });
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion).toContainText('Prescription Required');
+
+    await search.press('Enter');
+    // Selecting filters both panels to that item and explains the empty result instead of showing
+    // a blank table.
+    await expect(page.getByText(/Augmentin 1g.*·.*أوجمنتين/)).toBeVisible();
+    await expect(page.getByText(/No register entries for Augmentin 1g/)).toBeVisible();
+    await expect(page.getByText(/No controlled movements for Augmentin 1g/)).toBeVisible();
+
+    // Scanning a barcode works the same way as typing a name.
+    await search.fill('6281007320090');
+    await search.press('Enter');
+    await expect(page.getByText(/Diazepam 5mg/).first()).toBeVisible();
+    await expect(page.getByText(/No register entries for Diazepam 5mg/)).toBeVisible();
+
+    // A drug outside the controlled list still gets a straight answer instead of a blank screen.
+    await search.fill('Paracetamol');
+    await search.press('Enter');
+    await expect(page.getByText(/Paracetamol 500mg.*is not a controlled item/)).toBeVisible();
+  });
+
   test('writes off expired stock as an outward register row', async ({ page }) => {
     await page.goto('/controlled-register');
     await page.getByRole('button', { name: 'Write off stock' }).click();

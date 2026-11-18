@@ -4,14 +4,15 @@
 // the running balance should be (monthly reconciliation against Batch.qtyOnHand), and what the
 // regulator gets (CSV). Write-offs (damage / expired stock) live here too because they are the only
 // movement that has no sale or return document behind it.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl,
-  InputLabel, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TextField, Typography,
+  InputLabel, List, ListItemButton, ListItemText, MenuItem, Paper, Select, Stack, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
+import type { Item } from '../../types/catalog';
 import type { ControlledRegisterKind } from '../../types/controlledRegister';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useControlledRegisterStore } from '../../store/controlledRegisterStore';
@@ -20,7 +21,9 @@ import { useSettingsStore } from '../../store/settingsStore';
 import {
   CONTROLLED_REGISTER_KIND_LABEL, controlledRegisterCsv, reconcileControlledRegister,
 } from '../../utils/controlledRegister';
+import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { formatQty } from '../../utils/format';
+import { itemCodes } from '../../utils/itemMaster';
 import { maskNationalId } from '../../utils/wasfaty';
 
 const KIND_COLOR: Record<ControlledRegisterKind, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
@@ -49,6 +52,12 @@ export default function ControlledRegisterPage() {
   const [month, setMonth] = useState(currentMonth);
   const [branchFilter, setBranchFilter] = useState(settings.costCenterId ?? '');
   const [search, setSearch] = useState('');
+  // The item picked from the search dropdown. Distinct from the free-text query: the text also
+  // matches Rx / invoice / batch / pharmacist, while a picked item scopes both panels to one item.
+  const [itemFilter, setItemFilter] = useState<string | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [writeOffOpen, setWriteOffOpen] = useState(false);
 
   const branchNames = useMemo(
@@ -56,11 +65,34 @@ export default function ControlledRegisterPage() {
     [centers],
   );
 
+  const selectedItem = itemFilter ? items.find((item) => item.id === itemFilter) ?? null : null;
+
+  // Same item search as the till and the purchase screen: type a name, an Arabic name or scan any
+  // printed code. Controlled items are listed first because they are what this screen is about, but
+  // every active item is searchable - a pharmacist checking whether a drug is in the register should
+  // get an answer ("not controlled" / "no movements") instead of an empty dropdown.
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return items
+      .filter((item) => item.isActive !== false)
+      .filter(
+        (item) =>
+          item.nameEn.toLowerCase().includes(q) ||
+          item.nameAr.includes(q) ||
+          itemCodes(item).some((code) => code.toLowerCase().includes(q)),
+      )
+      .sort((a, b) => Number(!!b.controlledStatus) - Number(!!a.controlledStatus))
+      .slice(0, 8);
+  }, [items, search]);
+  const dropdownOpen = isSearchFocused && suggestions.length > 0;
+
   const monthEntries = useMemo(() => {
     const q = search.trim().toLowerCase();
     return entries
       .filter((entry) => entry.at.slice(0, 7) === month)
       .filter((entry) => !branchFilter || entry.branchId === branchFilter)
+      .filter((entry) => !itemFilter || entry.itemId === itemFilter)
       .filter(
         (entry) =>
           !q ||
@@ -72,7 +104,7 @@ export default function ControlledRegisterPage() {
           entry.pharmacist.toLowerCase().includes(q),
       )
       .sort((a, b) => b.at.localeCompare(a.at));
-  }, [entries, month, branchFilter, search]);
+  }, [entries, month, branchFilter, itemFilter, search]);
 
   // Stock is only branch-taggable through the sales/register movements; Batch itself is global.
   // Reconciliation therefore compares against stock only when one branch is selected, and simply
@@ -85,16 +117,63 @@ export default function ControlledRegisterPage() {
     return map;
   }, [batches]);
 
-  const reconciliation = useMemo(
-    () =>
-      reconcileControlledRegister(
-        entries,
-        month,
-        branchFilter || undefined,
-        branchFilter ? stockByItem : undefined,
-      ),
-    [entries, month, branchFilter, stockByItem],
-  );
+  const reconciliation = useMemo(() => {
+    const rows = reconcileControlledRegister(
+      entries,
+      month,
+      branchFilter || undefined,
+      branchFilter ? stockByItem : undefined,
+    );
+    return itemFilter ? rows.filter((row) => row.itemId === itemFilter) : rows;
+  }, [entries, month, branchFilter, itemFilter, stockByItem]);
+
+  function selectItem(item: Item) {
+    setItemFilter(item.id);
+    setSearch('');
+    setHighlightedIndex(-1);
+    setIsSearchFocused(false);
+    searchRef.current?.focus();
+  }
+
+  function clearItemFilter() {
+    setItemFilter(null);
+    setSearch('');
+    searchRef.current?.focus();
+  }
+
+  function submitSearch() {
+    const q = search.trim().toLowerCase();
+    if (!q) return;
+    // An exact barcode/SKU/name wins outright (a scanner types the whole code instantly), otherwise
+    // the highlighted suggestion, else the first one - the same "Enter selects" rule as the POS.
+    const exact = items.find(
+      (item) =>
+        item.nameEn.toLowerCase() === q ||
+        item.nameAr.trim().toLowerCase() === q ||
+        itemCodes(item).some((code) => code.toLowerCase() === q),
+    );
+    const target = exact ?? (highlightedIndex >= 0 ? suggestions[highlightedIndex] : suggestions[0]);
+    if (target) selectItem(target);
+  }
+
+  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (dropdownOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      setHighlightedIndex((index) => {
+        const next = e.key === 'ArrowDown' ? index + 1 : index - 1;
+        if (next < 0) return suggestions.length - 1;
+        if (next >= suggestions.length) return 0;
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitSearch();
+      return;
+    }
+    if (e.key === 'Escape') setIsSearchFocused(false);
+  }
 
   function exportCsv() {
     // BOM so Excel opens the Arabic item names in the right encoding.
@@ -107,6 +186,18 @@ export default function ControlledRegisterPage() {
     link.click();
     URL.revokeObjectURL(url);
   }
+
+  const stockForSelected = itemFilter ? stockByItem.get(itemFilter) ?? 0 : undefined;
+  // An empty result must say WHY it is empty: "nothing moved" is not the same answer as "this drug
+  // is not controlled", and the owner searching a specific item needs that distinction.
+  const emptyEntriesMessage = selectedItem
+    ? selectedItem.controlledStatus
+      ? `No register entries for ${selectedItem.nameEn} in ${month} for this branch. Stock on hand: ${formatQty(stockForSelected ?? 0)}.`
+      : `${selectedItem.nameEn} is not a controlled item — the register only tracks controlled stock.`
+    : 'No register entries match this month, branch and search.';
+  const emptyReconciliationMessage = selectedItem
+    ? `No controlled movements for ${selectedItem.nameEn} in ${month}.`
+    : 'No controlled movements in this month.';
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400 }}>
@@ -151,14 +242,77 @@ export default function ControlledRegisterPage() {
             ))}
           </Select>
         </FormControl>
-        <TextField
-          label="Search item / Rx / invoice / batch / pharmacist"
-          size="small"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flex: 1, minWidth: 260 }}
-        />
+        <Box sx={{ flex: 1, minWidth: 260, position: 'relative' }}>
+          <TextField
+            inputRef={searchRef}
+            fullWidth
+            label="Search item, Rx, invoice, batch or pharmacist"
+            size="small"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setHighlightedIndex(-1);
+            }}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            onKeyDown={handleSearchKeyDown}
+            helperText={
+              selectedItem
+                ? undefined
+                : 'Type an item name, Arabic name or barcode and press Enter to filter to it'
+            }
+          />
+          {dropdownOpen && (
+            <Paper
+              elevation={4}
+              sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
+            >
+              <List dense disablePadding>
+                {suggestions.map((item, index) => (
+                  <ListItemButton
+                    key={item.id}
+                    selected={index === highlightedIndex}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectItem(item)}
+                  >
+                    <ListItemText
+                      primary={item.nameEn}
+                      secondary={`${item.nameAr} · ${itemCodes(item).join(' / ')}`}
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={item.controlledStatus ? 'warning' : 'default'}
+                      label={
+                        item.controlledStatus
+                          ? CONTROLLED_STATUS_LABEL[item.controlledStatus]
+                          : 'Not controlled'
+                      }
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Paper>
+          )}
+        </Box>
       </Stack>
+
+      {selectedItem && (
+        <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Chip
+            color="primary"
+            variant="outlined"
+            label={`${selectedItem.nameEn} · ${selectedItem.nameAr}`}
+            onDelete={clearItemFilter}
+          />
+          <Typography variant="caption" color="text.secondary">
+            {itemCodes(selectedItem).join(' / ')} ·{' '}
+            {selectedItem.controlledStatus
+              ? CONTROLLED_STATUS_LABEL[selectedItem.controlledStatus]
+              : 'Not controlled'}
+          </Typography>
+        </Stack>
+      )}
 
       <Paper variant="outlined" sx={{ mb: 2.5 }}>
         <Box sx={{ px: 2, pt: 1.5 }}>
@@ -186,7 +340,7 @@ export default function ControlledRegisterPage() {
                 <TableRow>
                   <TableCell colSpan={branchFilter ? 8 : 6}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                      No controlled movements in this month.
+                      {emptyReconciliationMessage}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -245,7 +399,7 @@ export default function ControlledRegisterPage() {
                 <TableRow>
                   <TableCell colSpan={11}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                      No register entries match this month, branch and search.
+                      {emptyEntriesMessage}
                     </Typography>
                   </TableCell>
                 </TableRow>
