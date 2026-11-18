@@ -17,8 +17,8 @@ test.describe('purchase invoices', () => {
     // The PUR sequence is system-assigned and stays separate from the document the party issued.
     await expect(page.getByLabel('Invoice seq.')).toHaveValue('PUR-000001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('10');
     await page.getByLabel('Batch / Lot No.').fill('PC26A01');
     await page.getByLabel('Expiry Date').fill('2028-05-31');
@@ -58,8 +58,8 @@ test.describe('purchase invoices', () => {
     await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
     await page.getByLabel("Vendor's invoice no").fill('DISC-2026-001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('10');
     await page.getByLabel('Batch / Lot No.').fill('DSC26A01');
     await page.getByLabel('Expiry Date').fill('2028-05-31');
@@ -89,16 +89,15 @@ test.describe('purchase invoices', () => {
     await expect(page.getByRole('row', { name: /Paracetamol 500mg/ })).toHaveCount(0);
   });
 
-  test('modifies a posted invoice header and then deletes it', async ({ page }) => {
-    await page.goto('/purchases');
+  test('modifies a posted invoice header and then deletes it', async ({ page }) => {    await page.goto('/purchases');
 
     // Default side is Vendor (type_flag 1).
     await page.getByRole('combobox').first().click();
     await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
     await page.getByLabel("Vendor's invoice no").fill('MOD-2026-001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('10');
     await page.getByLabel('Batch / Lot No.').fill('MOD26A01');
     await page.getByLabel('Expiry Date').fill('2028-05-31');
@@ -119,5 +118,42 @@ test.describe('purchase invoices', () => {
     await page.getByRole('button', { name: 'Delete Invoice' }).click();
     await expect(page.getByRole('row', { name: /MOD-2026-001/ })).toHaveCount(0);
     await expect(page.getByText('No purchase invoices posted yet.')).toBeVisible();
+  });
+
+  test('receives an item with no expiry date and refuses a line without a purchase price', async ({ page }) => {
+    // 1. Item Master: create a non-dated supply and switch its expiry tracking off.
+    await page.goto('/items');
+    await page.getByRole('button', { name: 'Add Item' }).click();
+    await page.getByLabel('Barcode / GTIN 1 (main)').fill('SUPPLY-0001');
+    await page.getByLabel('Name (English)').fill('Gauze Roll 10cm');
+    await page.getByLabel('Name (Arabic - عربي)').fill('لفافة شاش 10 سم');
+    await page.getByLabel('Unit', { exact: true }).fill('Roll');
+    await page.getByLabel('Sale Price').fill('8');
+    await page.getByRole('switch', { name: 'Has expiry date' }).click();
+    await page.getByRole('button', { name: 'Create Item' }).click();
+    await expect(page.getByText('Gauze Roll 10cm').first()).toBeVisible();
+
+    // 2. Purchase invoice: the item is found through the POS-style search and the expiry field is
+    //    disabled because the item has none. The Add button stays disabled until a price is typed.
+    await page.goto('/purchases');
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
+    await page.getByLabel("Vendor's invoice no").fill('NOEXP-2026-001');
+
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Gauze Roll');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
+    await expect(page.getByLabel('Expiry Date (none)')).toBeDisabled();
+    await page.getByLabel('Qty (paid)').fill('5');
+    await page.getByLabel('Batch / Lot No.').fill('SUP26A01');
+    await expect(page.getByRole('button', { name: 'Add line to invoice' })).toBeDisabled();
+
+    await page.getByLabel('Unit purchase price (excl. VAT)').fill('2.4');
+    await expect(page.getByRole('button', { name: 'Add line to invoice' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Add line to invoice' }).click();
+
+    // The posted line keeps a null expiry, shown as an em dash rather than an invented date.
+    const lineRow = page.getByRole('row', { name: /Gauze Roll 10cm/ });
+    await expect(lineRow).toContainText('SUP26A01');
+    await expect(lineRow).toContainText('—');
   });
 });

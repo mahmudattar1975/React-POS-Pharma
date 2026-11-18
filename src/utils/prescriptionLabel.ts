@@ -53,7 +53,7 @@ export interface PrescriptionLabel {
   fillAr: string;
   dispensedDate: string;
   batchNo?: string;
-  expiryDate?: string;
+  expiryDate?: string | null;
   prescriberName: string;
   sourceEn: string;
   sourceAr: string;
@@ -93,7 +93,7 @@ function contactFor(store: LabelStore): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
-function fillFor(event: DispenseEvent | undefined, line: PrescriptionLine): { qty: number; batchNo?: string; expiryDate?: string } {
+function fillFor(event: DispenseEvent | undefined, line: PrescriptionLine): { qty: number; batchNo?: string; expiryDate?: string | null } {
   const eventLine = event?.lines.find((candidate) => candidate.prescriptionLineId === line.id);
   if (eventLine) return { qty: eventLine.qty, batchNo: eventLine.batchNo, expiryDate: eventLine.expiryDate };
   // No fill yet: the label is a pre-dispense preview. It states one fill's worth (never the whole

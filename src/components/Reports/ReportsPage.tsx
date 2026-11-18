@@ -355,7 +355,7 @@ export default function ReportsPage() {
                 <TableCell>{new Date(r.date).toLocaleString()}</TableCell>
                 <TableCell>{r.itemNameEn || r.itemNameAr}</TableCell>
                 <TableCell>{r.batchNo}</TableCell>
-                <TableCell>{r.expiryDate}</TableCell>
+                <TableCell>{r.expiryDate ?? '—'}</TableCell>
                 <TableCell align="right">{formatQty(r.qty)}</TableCell>
                 <TableCell>
                   <Chip
@@ -414,7 +414,7 @@ export default function ReportsPage() {
                 <TableCell>{new Date(r.date).toLocaleString()}</TableCell>
                 <TableCell>{r.itemNameEn || r.itemNameAr}</TableCell>
                 <TableCell>{r.batchNo}</TableCell>
-                <TableCell>{r.expiryDate}</TableCell>
+                <TableCell>{r.expiryDate ?? '—'}</TableCell>
                 <TableCell align="right">{formatQty(Math.abs(r.qty))}</TableCell>
                 <TableCell>
                   <Chip size="small" label="Vendor return" color="error" variant="outlined" />

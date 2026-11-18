@@ -45,7 +45,7 @@ export interface ReceivingEvent {
   itemNameEn: string;
   itemNameAr: string;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   qty: number;
   purchasePrice: number;
   purchaseDiscountPercent: number;
@@ -139,7 +139,7 @@ interface CatalogState {
   receiveStock: (input: {
     itemId: string;
     batchNo: string;
-    expiryDate: string;
+    expiryDate: string | null;
     qty: number;
     purchasePrice: number;
     purchaseDiscountPercent: number;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Batch, Item } from '../types/catalog';
 import {
   EMPTY_ITEM_FORM, codeConflictMessage, duplicateCodeOwner, duplicateIdentityErrors, formToItemInput,
-  isValidBarcode, itemCodes, itemMovementTotals, itemNumberOf, itemToForm, nextItemNumber,
+  isValidBarcode, itemCodes, itemMovementTotals, itemNumberOf, itemToForm, itemTracksExpiry, nextItemNumber,
   validateItemForm,
 } from './itemMaster';
 
@@ -108,6 +108,19 @@ describe('item form conversion', () => {
     expect(input.maxLevel).toBeUndefined();
     expect(input.cartonQty).toBeUndefined();
     expect(input.isActive).toBe(true);
+  });
+
+  it('defaults an item to having an expiry date and stores only the opt-out', () => {
+    // Items that predate the flag, and every new item, track expiry unless the owner says otherwise.
+    expect(itemTracksExpiry(item())).toBe(true);
+    expect(itemToForm(item()).hasExpiry).toBe(true);
+    expect(formToItemInput(form()).hasExpiry).toBeUndefined();
+
+    const noExpiry = formToItemInput(form({ hasExpiry: false }));
+    expect(noExpiry.hasExpiry).toBe(false);
+    expect(itemTracksExpiry({ hasExpiry: noExpiry.hasExpiry })).toBe(false);
+    // A saved no-expiry item keeps the switch off when it is opened for editing again.
+    expect(itemToForm({ ...item(), hasExpiry: false }).hasExpiry).toBe(false);
   });
 });
 

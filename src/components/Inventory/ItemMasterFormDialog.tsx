@@ -788,6 +788,24 @@ export default function ItemMasterFormDialog({
                 sx={{ flex: 1, px: 1.75, py: 1.25, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Has expiry date</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {values.hasExpiry
+                      ? 'Receiving asks for the batch expiry'
+                      : 'No expiry — stock is received with a blank date'}
+                  </Typography>
+                </Box>
+                <Switch
+                  checked={values.hasExpiry}
+                  onChange={(e) => patch('hasExpiry', e.target.checked)}
+                  slotProps={{ input: { 'aria-label': 'Has expiry date' } }}
+                />
+              </Paper>
+              <Paper
+                variant="outlined"
+                sx={{ flex: 1, px: 1.75, py: 1.25, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
+              >
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {values.isActive ? 'Active for sale' : 'Discontinued'}
                   </Typography>

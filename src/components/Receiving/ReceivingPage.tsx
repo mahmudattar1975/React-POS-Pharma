@@ -6,7 +6,7 @@ import { discountInputToFraction } from '../../utils/purchasing';
 import DiscountInput from '../common/DiscountInput';
 import type { PackLevel } from '../../types/catalog';
 import { PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
-import { itemCodes } from '../../utils/itemMaster';
+import { itemCodes, itemTracksExpiry } from '../../utils/itemMaster';
 import { formatUnitPrice } from '../../utils/format';
 
 export default function ReceivingPage() {
@@ -21,6 +21,7 @@ export default function ReceivingPage() {
   const [done, setDone] = useState(false);
 
   const item = itemById(itemId);
+  const tracksExpiry = item ? itemTracksExpiry(item) : true;
   const pack = item?.pack;
   const perUnit = pack ? tabletsPerUnit(pack, receiveUnit) : 1;
 
@@ -33,7 +34,7 @@ export default function ReceivingPage() {
   );
 
   const valid =
-    itemId && batchNo.trim() && expiryDate && Number(qty) > 0 &&
+    itemId && batchNo.trim() && (!tracksExpiry || expiryDate) && Number(qty) > 0 &&
     Number(purchasePrice) >= 0 &&
     Number(discountPercent) >= 0 && Number(discountPercent) <= 100;
 
@@ -42,7 +43,7 @@ export default function ReceivingPage() {
     receiveStock({
       itemId,
       batchNo: batchNo.trim(),
-      expiryDate,
+      expiryDate: tracksExpiry ? expiryDate : null,
       qty: Number(qty),
       purchasePrice: Number(purchasePrice),
       purchaseDiscountPercent: discountInputToFraction(discountPercent),
@@ -92,10 +93,12 @@ export default function ReceivingPage() {
           )}
           <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
           <TextField
-            label="Expiry Date"
+            label={tracksExpiry ? 'Expiry Date' : 'Expiry Date (none)'}
             type="date"
             value={expiryDate}
             onChange={(e) => setExpiryDate(e.target.value)}
+            disabled={!!item && !tracksExpiry}
+            helperText={item && !tracksExpiry ? 'Item Master marks this item as having no expiry' : undefined}
             slotProps={{ inputLabel: { shrink: true } }}
             fullWidth
           />

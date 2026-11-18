@@ -17,7 +17,7 @@ export interface ReceivingBackupPayload {
   requiresBatchTracking?: boolean;
   reorderLevel?: number;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   receivedDate: string;
   qty: number;
   purchasePrice: number;

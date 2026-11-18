@@ -184,7 +184,7 @@ export default function ReturnPurchaseInvoicePage() {
       qty: Number(qty),
       bonusQty: Number(bonusQty) || 0,
       batchNo: batchNo.trim(),
-      expiryDate: '',
+      expiryDate: null,
       unitPurchasePrice: Number(unitPurchasePrice),
       discountTiers: [0, 0, 0],
     });
@@ -653,7 +653,7 @@ export default function ReturnPurchaseInvoicePage() {
                       <TableCell>{l.itemNameEn}</TableCell>
                       <TableCell align="right">{formatQty(l.qty)}</TableCell>
                       <TableCell align="right">{formatQty(l.bonusQty || 0)}</TableCell>
-                      <TableCell>{l.batchNo} · {l.expiryDate}</TableCell>
+                      <TableCell>{l.batchNo} · {l.expiryDate ?? '—'}</TableCell>
                       <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                       <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                     </TableRow>

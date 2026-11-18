@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Item } from '../types/catalog';
-import type { PurchaseLine, Vendor } from '../types/purchasing';
+import type { PurchaseInvoice, PurchaseLine, Vendor } from '../types/purchasing';
 import { computeCostPrice } from './pricing';
 import {
   MAX_PURCHASE_DISCOUNT_TIERS,
@@ -24,6 +24,7 @@ import {
   formatDiscountInput,
   formatDiscountPercent,
   formatVendorNo,
+  lastPurchaseUnitPrice,
   maxVendorNumber,
   nextVendorNumber,
   pricePurchaseLine,
@@ -519,5 +520,78 @@ describe('discount input mask', () => {
   it('round-trips a typed percentage through storage and back into the field', () => {
     const typed = '16.67';
     expect(formatDiscountInput(discountInputToFraction(typed))).toBe(typed);
+  });
+});
+
+describe('lastPurchaseUnitPrice', () => {
+  function invoice(id: string, receivedAt: string, lines: PurchaseLine[], overrides: Partial<PurchaseInvoice> = {}): PurchaseInvoice {
+    return {
+      id,
+      invoiceNo: `PUR-${id}`,
+      vendorInvoiceNo: `V-${id}`,
+      vendorId: 'v-1',
+      vendorNameAr: 'مورد',
+      vendorNameEn: 'Vendor',
+      date: receivedAt.slice(0, 10),
+      receivedAt,
+      receivedBy: 'tester',
+      lines,
+      subtotalExclVat: 0,
+      totalDiscount: 0,
+      totalBonusValue: 0,
+      netExclVat: 0,
+      totalVatAmount: 0,
+      totalInclVat: 0,
+      vatByRate: [],
+      ...overrides,
+    };
+  }
+
+  function purchaseLine(unitPrice: number, packLevel?: 'box' | 'strip'): PurchaseLine {
+    return pricePurchaseLine({
+      item: item(packLevel ? { pack: { cartonSize: 10, boxSize: 10, stripSize: 10 } } : {}),
+      qty: 1,
+      batchNo: 'B1',
+      expiryDate: '2027-10-26',
+      unitPurchasePrice: unitPrice,
+      packLevel,
+    });
+  }
+
+  it('returns the price from the newest posted purchase, not the first or the highest', () => {
+    const older = invoice('1', '2026-01-01T00:00:00.000Z', [purchaseLine(3.5)]);
+    const newer = invoice('2', '2026-05-01T00:00:00.000Z', [purchaseLine(4.25)]);
+    expect(lastPurchaseUnitPrice(item(), [older, newer])).toBe(4.25);
+  });
+
+  it('ignores credit notes and the invoice currently being corrected', () => {
+    const purchase = invoice('1', '2026-01-01T00:00:00.000Z', [purchaseLine(3.5)]);
+    const credit = invoice('2', '2026-05-01T00:00:00.000Z', [purchaseLine(3.5)], { isReturn: true });
+    const editing = invoice('3', '2026-06-01T00:00:00.000Z', [purchaseLine(9.99)]);
+    expect(lastPurchaseUnitPrice(item(), [purchase, credit, editing], undefined, '3')).toBe(3.5);
+  });
+
+  it('converts a box price into the requested strip price through the pack ladder', () => {
+    const packItem = item({ pack: { cartonSize: 10, boxSize: 10, stripSize: 10 } });
+    const purchase = invoice('1', '2026-01-01T00:00:00.000Z', [purchaseLine(100, 'box')]);
+    // 100 per box / 10 strips = 10 per strip.
+    expect(lastPurchaseUnitPrice(packItem, [purchase], 'strip')).toBe(10);
+  });
+
+  it('returns null when the item has never been purchased', () => {
+    expect(lastPurchaseUnitPrice(item(), [])).toBeNull();
+    const otherItemPurchase = invoice('1', '2026-01-01T00:00:00.000Z', [purchaseLine(3.5)]);
+    expect(lastPurchaseUnitPrice(item({ id: 'itm-2' }), [otherItemPurchase])).toBeNull();
+  });
+
+  it('keeps a null expiry as null rather than inventing a date', () => {
+    const line = pricePurchaseLine({
+      item: item(),
+      qty: 1,
+      batchNo: 'B1',
+      expiryDate: null,
+      unitPurchasePrice: 3.5,
+    });
+    expect(line.expiryDate).toBeNull();
   });
 });

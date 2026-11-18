@@ -20,7 +20,12 @@ export default function InventoryPage() {
     return batches
       .map((b) => ({ batch: b, item: items.find((i) => i.id === b.itemId)! }))
       .filter((r) => r.item && (!q || r.item.nameEn.toLowerCase().includes(q) || r.item.nameAr.includes(q) || itemCodes(r.item).some((code) => code.toLowerCase().includes(q))))
-      .sort((a, b) => a.batch.expiryDate.localeCompare(b.batch.expiryDate));
+      .sort((a, b) => {
+        if (a.batch.expiryDate === null && b.batch.expiryDate === null) return 0;
+        if (a.batch.expiryDate === null) return 1;
+        if (b.batch.expiryDate === null) return -1;
+        return a.batch.expiryDate.localeCompare(b.batch.expiryDate);
+      });
   }, [batches, items, filter]);
 
   const nearExpiryCount = rows.filter((r) => isNearExpiry(r.batch.expiryDate) && r.batch.qtyOnHand > 0).length;
@@ -68,7 +73,7 @@ export default function InventoryPage() {
                   <Typography variant="caption" color="text.secondary">{item.nameAr} · {itemCodes(item).join(' / ')}</Typography>
                 </TableCell>
                 <TableCell>{batch.batchNo}</TableCell>
-                <TableCell>{batch.expiryDate}</TableCell>
+                <TableCell>{batch.expiryDate ?? '—'}</TableCell>
                 <TableCell align="right">
                   {item.pack ? (
                     <>
@@ -118,6 +123,8 @@ export default function InventoryPage() {
                     <Chip size="small" color="error" label="Expired" />
                   ) : isNearExpiry(batch.expiryDate) ? (
                     <Chip size="small" color="warning" label={`${daysUntil(batch.expiryDate)}d left`} />
+                  ) : batch.expiryDate === null ? (
+                    <Chip size="small" variant="outlined" label="No expiry" />
                   ) : batch.qtyOnHand <= item.reorderLevel ? (
                     <Chip size="small" color="info" label="Reorder soon" />
                   ) : (

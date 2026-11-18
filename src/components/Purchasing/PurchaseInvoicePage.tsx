@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  Divider, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, FormControl, FormControlLabel, IconButton, InputLabel, List, ListItemButton,
+  ListItemText, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, TextField, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -15,8 +16,8 @@ import type { Item, PackLevel } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
-import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, formatDiscountInput, formatDiscountPercent, pricePurchaseLine } from '../../utils/purchasing';
-import { itemCodes } from '../../utils/itemMaster';
+import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, formatDiscountInput, formatDiscountPercent, lastPurchaseUnitPrice, pricePurchaseLine } from '../../utils/purchasing';
+import { itemCodes, itemTracksExpiry } from '../../utils/itemMaster';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels } from '../../utils/packUnits';
 import { cleanVatNumberInput, isVatNumberComplete, isVatNumberEmptyOrComplete } from '../../utils/vat';
 import { alertWithSound } from '../../utils/alertSound';
@@ -78,6 +79,12 @@ export default function PurchaseInvoicePage() {
 
   // ---- line entry
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  // POS-style item search: one field takes a scanned barcode OR a typed name/SKU and shows a short
+  // suggestion list underneath, so purchase entry finds items exactly the way the till does.
+  const [itemQuery, setItemQuery] = useState('');
+  const [isItemSearchFocused, setIsItemSearchFocused] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const itemSearchRef = useRef<HTMLInputElement>(null);
   const [qty, setQty] = useState('');
   const [bonusQty, setBonusQty] = useState('');
   const [batchNo, setBatchNo] = useState('');
@@ -165,9 +172,28 @@ export default function PurchaseInvoicePage() {
   });
 
   const tierValid = entryTiers.every((d) => d >= 0 && d <= 1);
+  // Same substring match as the POS (name AR/EN or ANY scannable code). Capped short because the
+  // list hangs under one field; Enter takes the highlighted row, or the first one.
+  const itemSuggestions = useMemo(() => {
+    const q = itemQuery.trim().toLowerCase();
+    if (!q) return [];
+    return items
+      .filter(
+        (i) =>
+          i.nameEn.toLowerCase().includes(q) ||
+          i.nameAr.includes(q) ||
+          itemCodes(i).some((code) => code.toLowerCase().includes(q)),
+      )
+      .slice(0, 8);
+  }, [items, itemQuery]);
+  const itemDropdownOpen = isItemSearchFocused && itemSuggestions.length > 0;
+  // An item without an expiry date (Item Master switch off) must be receivable without inventing a
+  // date; everything else still has to carry one. The price is always mandatory: a zero/blank
+  // purchase price would post a batch with no cost and skew every margin report.
+  const expiryRequired = !!selectedItem && itemTracksExpiry(selectedItem);
   const lineValid =
-    !!selectedItem && Number(qty) > 0 && Number(bonusQty || '0') >= 0 && !!batchNo.trim() && !!expiryDate &&
-    Number(unitPurchasePrice) >= 0 && tierValid;
+    !!selectedItem && Number(qty) > 0 && Number(bonusQty || '0') >= 0 && !!batchNo.trim() &&
+    (!expiryRequired || !!expiryDate) && Number(unitPurchasePrice) > 0 && tierValid;
 
   const totals = useMemo(() => computePurchaseTotals(lines), [lines]);
 
@@ -183,6 +209,8 @@ export default function PurchaseInvoicePage() {
   function resetLineEntry() {
     setEditingLineId(null);
     setSelectedItem(null);
+    setItemQuery('');
+    setHighlightedIndex(-1);
     setQty('');
     setBonusQty('');
     setBatchNo('');
@@ -194,6 +222,59 @@ export default function PurchaseInvoicePage() {
     setDiscountPercent3('');
   }
 
+  // Pick an item from the search dropdown / scan result. The unit price defaults to the item's last
+  // purchase price in the invoice unit being used, so a repeat delivery is one Enter + qty away;
+  // the owner can still overwrite the field, and a never-purchased item leaves it blank (the Add
+  // button stays disabled until a price is typed).
+  function selectItem(item: Item) {
+    setSelectedItem(item);
+    setItemQuery('');
+    setHighlightedIndex(-1);
+    const lastPrice = lastPurchaseUnitPrice(
+      item,
+      invoices,
+      item.pack ? receiveUnit : undefined,
+      editing?.id,
+    );
+    setUnitPurchasePrice(lastPrice !== null ? String(lastPrice) : '');
+    if (!itemTracksExpiry(item)) setExpiryDate('');
+    itemSearchRef.current?.focus();
+  }
+
+  function submitItemSearch() {
+    const q = itemQuery.trim().toLowerCase();
+    if (!q) return;
+    // An exact barcode/SKU/name wins outright (a scanner types the whole code instantly); otherwise
+    // the highlighted suggestion, else the first one - the same "Enter selects" rule as the POS.
+    const exact = items.find(
+      (i) =>
+        i.nameEn.toLowerCase() === q ||
+        i.nameAr.trim().toLowerCase() === q ||
+        itemCodes(i).some((code) => code.toLowerCase() === q),
+    );
+    const target = exact ?? (highlightedIndex >= 0 ? itemSuggestions[highlightedIndex] : itemSuggestions[0]);
+    if (target) selectItem(target);
+  }
+
+  function handleItemSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (itemDropdownOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      setHighlightedIndex((i) => {
+        const next = e.key === 'ArrowDown' ? i + 1 : i - 1;
+        if (next < 0) return itemSuggestions.length - 1;
+        if (next >= itemSuggestions.length) return 0;
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitItemSearch();
+      return;
+    }
+    if (e.key === 'Escape') setIsItemSearchFocused(false);
+  }
+
   function addLine() {
     if (!lineValid || !selectedItem) return;
     const line = pricePurchaseLine({
@@ -201,7 +282,7 @@ export default function PurchaseInvoicePage() {
       qty: Number(qty),
       bonusQty: Number(bonusQty || '0'),
       batchNo: batchNo.trim(),
-      expiryDate,
+      expiryDate: itemTracksExpiry(selectedItem) ? expiryDate : null,
       unitPurchasePrice: Number(unitPurchasePrice),
       discountTiers: entryTiers,
       packLevel: selectedItem.pack ? receiveUnit : undefined,
@@ -223,7 +304,7 @@ export default function PurchaseInvoicePage() {
     setQty(String(line.qty));
     setBonusQty(line.bonusQty > 0 ? String(line.bonusQty) : '');
     setBatchNo(line.batchNo);
-    setExpiryDate(line.expiryDate);
+    setExpiryDate(line.expiryDate ?? '');
     setUnitPurchasePrice(String(line.unitPurchasePrice));
     setReceiveUnit(line.packLevel ?? 'box');
     setDiscountPercent1(formatDiscountInput(line.discount1Percent));
@@ -543,30 +624,68 @@ export default function PurchaseInvoicePage() {
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Add Line</Typography>
           <Stack spacing={2}>
-            <Autocomplete
-              options={items}
-              value={selectedItem}
-              onChange={(_, v) => setSelectedItem(v)}
-              getOptionLabel={(o) => o.nameEn}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="body2">{o.nameEn}</Typography>
-                    <Typography variant="caption" color="text.secondary">{o.nameAr} · {itemCodes(o).join(' / ')}</Typography>
-                  </Box>
-                  <Chip
-                    size="small"
-                    label={o.vatRate > 0 ? `VAT ${(o.vatRate * 100).toFixed(0)}%` : 'Zero-rated'}
-                    color={o.vatRate > 0 ? 'default' : 'success'}
-                    variant="outlined"
-                  />
-                </Box>
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                inputRef={itemSearchRef}
+                fullWidth
+                label="Scan barcode or type item name / SKU, then Enter"
+                size="small"
+                value={itemQuery}
+                onChange={(e) => {
+                  setItemQuery(e.target.value);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => setIsItemSearchFocused(true)}
+                onBlur={() => setIsItemSearchFocused(false)}
+                onKeyDown={handleItemSearchKeyDown}
+              />
+              {itemDropdownOpen && (
+                <Paper
+                  elevation={4}
+                  sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
+                >
+                  <List dense disablePadding>
+                    {itemSuggestions.map((item, i) => (
+                      <ListItemButton
+                        key={item.id}
+                        selected={i === highlightedIndex}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => selectItem(item)}
+                      >
+                        <ListItemText
+                          primary={item.nameEn}
+                          secondary={`${item.nameAr} · ${itemCodes(item).join(' / ')}`}
+                        />
+                        <Chip
+                          size="small"
+                          label={item.vatRate > 0 ? `VAT ${(item.vatRate * 100).toFixed(0)}%` : 'Zero-rated'}
+                          color={item.vatRate > 0 ? 'default' : 'success'}
+                          variant="outlined"
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Paper>
               )}
-              renderInput={(params) => (
-                <TextField {...params} label="Item (name or scroll)" size="small" fullWidth />
-              )}
-            />
+            </Box>
+            {selectedItem && (
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                <Chip
+                  label={`${selectedItem.nameEn} · ${selectedItem.nameAr}`}
+                  color="primary"
+                  variant="outlined"
+                  onDelete={() => {
+                    setSelectedItem(null);
+                    setUnitPurchasePrice('');
+                    setExpiryDate('');
+                    itemSearchRef.current?.focus();
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {itemCodes(selectedItem).join(' / ')}
+                </Typography>
+              </Stack>
+            )}
             <Stack direction="row" spacing={1.5}>
               {selectedItem?.pack && (
                 <FormControl size="small" sx={{ minWidth: 130 }}>
@@ -575,7 +694,16 @@ export default function PurchaseInvoicePage() {
                     labelId="purchase-unit-label"
                     label="Invoice unit"
                     value={receiveUnit}
-                    onChange={(e) => setReceiveUnit(e.target.value as PackLevel)}
+                    onChange={(e) => {
+                      const next = e.target.value as PackLevel;
+                      setReceiveUnit(next);
+                      // Re-express the default price in the newly chosen unit (the owner can still
+                      // overwrite the field afterwards).
+                      if (selectedItem) {
+                        const lastPrice = lastPurchaseUnitPrice(selectedItem, invoices, next, editing?.id);
+                        if (lastPrice !== null) setUnitPurchasePrice(String(lastPrice));
+                      }
+                    }}
                   >
                     {purchasePackLevels(selectedItem.pack).map((level) => (
                       <MenuItem key={level} value={level}>{PACK_LEVEL_LABEL_PLURAL[level]}</MenuItem>
@@ -605,11 +733,22 @@ export default function PurchaseInvoicePage() {
             <Stack direction="row" spacing={1.5}>
               <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
               <TextField
-                label="Expiry Date"
+                label={
+                  selectedItem && !itemTracksExpiry(selectedItem)
+                    ? 'Expiry Date (none)'
+                    : 'Expiry Date'
+                }
                 type="date"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
                 size="small"
+                disabled={!!selectedItem && !itemTracksExpiry(selectedItem)}
+                required={!selectedItem || itemTracksExpiry(selectedItem)}
+                helperText={
+                  selectedItem && !itemTracksExpiry(selectedItem)
+                    ? 'Item Master marks this item as having no expiry'
+                    : undefined
+                }
                 slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
@@ -621,6 +760,12 @@ export default function PurchaseInvoicePage() {
                 value={unitPurchasePrice}
                 onChange={(e) => setUnitPurchasePrice(e.target.value)}
                 size="small"
+                required
+                helperText={
+                  selectedItem && Number(unitPurchasePrice) <= 0
+                    ? 'Required — defaults to the last purchase price'
+                    : 'Defaults to the last purchase price'
+                }
                 slotProps={{ htmlInput: { step: '0.001', min: 0 } }}
                 fullWidth
               />
@@ -704,7 +849,7 @@ export default function PurchaseInvoicePage() {
                           )}
                         </TableCell>
                         <TableCell>{l.batchNo}</TableCell>
-                        <TableCell>{l.expiryDate}</TableCell>
+                        <TableCell>{l.expiryDate ?? '—'}</TableCell>
                         <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                         <TableCell align="right">
                           {formatUnitPrice(lineUnitCost(l))}
@@ -952,7 +1097,7 @@ export default function PurchaseInvoicePage() {
                           <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} bonus</Typography>
                         )}
                       </TableCell>
-                      <TableCell>{l.batchNo} · {l.expiryDate}</TableCell>
+                      <TableCell>{l.batchNo} · {l.expiryDate ?? '—'}</TableCell>
                       <TableCell align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                       <TableCell align="right">
                         {formatUnitPrice(lineUnitCost(l))}

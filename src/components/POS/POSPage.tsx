@@ -513,7 +513,7 @@ export default function POSPage() {
           itemNameEn: line.itemNameEn,
           itemNameAr: line.itemNameAr,
           batchNo: line.batchNo,
-          expiryDate: line.expiryDate,
+          expiryDate: line.expiryDate ?? undefined,
           qty: line.qty,
           unit: line.unit,
           nupcoUnitPrice: line.nupcoUnitPrice ?? line.unitPrice,
@@ -864,7 +864,7 @@ export default function POSPage() {
                 </TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   <Typography variant="caption">
-                    {l.batchNo} · {l.expiryDate}
+                    {l.batchNo} · {l.expiryDate ?? 'No expiry'}
                   </Typography>
                   {isNearExpiry(l.expiryDate) && <Chip size="small" color="warning" label="Near expiry" sx={{ ml: 0.5 }} />}
                 </TableCell>

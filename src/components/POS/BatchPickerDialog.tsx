@@ -28,7 +28,7 @@ export default function BatchPickerDialog({ open, item, batches, onPick, onClose
             <ListItemButton key={b.id} onClick={() => onPick(b)} divider>
               <ListItemText
                 primary={`Batch ${b.batchNo}`}
-                secondary={`Expires ${b.expiryDate} · ${formatQty(b.qtyOnHand)} in stock`}
+                secondary={`${b.expiryDate ? `Expires ${b.expiryDate}` : 'No expiry'} · ${formatQty(b.qtyOnHand)} in stock`}
               />
               <Stack direction="row" spacing={1}>
                 {idx === 0 && <Chip size="small" color="primary" label="FEFO suggested" />}

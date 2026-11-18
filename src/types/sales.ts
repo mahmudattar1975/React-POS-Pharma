@@ -26,7 +26,7 @@ export interface SaleLine {
   itemNameEn: string;
   batchId: string;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   qty: number;
   // Only for items with a pack ladder: the level sold (box/strip/tablet) and the tablet count it
   // represented, so a later return puts back exactly what left the shelf even if the item's pack

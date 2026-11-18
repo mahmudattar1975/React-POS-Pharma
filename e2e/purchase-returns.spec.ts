@@ -16,8 +16,8 @@ test.describe('purchase returns', () => {
     await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
     await page.getByLabel("Vendor's invoice no").fill('RTN-PUR-2026-001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('10');
     await page.getByLabel('Batch / Lot No.').fill('RTN26A01');
     await page.getByLabel('Expiry Date').fill('2028-06-30');
@@ -92,8 +92,8 @@ test.describe('purchase returns', () => {
     await page.getByRole('option', { name: /Al-Noor Medical Center/ }).click();
     await page.getByLabel('Customer document no').fill('CUS-RTN-2026-001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('5');
     await page.getByLabel('Batch / Lot No.').fill('CUSRTN26A01');
     await page.getByLabel('Expiry Date').fill('2028-07-31');
@@ -155,8 +155,8 @@ test.describe('purchase returns', () => {
     await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
     await page.getByLabel("Vendor's invoice no").fill('ACT-RTN-2026-001');
 
-    await page.getByLabel('Item (name or scroll)').fill('Paracetamol');
-    await page.getByRole('option', { name: /Paracetamol 500mg/ }).click();
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
+    await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
     await page.getByLabel('Qty (paid)').fill('10');
     await page.getByLabel('Batch / Lot No.').fill('ACT26A01');
     await page.getByLabel('Expiry Date').fill('2028-09-30');

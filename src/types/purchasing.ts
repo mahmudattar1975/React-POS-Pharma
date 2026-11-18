@@ -65,7 +65,7 @@ export interface PurchaseLine {
   packLevel?: PackLevel;
   vatRate: number; // from the item master - input tax is per line, like sales (see types/catalog.ts)
   batchNo: string;
-  expiryDate: string; // ISO date
+  expiryDate: string | null; // ISO date; null when the item does not carry an expiry
   // PAID quantity - the supplier's chargeable units (legacy em_5 / FTRNBUYR.PUR_QTY), excluding
   // free goods. round3 applies to tier/cost math, not here.
   qty: number;

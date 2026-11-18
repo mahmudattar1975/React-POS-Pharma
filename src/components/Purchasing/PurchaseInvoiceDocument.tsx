@@ -185,7 +185,7 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                 </TableCell>
                 <TableCell sx={TD}>
                   {l.batchNo}
-                  <Typography sx={{ fontSize: 9.5, color: '#444' }}>{l.expiryDate}</Typography>
+                  <Typography sx={{ fontSize: 9.5, color: '#444' }}>{l.expiryDate ?? '—'}</Typography>
                 </TableCell>
                 <TableCell sx={TD} align="right">{formatUnitPrice(l.unitPurchasePrice)}</TableCell>
                 <TableCell sx={TD} align="right">

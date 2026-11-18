@@ -18,7 +18,7 @@ import type { Item, PackLevel } from '../types/catalog';
 import type { PurchaseInvoice, PurchaseLine, Vendor } from '../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../types/party';
 import { computeCostPrice } from './pricing';
-import { PACK_LEVEL_LABEL } from './packUnits';
+import { PACK_LEVEL_LABEL, tabletsPerUnit } from './packUnits';
 import { groupVatByRate, round2, round3, type VatBucket } from './vat';
 
 // Up to three cascading discount tiers, as fractions (0.2 = 20%). The SCR entry screen exposes
@@ -96,7 +96,7 @@ export interface PricePurchaseLineInput {
   // bonus are all in this unit.
   packLevel?: PackLevel;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   unitPurchasePrice: number;
   // tier-1 shorthand - keeps the single-discount callers (tests, old snippets) working exactly
   // as before. Ignored when discountTiers is provided.
@@ -218,6 +218,40 @@ export function pricePurchaseLine(input: PricePurchaseLineInput): PurchaseLine {
     vatAmount,
     totalInclVat: round2(netExclVat + vatAmount),
   };
+}
+
+// Purchase entry used to ask the owner to retype the same shelf price delivery after delivery. The
+// form now defaults the unit price to what this item was last bought at (newest posted purchase,
+// credit notes excluded) and the user can still overwrite it. When the invoice is written in a
+// different pack level than last time, the old price is converted through the pack ladder so the
+// default is expressed in the unit of the line being entered. Returns null for a never-purchased
+// item so the caller can leave the field blank and force the user to type a price.
+export function lastPurchaseUnitPrice(
+  item: Item,
+  invoices: PurchaseInvoice[],
+  packLevel?: PackLevel,
+  excludeInvoiceId?: string,
+): number | null {
+  let latest: { at: string; price: number; level?: PackLevel } | null = null;
+  for (const invoice of invoices) {
+    if (invoice.isReturn || invoice.id === excludeInvoiceId) continue;
+    for (const line of invoice.lines) {
+      if (line.itemId !== item.id || !(line.unitPurchasePrice > 0)) continue;
+      const at = invoice.receivedAt || invoice.date;
+      if (!latest || at.localeCompare(latest.at) >= 0) {
+        latest = { at, price: line.unitPurchasePrice, level: line.packLevel };
+      }
+    }
+  }
+  if (!latest) return null;
+  if (!item.pack) return latest.price;
+  const targetLevel = packLevel ?? 'box';
+  const sourceLevel = latest.level ?? 'box';
+  if (sourceLevel === targetLevel) return latest.price;
+  return round2(
+    (latest.price * tabletsPerUnit(item.pack, targetLevel)) /
+      tabletsPerUnit(item.pack, sourceLevel),
+  );
 }
 
 export interface PurchaseTotals {

@@ -46,6 +46,9 @@ export interface ItemMasterFormValues {
   vendorNo: string;
   scientificName: string;
   requiresBatchTracking: boolean;
+  // Whether the item has an expiry date at all. Most pharmacy stock does; supplies/equipment do
+  // not, and receiving one must not invent a 1900-01-01 date that FEFO would treat as expired.
+  hasExpiry: boolean;
   isActive: boolean;
   controlledStatus: ControlledStatus | '';
   // Dosage-instruction library links. The item can carry several suitable directions and mark one
@@ -89,6 +92,7 @@ export const EMPTY_ITEM_FORM: ItemMasterFormValues = {
   vendorNo: '',
   scientificName: '',
   requiresBatchTracking: true,
+  hasExpiry: true,
   isActive: true,
   controlledStatus: '',
   dosageIds: [],
@@ -157,6 +161,7 @@ export function itemToForm(item: Item): ItemMasterFormValues {
     vendorNo: item.vendorNo ?? '',
     scientificName: item.scientificName ?? '',
     requiresBatchTracking: item.requiresBatchTracking,
+    hasExpiry: item.hasExpiry !== false,
     isActive: item.isActive !== false,
     controlledStatus: item.controlledStatus ?? '',
     dosageIds: item.dosageIds ?? [],
@@ -171,6 +176,12 @@ export function itemToForm(item: Item): ItemMasterFormValues {
 function optionalText(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;
+}
+
+// Every caller that decides whether to ask for an expiry date goes through this: undefined means
+// yes, so an item saved before the flag existed keeps the old behaviour.
+export function itemTracksExpiry(item: Pick<Item, 'hasExpiry'>): boolean {
+  return item.hasExpiry !== false;
 }
 
 // The Barcode field is an internal identifier (the legacy screen's "القارئ الضوئي"), not
@@ -424,6 +435,8 @@ export function formToItemInput(values: ItemMasterFormValues): Omit<Item, 'id' |
     basePrice: Number(values.basePrice),
     vatRate: Number(values.vatRate),
     requiresBatchTracking: values.requiresBatchTracking,
+    // undefined means "has an expiry" (every pre-existing item), so only the opt-out is stored.
+    hasExpiry: values.hasExpiry ? undefined : false,
     reorderLevel: Number(values.reorderLevel),
     controlledStatus: values.controlledStatus === '' ? undefined : values.controlledStatus,
     gtin: undefined,

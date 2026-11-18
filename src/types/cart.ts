@@ -8,7 +8,7 @@ export interface CartLine {
   itemNameEn: string;
   batchId: string;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   unit: string;
   // Set only for items with a pack ladder. `qty`/`unitPrice` are in this level (2 boxes @ 10.00),
   // while baseQty is the tablet count actually deducted from the batch at checkout.

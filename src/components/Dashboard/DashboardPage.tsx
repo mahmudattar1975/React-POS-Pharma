@@ -500,7 +500,7 @@ export default function DashboardPage() {
                     <TableRow key={`${row.name}-${row.batchNo}`} hover>
                       <TableCell>{row.name}</TableCell>
                       <TableCell>{row.batchNo}</TableCell>
-                      <TableCell>{row.expiryDate}</TableCell>
+                      <TableCell>{row.expiryDate ?? '—'}</TableCell>
                       <TableCell align="right">{formatQty(row.qty)}</TableCell>
                     </TableRow>
                   ))}

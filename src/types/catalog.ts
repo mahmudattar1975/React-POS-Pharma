@@ -52,6 +52,11 @@ export interface Item {
   // worked examples of both categories.
   vatRate: number;
   requiresBatchTracking: boolean; // true for virtually all pharmacy stock
+  // Whether the product carries an expiry date at all. undefined = yes (the safe default for every
+  // item that existed before this flag). Set to false for non-dated goods (supplies, equipment,
+  // some cosmetics) so receiving stores a null expiry instead of a fake 1900-01-01 that would then
+  // sort as "expired" in FEFO and every expiry report.
+  hasExpiry?: boolean;
   reorderLevel: number;
   // ---- Optional item-master metadata, mirroring FCODSTOCK -------------------------------------
   // The legacy screen (phstock.pbl's w_scrn_stock_data) carries these beside the sell-side fields
@@ -94,7 +99,7 @@ export interface Batch {
   id: string;
   itemId: string;
   batchNo: string;
-  expiryDate: string; // ISO date (yyyy-mm-dd)
+  expiryDate: string | null; // ISO date (yyyy-mm-dd); null = the item has no expiry date
   receivedDate: string; // ISO date
   qtyOnHand: number;
   // Purchase price (the supplier's box/invoice price, before discount), the vendor discount

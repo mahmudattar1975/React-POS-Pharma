@@ -185,7 +185,7 @@ export interface WasfatyClaimRow {
   itemNameEn: string;
   itemNameAr: string;
   batchNo: string;
-  expiryDate: string;
+  expiryDate: string | null;
   qty: number;
   unit: string;
   nupcoUnitPrice: number;

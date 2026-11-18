@@ -54,7 +54,7 @@ export interface DispenseEventLine {
   qty: number;
   unit: string;
   batchNo?: string;
-  expiryDate?: string;
+  expiryDate?: string | null;
 }
 
 export interface DispenseEvent {
