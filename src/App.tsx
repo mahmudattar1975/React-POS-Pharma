@@ -57,6 +57,7 @@ export default function App() {
                 <Route path="/head-office-receiving" element={<PurchasingHubPage />} />
                 <Route path="/returns" element={<SalesHubPage />} />
                 <Route path="/sales-invoices" element={<SalesHubPage />} />
+                <Route path="/controlled-register" element={<SalesHubPage />} />
                 <Route path="/cost-centers" element={<CostCentersHubPage />} />
                 <Route path="/expenses" element={<CostCentersHubPage />} />
                 <Route path="/category-map" element={<CostCentersHubPage />} />

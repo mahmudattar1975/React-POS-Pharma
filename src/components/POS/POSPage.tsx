@@ -40,6 +40,7 @@ import * as posApi from '../../api/posApi';
 import * as wasfatyApi from '../../api/wasfatyApi';
 import { usePendingSyncStore } from '../../store/pendingSyncStore';
 import { usePrescriptionStore } from '../../store/prescriptionStore';
+import { useControlledRegisterStore } from '../../store/controlledRegisterStore';
 import { POS_PAYMENT_METHOD } from '../../types/pos';
 import BatchPickerDialog from './BatchPickerDialog';
 import PaymentDialog from './PaymentDialog';
@@ -106,6 +107,7 @@ export default function POSPage() {
   // exact quantity per line, already validated by planDispense in the dialog.
   const [prescriptionDispense, setPrescriptionDispense] = useState<PrescriptionCaptureResult | null>(null);
   const recordPrescriptionDispense = usePrescriptionStore((s) => s.recordDispense);
+  const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
   // Labels for the sale that just finished, built from the registry once the dispense is recorded.
   // Kept in POS state (not the receipt) because the label dialog and the receipt must never be
   // mounted together - each owns a different @page rule.
@@ -472,6 +474,33 @@ export default function POSPage() {
         : undefined,
       posSaleId,
     };
+
+    // Controlled register: written BEFORE the batch decrements so the first movement of an item in
+    // a branch can seed its opening row from the shelf count. Every controlled sale line gets a
+    // row, even when no registry prescription was captured (older/overridden flows) - the register
+    // is the stock audit trail, not a prescription report.
+    saleLines
+      .filter((line) => line.controlledStatus)
+      .forEach((line) => {
+        recordControlledMovement({
+          kind: 'dispense',
+          itemId: line.itemId,
+          itemNameEn: line.itemNameEn,
+          itemNameAr: line.itemNameAr,
+          batchNo: line.batchNo,
+          expiryDate: line.expiryDate,
+          baseQty: line.baseQty ?? line.qty,
+          branchId: invoice.costCenterId,
+          prescriptionId: prescription?.registryId,
+          prescriptionNo: prescription?.prescriptionId,
+          prescriberName: prescription?.prescriberName,
+          patientNationalId: prescription?.patientNationalId,
+          invoiceId: invoice.id,
+          invoiceNo,
+          saleLineId: line.id,
+          pharmacist: settings.cashierName,
+        });
+      });
 
     lines.forEach((l) => decrementBatch(l.batchId, l.baseQty ?? l.qty));
     if (pointsRedeemed > 0) redeemPoints(customer.id, pointsRedeemed);

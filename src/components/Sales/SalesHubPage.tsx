@@ -1,8 +1,11 @@
 // Selling, refunding and the invoices those two produce are one counter workflow: the cashier
 // rings up a basket, takes goods back, and may need the tax invoice ZATCA stamped for either.
-// They share one nav entry ("Point of Sale") with three tabs. /returns and /sales-invoices keep
-// working as direct links so a bookmark or a pasted URL still opens the right tab; "/" keeps
-// opening the till.
+// They share one nav entry ("Point of Sale") with five tabs. /returns, /sales-invoices and
+// /controlled-register keep working as direct links so a bookmark or a pasted URL still opens the
+// right tab; "/" keeps opening the till.
+//
+// The controlled-drug register lives here rather than under Reports because it is written by the
+// same counter actions (dispense, return, write-off) and is read at the same counter.
 //
 // Deliberately no page heading here - the POS screen fills the viewport and a second title bar
 // would eat selling space. The tab strip alone tells you which side of the counter you're on.
@@ -12,14 +15,17 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import MedicationIcon from '@mui/icons-material/Medication';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import POSPage from '../POS/POSPage';
 import ReturnsPage from '../Returns/ReturnsPage';
 import PrescriptionsPage from '../Prescriptions/PrescriptionsPage';
+import ControlledRegisterPage from '../Prescriptions/ControlledRegisterPage';
 import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
   { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" /> },
+  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
 ];
@@ -52,8 +58,13 @@ export default function SalesHubPage() {
             <PrescriptionsPage />
           </Box>
         )}
-        {activeTab === 2 && <ReturnsPage />}
-        {activeTab === 3 && (
+        {activeTab === 2 && (
+          <Box sx={{ height: '100%', overflow: 'auto' }}>
+            <ControlledRegisterPage />
+          </Box>
+        )}
+        {activeTab === 3 && <ReturnsPage />}
+        {activeTab === 4 && (
           <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
             <Box sx={{ maxWidth: 1200 }}>
               <ZatcaInvoicesPanel />

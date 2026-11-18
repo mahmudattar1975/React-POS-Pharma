@@ -6,6 +6,8 @@ import {
 import { useSalesStore } from '../../store/salesStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useCustomerStore } from '../../store/customerStore';
+import { useControlledRegisterStore } from '../../store/controlledRegisterStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import type { ReturnHeader, ReturnLine, SaleHeader } from '../../types/sales';
 import { round2 } from '../../utils/vat';
 import { formatMoney, formatQty } from '../../utils/format';
@@ -42,6 +44,8 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 export default function ReturnsPage() {
   const { invoiceByNo, recordReturn, returns, invoices } = useSalesStore();
   const { incrementBatch } = useCatalogStore();
+  const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
+  const pharmacist = useSettingsStore((s) => s.settings.cashierName);
   const customers = useCustomerStore((s) => s.customers);
 
   const [search, setSearch] = useState('');
@@ -52,6 +56,7 @@ export default function ReturnsPage() {
   const [qtyByLine, setQtyByLine] = useState<Record<string, number>>({});
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [messageSeverity, setMessageSeverity] = useState<'success' | 'error'>('success');
 
   const invoice = invoiceByNo(invoiceNo);
 
@@ -109,6 +114,19 @@ export default function ReturnsPage() {
     const returnLines: ReturnLine[] = [];
     let totalRefund = 0;
 
+    // Controlled goods cannot go back on the shelf without a documented reason: the register row
+    // is the audit trail, and "customer changed their mind" vs "damaged" matters to the regulator.
+    const returning = invoice.lines.filter((line) => (qtyByLine[line.id] ?? 0) > 0);
+    if (returning.some((line) => line.controlledStatus) && !reason.trim()) {
+      setMessageSeverity('error');
+      setMessage('A reason is required to return a controlled item.');
+      return;
+    }
+
+    // Fixed before the lines are built so the stock movement and its register row quote the same
+    // return number as the document created below.
+    const returnNo = `RET-${String(returns.length + 1).padStart(6, '0')}`;
+
     const updatedLines = invoice.lines.map((l) => {
       const returnQty = Math.min(qtyByLine[l.id] ?? 0, l.qty - l.returnedQty);
       if (returnQty > 0) {
@@ -119,12 +137,38 @@ export default function ReturnsPage() {
         // twelve tablets. Using the stored baseQty means an item whose pack ladder was edited
         // after the sale still returns the right amount.
         const basePerUnit = l.baseQty && l.qty > 0 ? l.baseQty / l.qty : 1;
-        incrementBatch(l.batchId, Math.round(returnQty * basePerUnit));
+        const baseQty = Math.round(returnQty * basePerUnit);
+        // Register first, then stock: the return row reverses the original dispense row and the
+        // running balance must include the incoming quantity before the batch changes.
+        if (l.controlledStatus) {
+          recordControlledMovement({
+            kind: 'return',
+            itemId: l.itemId,
+            itemNameEn: l.itemNameEn,
+            itemNameAr: l.itemNameAr,
+            batchNo: l.batchNo,
+            expiryDate: l.expiryDate,
+            baseQty,
+            branchId: invoice.costCenterId,
+            prescriptionId: invoice.prescription?.registryId,
+            prescriptionNo: invoice.prescription?.prescriptionId,
+            prescriberName: invoice.prescription?.prescriberName,
+            patientNationalId: invoice.prescription?.patientNationalId,
+            invoiceId: invoice.id,
+            invoiceNo: invoice.invoiceNo,
+            saleLineId: l.id,
+            returnNo,
+            pharmacist,
+            reason: reason.trim(),
+          });
+        }
+        incrementBatch(l.batchId, baseQty);
       }
       return { ...l, returnedQty: l.returnedQty + returnQty };
     });
 
     if (returnLines.length === 0) {
+      setMessageSeverity('error');
       setMessage('Select at least one line quantity to return.');
       return;
     }
@@ -132,7 +176,7 @@ export default function ReturnsPage() {
     const fullyReturned = updatedLines.every((l) => l.returnedQty >= l.qty);
     const ret: ReturnHeader = {
       id: crypto.randomUUID(),
-      returnNo: `RET-${String(returns.length + 1).padStart(6, '0')}`,
+      returnNo,
       date: new Date().toISOString(),
       originalInvoiceId: invoice.id,
       originalInvoiceNo: invoice.invoiceNo,
@@ -176,6 +220,7 @@ export default function ReturnsPage() {
     let msg = `Refunded SAR ${formatMoney(totalRefund)} — ${ret.returnNo}`;
     if (pointsClawedBackThisReturn > 0) msg += ` · ${pointsClawedBackThisReturn} points clawed back`;
     if (pointsRefundedThisReturn > 0) msg += ` · ${pointsRefundedThisReturn} points refunded`;
+    setMessageSeverity('success');
     setMessage(msg);
     setQtyByLine({});
     setReason('');
@@ -283,7 +328,7 @@ export default function ReturnsPage() {
           </Table>
           <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth sx={{ mt: 2 }} />
           <Button variant="contained" sx={{ mt: 2 }} onClick={submitReturn}>Process Return</Button>
-          {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
+          {message && <Alert severity={messageSeverity} sx={{ mt: 2 }}>{message}</Alert>}
         </Paper>
       )}
     </Box>
