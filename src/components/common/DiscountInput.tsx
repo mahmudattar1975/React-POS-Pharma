@@ -13,6 +13,7 @@ interface Props {
   helperText?: string;
   size?: 'small' | 'medium';
   fullWidth?: boolean;
+  disabled?: boolean;
   sx?: SxProps<Theme>;
   autoFocus?: boolean;
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
@@ -25,6 +26,7 @@ export default function DiscountInput({
   helperText = DISCOUNT_FRACTION_HINT,
   size,
   fullWidth,
+  disabled,
   sx,
   autoFocus,
   onKeyDown,
@@ -46,6 +48,7 @@ export default function DiscountInput({
       helperText={helperText}
       size={size}
       fullWidth={fullWidth}
+      disabled={disabled}
       sx={sx}
       slotProps={{
         input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },

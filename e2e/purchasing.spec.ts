@@ -156,4 +156,62 @@ test.describe('purchase invoices', () => {
     await expect(lineRow).toContainText('SUP26A01');
     await expect(lineRow).toContainText('—');
   });
+
+  test('refuses lines until the vendor and their invoice number are entered', async ({ page }) => {
+    await page.goto('/purchases');
+
+    // The whole line panel is inactive until the document is identified - not just the Add button,
+    // so the owner can't spend time pricing a line that has nowhere to belong.
+    const itemSearch = page.getByLabel('Scan barcode or type item name / SKU, then Enter');
+    const addButton = page.getByRole('button', { name: 'Add line to invoice' });
+    await expect(itemSearch).toBeDisabled();
+    await expect(page.getByLabel('Qty (paid)')).toBeDisabled();
+    await expect(page.getByLabel('Bonus (free)')).toBeDisabled();
+    await expect(page.getByLabel('Batch / Lot No.')).toBeDisabled();
+    await expect(page.getByLabel('Expiry Date')).toBeDisabled();
+    await expect(page.getByLabel('Unit purchase price (excl. VAT)')).toBeDisabled();
+    await expect(page.getByLabel('Discount 1')).toBeDisabled();
+    await expect(addButton).toBeDisabled();
+    await expect(page.getByText(/every line must belong to an identified document/)).toBeVisible();
+
+    // The vendor alone is not enough - the vendor's own invoice number is the other half of the key.
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /Al-Hayat Drug Distribution/ }).click();
+    await expect(itemSearch).toBeDisabled();
+    await expect(page.getByLabel('Unit purchase price (excl. VAT)')).toBeDisabled();
+    await expect(addButton).toBeDisabled();
+
+    // With the document identified the fields open up and the explanation disappears.
+    await page.getByLabel("Vendor's invoice no").fill('HDR-2026-001');
+    await expect(page.getByText(/every line must belong to an identified document/)).toHaveCount(0);
+    await expect(itemSearch).toBeEnabled();
+
+    // Vitamin D3 is standard-rated (15%), so the VAT read-out is exercised too.
+    await itemSearch.fill('Vitamin D3');
+    await itemSearch.press('Enter');
+    await page.getByLabel('Qty (paid)').fill('10');
+    await page.getByLabel('Batch / Lot No.').fill('HDR26A01');
+    await page.getByLabel('Expiry Date').fill('2028-05-31');
+    await page.getByLabel('Unit purchase price (excl. VAT)').fill('2.5');
+
+    // 10 x 2.50 = 25.00 gross, and with no discount the net is the same, so VAT is 15% of 25.00.
+    await expect(page.getByLabel('Line net (excl. VAT)')).toHaveValue('25.00');
+    await expect(page.getByLabel('Input VAT (15%)')).toHaveValue('3.75');
+    await expect(page.getByLabel('Line total (incl. VAT)')).toHaveValue('28.75');
+    await expect(page.getByLabel('Value off #1 (SAR)')).toHaveValue('0.00');
+    await expect(page.getByLabel('Invoice total (incl. VAT, SAR)')).toHaveValue('0.00');
+
+    // Each discount field carries its own money value: 10% of 25.00 = 2.50 off, then VAT on 22.50.
+    await page.getByLabel('Discount 1').fill('10');
+    await expect(page.getByLabel('Value off #1 (SAR)')).toHaveValue('2.50');
+    await expect(page.getByLabel('Line net (excl. VAT)')).toHaveValue('22.50');
+    await expect(page.getByLabel('Input VAT (15%)')).toHaveValue('3.38');
+    await expect(page.getByLabel('Line total (incl. VAT)')).toHaveValue('25.88');
+
+    await expect(addButton).toBeEnabled();
+    await addButton.click();
+
+    await expect(page.getByRole('row', { name: /Vitamin D3 1000IU/ })).toContainText('HDR26A01');
+    await expect(page.getByLabel('Invoice total (incl. VAT, SAR)')).toHaveValue('25.88');
+  });
 });

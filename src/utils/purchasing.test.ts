@@ -27,6 +27,7 @@ import {
   lastPurchaseUnitPrice,
   maxVendorNumber,
   nextVendorNumber,
+  previewPurchaseLine,
   pricePurchaseLine,
 } from './purchasing';
 
@@ -328,6 +329,42 @@ describe('dilutedUnitCost', () => {
     expect(dilutedUnitCost({ qty: 0, bonusQty: 2760, unitPurchasePrice: 19.15, discountTiers: [0.1666] })).toBe(0);
     expect(dilutedUnitCost({ qty: 0, bonusQty: 0, unitPurchasePrice: 20 })).toBe(0);
     expect(dilutedUnitCost({ qty: 100, bonusQty: 10, unitPurchasePrice: 0 })).toBe(0);
+  });
+});
+
+describe('previewPurchaseLine', () => {
+  it('shows each cascade tier as the money it takes off the gross', () => {
+    // gross 10 x 3.5 = 35; t1 10% -> 3.5 (31.5 left); t2 5% -> 1.575 (29.925 left).
+    const p = previewPurchaseLine({ qty: 10, unitPurchasePrice: 3.5, vatRate: 0.15, discountTiers: [0.1, 0.05] });
+    expect(p.gross).toBe(35);
+    expect(p.tierAmounts).toEqual([3.5, 1.575, 0]);
+    expect(p.discountTotal).toBe(5.075);
+    expect(p.netExclVat).toBe(29.925);
+    expect(p.vatAmount).toBe(4.49);
+    expect(p.totalInclVat).toBe(34.42);
+  });
+
+  it('matches the line that posting actually produces', () => {
+    const tiers = [0.31];
+    const p = previewPurchaseLine({ qty: 12, unitPurchasePrice: 21.68, vatRate: 0.15, discountTiers: tiers });
+    const l = pricePurchaseLine({
+      item: item({ vatRate: 0.15 }),
+      qty: 12,
+      batchNo: 'PREV26A01',
+      expiryDate: '2028-05-31',
+      unitPurchasePrice: 21.68,
+      discountTiers: tiers,
+    });
+    expect(p.tierAmounts).toEqual([l.discount1Amount, l.discount2Amount, l.discount3Amount]);
+    expect(p.discountTotal).toBe(l.discountTotal);
+    expect(p.netExclVat).toBe(l.netExclVat);
+    expect(p.vatAmount).toBe(l.vatAmount);
+    expect(p.totalInclVat).toBe(l.totalInclVat);
+  });
+
+  it('reads zero before a quantity or price is typed', () => {
+    expect(previewPurchaseLine({ qty: 0, unitPurchasePrice: 3.5, vatRate: 0.15, discountTiers: [] }).totalInclVat).toBe(0);
+    expect(previewPurchaseLine({ qty: 5, unitPurchasePrice: 0, vatRate: 0.15, discountTiers: [0.1] }).gross).toBe(0);
   });
 });
 

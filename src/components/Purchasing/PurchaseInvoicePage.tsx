@@ -16,7 +16,7 @@ import type { Item, PackLevel } from '../../types/catalog';
 import type { PurchaseInvoice, PurchaseLine } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import { buildPartyTable } from '../../utils/party';
-import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, formatDiscountInput, formatDiscountPercent, lastPurchaseUnitPrice, pricePurchaseLine } from '../../utils/purchasing';
+import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, formatDiscountInput, formatDiscountPercent, lastPurchaseUnitPrice, previewPurchaseLine, pricePurchaseLine } from '../../utils/purchasing';
 import { itemCodes, itemTracksExpiry } from '../../utils/itemMaster';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels } from '../../utils/packUnits';
 import { cleanVatNumberInput, isVatNumberComplete, isVatNumberEmptyOrComplete } from '../../utils/vat';
@@ -172,6 +172,19 @@ export default function PurchaseInvoicePage() {
   });
 
   const tierValid = entryTiers.every((d) => d >= 0 && d <= 1);
+
+  // Money read-out for the line being typed: each tier's value under its field, the VAT the item's
+  // own rate adds, and the line total. Computed from the same cascade the posted line uses, and
+  // shown only once there is something to compute (an item, a quantity and a price).
+  const linePreview =
+    selectedItem && Number(qty) > 0 && Number(unitPurchasePrice) > 0
+      ? previewPurchaseLine({
+          qty: Number(qty),
+          unitPurchasePrice: Number(unitPurchasePrice),
+          vatRate: selectedItem.vatRate,
+          discountTiers: entryTiers,
+        })
+      : null;
   // Same substring match as the POS (name AR/EN or ANY scannable code). Capped short because the
   // list hangs under one field; Enter takes the highlighted row, or the first one.
   const itemSuggestions = useMemo(() => {
@@ -205,6 +218,12 @@ export default function PurchaseInvoicePage() {
     isVendorInvoiceNoUsed(party.id, vendorInvoiceNo, editing?.id);
 
   const invoiceHeaderValid = !!party && !!vendorInvoiceNo.trim() && !!date && lines.length > 0 && !duplicateVendorInvoice;
+
+  // Goods come after the document is identified: the owner picks the vendor and types the number
+  // printed on that vendor's paper invoice BEFORE any line is entered, so a line can never belong
+  // to a nameless receipt or be posted against the wrong supplier (and the duplicate-invoice check
+  // has a key to work with from the first line).
+  const headerReadyForLines = !!party && !!vendorInvoiceNo.trim();
 
   function resetLineEntry() {
     setEditingLineId(null);
@@ -276,7 +295,7 @@ export default function PurchaseInvoicePage() {
   }
 
   function addLine() {
-    if (!lineValid || !selectedItem) return;
+    if (!lineValid || !selectedItem || !headerReadyForLines) return;
     const line = pricePurchaseLine({
       item: selectedItem,
       qty: Number(qty),
@@ -623,6 +642,13 @@ export default function PurchaseInvoicePage() {
         {/* ---- line entry */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Add Line</Typography>
+          {!headerReadyForLines && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Select the {partyType === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'} and enter the{' '}
+              {partyType === PARTY_TYPE_FLAG.customer ? 'customer document no' : "vendor's invoice no"} above
+              before adding lines — every line must belong to an identified document.
+            </Alert>
+          )}
           <Stack spacing={2}>
             <Box sx={{ position: 'relative' }}>
               <TextField
@@ -631,6 +657,7 @@ export default function PurchaseInvoicePage() {
                 label="Scan barcode or type item name / SKU, then Enter"
                 size="small"
                 value={itemQuery}
+                disabled={!headerReadyForLines}
                 onChange={(e) => {
                   setItemQuery(e.target.value);
                   setHighlightedIndex(-1);
@@ -694,6 +721,7 @@ export default function PurchaseInvoicePage() {
                     labelId="purchase-unit-label"
                     label="Invoice unit"
                     value={receiveUnit}
+                    disabled={!headerReadyForLines}
                     onChange={(e) => {
                       const next = e.target.value as PackLevel;
                       setReceiveUnit(next);
@@ -717,6 +745,7 @@ export default function PurchaseInvoicePage() {
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 size="small"
+                disabled={!headerReadyForLines}
                 helperText={selectedItem?.pack ? 'Stock converts to tablets on posting' : 'Chargeable units'}
                 fullWidth
               />
@@ -726,12 +755,13 @@ export default function PurchaseInvoicePage() {
                 value={bonusQty}
                 onChange={(e) => setBonusQty(e.target.value)}
                 size="small"
+                disabled={!headerReadyForLines}
                 helperText="Free goods, never priced or taxed"
                 fullWidth
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
-              <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
+              <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" disabled={!headerReadyForLines} fullWidth />
               <TextField
                 label={
                   selectedItem && !itemTracksExpiry(selectedItem)
@@ -742,7 +772,7 @@ export default function PurchaseInvoicePage() {
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
                 size="small"
-                disabled={!!selectedItem && !itemTracksExpiry(selectedItem)}
+                disabled={!headerReadyForLines || (!!selectedItem && !itemTracksExpiry(selectedItem))}
                 required={!selectedItem || itemTracksExpiry(selectedItem)}
                 helperText={
                   selectedItem && !itemTracksExpiry(selectedItem)
@@ -760,6 +790,7 @@ export default function PurchaseInvoicePage() {
                 value={unitPurchasePrice}
                 onChange={(e) => setUnitPurchasePrice(e.target.value)}
                 size="small"
+                disabled={!headerReadyForLines}
                 required
                 helperText={
                   selectedItem && Number(unitPurchasePrice) <= 0
@@ -781,36 +812,108 @@ export default function PurchaseInvoicePage() {
             {/* All three vendor discount tiers are always shown, like the legacy screen's
                 em_11-1..3 masks. They cascade: #1 comes off the paid gross, #2 off what is left,
                 #3 off what is left after that - so any subset can be used without re-laying out
-                the form. Empty = 0 for that tier. */}
+                the form. Empty = 0 for that tier. Each field now carries its own money read-out so
+                the percentage can be checked against the vendor's paper before the line is added. */}
             <Typography variant="caption" color="text.secondary">
               Enter percentages (16.67% = 0.1667). Tiers cascade: #1 off the paid gross, #2 off what&apos;s
               left, #3 off what&apos;s left after that.
             </Typography>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <DiscountInput
-                label="Discount 1"
-                value={discountPercent1}
-                onChange={setDiscountPercent1}
+              <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
+                <DiscountInput
+                  label="Discount 1"
+                  value={discountPercent1}
+                  onChange={setDiscountPercent1}
+                  size="small"
+                  disabled={!headerReadyForLines}
+                />
+                <TextField
+                  label="Value off #1 (SAR)"
+                  value={linePreview ? formatMoney(linePreview.tierAmounts[0]) : ''}
+                  placeholder="0.00"
+                  size="small"
+                  disabled
+                  fullWidth
+                />
+              </Stack>
+              <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
+                <DiscountInput
+                  label="Discount 2"
+                  value={discountPercent2}
+                  onChange={setDiscountPercent2}
+                  size="small"
+                  disabled={!headerReadyForLines}
+                />
+                <TextField
+                  label="Value off #2 (SAR)"
+                  value={linePreview ? formatMoney(linePreview.tierAmounts[1]) : ''}
+                  placeholder="0.00"
+                  size="small"
+                  disabled
+                  fullWidth
+                />
+              </Stack>
+              <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
+                <DiscountInput
+                  label="Discount 3"
+                  value={discountPercent3}
+                  onChange={setDiscountPercent3}
+                  size="small"
+                  disabled={!headerReadyForLines}
+                />
+                <TextField
+                  label="Value off #3 (SAR)"
+                  value={linePreview ? formatMoney(linePreview.tierAmounts[2]) : ''}
+                  placeholder="0.00"
+                  size="small"
+                  disabled
+                  fullWidth
+                />
+              </Stack>
+            </Stack>
+            {/* The money the vendor will actually ask for: this line's net, the VAT its item rate
+                adds, the line total, and the invoice total including every line already added. */}
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <TextField
+                label="Line net (excl. VAT)"
+                value={linePreview ? formatMoney(linePreview.netExclVat) : ''}
+                placeholder="0.00"
                 size="small"
-                sx={{ flex: '1 1 190px', minWidth: 190 }}
+                disabled
+                sx={{ flex: '1 1 170px' }}
               />
-              <DiscountInput
-                label="Discount 2"
-                value={discountPercent2}
-                onChange={setDiscountPercent2}
+              <TextField
+                label={
+                  selectedItem && selectedItem.vatRate > 0
+                    ? `Input VAT (${(selectedItem.vatRate * 100).toFixed(0)}%)`
+                    : selectedItem
+                      ? 'Input VAT (zero-rated)'
+                      : 'Input VAT'
+                }
+                value={linePreview ? formatMoney(linePreview.vatAmount) : ''}
+                placeholder="0.00"
                 size="small"
-                sx={{ flex: '1 1 190px', minWidth: 190 }}
+                disabled
+                sx={{ flex: '1 1 170px' }}
               />
-              <DiscountInput
-                label="Discount 3"
-                value={discountPercent3}
-                onChange={setDiscountPercent3}
+              <TextField
+                label="Line total (incl. VAT)"
+                value={linePreview ? formatMoney(linePreview.totalInclVat) : ''}
+                placeholder="0.00"
                 size="small"
-                sx={{ flex: '1 1 190px', minWidth: 190 }}
+                disabled
+                sx={{ flex: '1 1 170px' }}
+              />
+              <TextField
+                label="Invoice total (incl. VAT, SAR)"
+                value={formatMoney(totals.totalInclVat)}
+                size="small"
+                disabled
+                sx={{ flex: '1 1 170px' }}
               />
             </Stack>
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" startIcon={<AddIcon />} disabled={!lineValid} onClick={addLine}>
+              <Button variant="outlined" startIcon={<AddIcon />} disabled={!lineValid || !headerReadyForLines} onClick={addLine}>
                 {editingLineId ? 'Update line' : 'Add line to invoice'}
               </Button>
               {editingLineId && (

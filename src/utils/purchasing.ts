@@ -220,6 +220,38 @@ export function pricePurchaseLine(input: PricePurchaseLineInput): PurchaseLine {
   };
 }
 
+export interface PurchaseLinePreview {
+  gross: number;
+  tierAmounts: [number, number, number];
+  discountTotal: number;
+  netExclVat: number;
+  vatAmount: number;
+  totalInclVat: number;
+}
+
+// Live read-out for the entry panel. Runs the SAME cascade pricePurchaseLine posts (runTierCascade)
+// so the money under each discount field, the VAT and the line total can never disagree with the
+// line that gets added. Takes numbers only - no store, no ids - so it is safe to call on each
+// keystroke and unit-testable on its own.
+export function previewPurchaseLine(input: {
+  qty: number;
+  unitPurchasePrice: number;
+  vatRate: number;
+  discountTiers: number[];
+}): PurchaseLinePreview {
+  const gross = round2(Math.max(0, input.qty) * Math.max(0, input.unitPurchasePrice));
+  const { tierAmounts, netExclVat } = runTierCascade(gross, input.discountTiers);
+  const vatAmount = round2(netExclVat * input.vatRate);
+  return {
+    gross,
+    tierAmounts,
+    discountTotal: round3(gross - netExclVat),
+    netExclVat,
+    vatAmount,
+    totalInclVat: round2(netExclVat + vatAmount),
+  };
+}
+
 // Purchase entry used to ask the owner to retype the same shelf price delivery after delivery. The
 // form now defaults the unit price to what this item was last bought at (newest posted purchase,
 // credit notes excluded) and the user can still overwrite it. When the invoice is written in a
