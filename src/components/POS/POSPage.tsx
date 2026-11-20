@@ -207,7 +207,12 @@ export default function POSPage() {
       );
     } else if (result.type === 'no-batch-matched') notify(`Scanned batch/expiry doesn't match stock on hand for ${result.itemNameEn}.`, 'warning');
     else if (result.type === 'choose-batch') setPicker({ open: true, item: result.item, batches: result.batches });
-    else if (result.type === 'added') noteOfferIfAny(result.item);
+    else if (result.type === 'duplicate-serial') {
+      notify(
+        `Serial ${result.serialNo} is already in the basket for ${result.itemNameEn}. One pack can only be sold once.`,
+        'warning',
+      );
+    } else if (result.type === 'added') noteOfferIfAny(result.item);
   }
 
   async function handleScanSubmit() {
@@ -312,6 +317,9 @@ export default function POSPage() {
       qty: l.qty,
       packLevel: l.packLevel,
       baseQty: l.baseQty,
+      // Every scanned pack's DataMatrix identity, frozen on the sale. A full return of this invoice
+      // later reports these same units for Pharmacy Sale Cancel.
+      serials: l.serials?.length ? l.serials : undefined,
       unit: l.unit,
       unitPrice: l.unitPrice,
       vatRate: l.vatRate,
@@ -846,6 +854,24 @@ export default function POSPage() {
                       )}
                     </Stack>
                   )}
+                  {!!l.serials?.length && (
+                    <Tooltip
+                      title={
+                        <span style={{ whiteSpace: 'pre-line' }}>
+                          {l.serials.map((s) => `SN ${s.serialNo} · ${s.batchNo}`).join('\n')}
+                          {'\n'}Each pack is reported to RSD once this sale completes.
+                        </span>
+                      }
+                    >
+                      <Chip
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                        label={`RSD · ${l.serials.length} serial${l.serials.length === 1 ? '' : 's'}`}
+                        sx={{ mt: 0.75 }}
+                      />
+                    </Tooltip>
+                  )}
                 </TableCell>
                 <TableCell>
                   {l.dosage ? (
@@ -902,21 +928,32 @@ export default function POSPage() {
                       same line. Switching unit keeps the physical quantity and re-derives the
                       price from the box price (see cartStore.setLinePackLevel). */}
                   {itemById(l.itemId)?.pack && (
-                    <Select
-                      size="small"
-                      variant="standard"
-                      value={l.packLevel ?? 'box'}
-                      onChange={(e) => setLinePackLevel(l.id, e.target.value as PackLevel)}
-                      aria-label={`Selling unit for ${l.itemNameEn}`}
-                      inputProps={{ 'aria-label': `Selling unit for ${l.itemNameEn}` }}
-                      sx={{ fontSize: 12, display: 'block', ml: 'auto', mb: 0.25, minWidth: 72 }}
+                    <Tooltip
+                      title={
+                        (l.serials?.length ?? 0) > 0
+                          ? 'Selling unit is fixed for packs scanned from a DataMatrix.'
+                          : ''
+                      }
                     >
-                      {SELLABLE_PACK_LEVELS.map((level) => (
-                        <MenuItem key={level} value={level} sx={{ fontSize: 13 }}>
-                          {PACK_LEVEL_LABEL_PLURAL[level]}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                      <span>
+                        <Select
+                          size="small"
+                          variant="standard"
+                          value={l.packLevel ?? 'box'}
+                          disabled={(l.serials?.length ?? 0) > 0}
+                          onChange={(e) => setLinePackLevel(l.id, e.target.value as PackLevel)}
+                          aria-label={`Selling unit for ${l.itemNameEn}`}
+                          inputProps={{ 'aria-label': `Selling unit for ${l.itemNameEn}` }}
+                          sx={{ fontSize: 12, display: 'block', ml: 'auto', mb: 0.25, minWidth: 72 }}
+                        >
+                          {SELLABLE_PACK_LEVELS.map((level) => (
+                            <MenuItem key={level} value={level} sx={{ fontSize: 13 }}>
+                              {PACK_LEVEL_LABEL_PLURAL[level]}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </span>
+                    </Tooltip>
                   )}
                   <TextField
                     type="number"
@@ -926,6 +963,14 @@ export default function POSPage() {
                       const requested = Number(e.target.value) || 1;
                       const { appliedQty } = updateQty(l.id, requested);
                       if (appliedQty < requested) {
+                        const serialCount = l.serials?.length ?? 0;
+                        if (serialCount > 0) {
+                          notify(
+                            `This line has ${serialCount} scanned serial${serialCount === 1 ? '' : 's'}. Scan another pack to sell more than that.`,
+                            'warning',
+                          );
+                          return;
+                        }
                         const lineItem = itemById(l.itemId);
                         const isErpItem = lineItem?.id.startsWith('erp-');
                         const levelLabel = l.packLevel ? PACK_LEVEL_LABEL_PLURAL[l.packLevel] : 'units';
@@ -936,7 +981,13 @@ export default function POSPage() {
                         );
                       }
                     }}
-                    slotProps={{ htmlInput: { min: 1, max: l.qtyAvailable, style: { width: 50, textAlign: 'right' } } }}
+                    slotProps={{
+                      htmlInput: {
+                        min: 1,
+                        max: (l.serials?.length ?? 0) > 0 ? l.serials!.length : l.qtyAvailable,
+                        style: { width: 50, textAlign: 'right' },
+                      },
+                    }}
                   />
                   {l.packLevel && l.packLevel !== 'tablet' && l.baseQty > 0 && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>

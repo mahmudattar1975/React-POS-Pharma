@@ -1,5 +1,6 @@
 import type { ControlledStatus, PackLevel } from './catalog';
 import type { DosageSnapshot } from './dosage';
+import type { DrugSerial } from './serial';
 import type { WasfatyDispenseInfo } from './wasfaty';
 
 export type InvoiceType = 'simplified' | 'standard'; // B2C reported-after vs B2B cleared-before, per ZATCA
@@ -28,6 +29,10 @@ export interface SaleLine {
   batchNo: string;
   expiryDate: string | null;
   qty: number;
+  // Each physical pack captured from its GS1 DataMatrix, frozen at checkout. RSD's Pharmacy Sale
+  // reports one of these per call; a full return of the invoice later reports the same units for
+  // cancellation. Absent on pre-RSD invoices and on lines sold by plain barcode.
+  serials?: DrugSerial[];
   // Only for items with a pack ladder: the level sold (box/strip/tablet) and the tablet count it
   // represented, so a later return puts back exactly what left the shelf even if the item's pack
   // config was edited in the meantime.

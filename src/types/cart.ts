@@ -1,5 +1,6 @@
 import type { PackLevel } from './catalog';
 import type { DosageSnapshot } from './dosage';
+import type { DrugSerial } from './serial';
 
 export interface CartLine {
   id: string; // client-side line id, stable while the line is in the cart
@@ -25,6 +26,10 @@ export interface CartLine {
   vatAmount: number;
   totalInclVat: number;
   qtyAvailable: number; // batch's qtyOnHand at the moment the line was added, for a max-qty guard
+  // Physical units captured from their GS1 DataMatrix while this line was being scanned. Each
+  // entry is one pack the pharmacy is about to sell, kept so RSD's Pharmacy Sale can report the
+  // unit later (see types/serial.ts). Undefined for ordinary barcode scans and loose units.
+  serials?: DrugSerial[];
   // Directions the pharmacist picked for this line, frozen at selection time (not just an id), so
   // re-pricing the cart or editing the DOS master cannot change what is about to be printed.
   dosage?: DosageSnapshot;

@@ -71,3 +71,32 @@ export function parseGs1(scan: string): ParsedGs1 {
 
   return result;
 }
+
+// The 14-digit GTIN exactly as GS1 prints it under AI (01). A GTIN-13 (the code most Saudi
+// medicine cartons carry as a plain barcode) is the same number with one leading zero, and a
+// GTIN-12 with two - so padding is normalisation, not a change of identity.
+export function normalizeGtin(code: string | null | undefined): string | null {
+  const digits = (code ?? '').replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.length > 14) return null;
+  return digits.padStart(14, '0');
+}
+
+// Lookup candidates for a scanned GTIN: the printed 14-digit form first, then the unpadded code
+// the item master usually stores (6281007320014 is 13 digits, not 06281007320014). Without this a
+// real DataMatrix scan would miss every locally-stored item whose barcode is GTIN-13.
+export function gtinCandidates(gtin: string): string[] {
+  const digits = gtin.replace(/\D/g, '');
+  if (!digits) return [];
+  const candidates = [digits];
+  const unpadded = digits.replace(/^0+/, '');
+  if (unpadded && unpadded !== digits && unpadded.length >= 8) candidates.push(unpadded);
+  return candidates;
+}
+
+// A serial number is unique per GTIN, not globally - the same SN string may legitimately exist on
+// two different products. Used for basket/history duplicate checks.
+export function serialKey(gtin: string, serialNo: string): string {
+  return `${gtin}\u0000${serialNo}`;
+}
+
