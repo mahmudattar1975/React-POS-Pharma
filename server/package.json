@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "rsd:trial": "tsx src/rsd/trial.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

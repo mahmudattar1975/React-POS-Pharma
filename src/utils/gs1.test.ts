@@ -35,6 +35,11 @@ describe('parseGs1', () => {
     expect(looksLikeGs1('010628100732001421SN1')).toBe(true);
     expect(looksLikeGs1('6281007320014')).toBe(false);
   });
+
+  it('resolves a day-00 expiry to the last day of the month', () => {
+    expect(parseGs1(`01062810073200141728020010AX24C09${GS}21SN1`).expiryDate).toBe('2028-02-29');
+    expect(parseGs1(`01062810073200141727110010AX24C09${GS}21SN1`).expiryDate).toBe('2027-11-30');
+  });
 });
 
 describe('normalizeGtin', () => {

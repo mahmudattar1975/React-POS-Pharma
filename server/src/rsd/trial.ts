@@ -1,0 +1,407 @@
+// Credentialed RSD trial harness.
+//
+//   npm run rsd:trial                    # full offline suite against the built-in mock
+//   npm run rsd:trial -- --probe         # WSDL/connectivity probe only (no movements)
+//   npm run rsd:trial -- --unit 0628...:SN:BATCH:2027-05-31
+//                                        # live sale + duplicate + cancel on ONE real unit
+//   npm run rsd:trial -- --unit ... --yes
+//                                        # required in addition when RSD_ENV=production
+//
+// The live flow deliberately does NOT test unknown units or wrong batches: every such attempt is
+// a real operation against SFDA. Those cases are covered by the mock suite and by the unit tests.
+//
+// Evidence is written to server/data/rsd-trial-<timestamp>.json (gitignored). Credentials are
+// never written to it; the GLN is masked.
+import 'dotenv/config';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { getRsdConfig, hasRsdCredentials } from './config.js';
+import type { RsdEnvironment, RsdMode, RsdReportResult, RsdUnit } from './types.js';
+import {
+  acceptMockUnit,
+  getStatus,
+  reportCancel,
+  reportSale,
+  resetMock,
+} from './service.js';
+import { probeWsdl, type WsdlProbeResult } from './soapClient.js';
+import { isSuccessRc } from './wire.js';
+
+interface StepResult {
+  name: string;
+  status: 'pass' | 'fail';
+  detail: string;
+  durationMs: number;
+}
+
+interface TrialEvidence {
+  tool: 'rsd-trial';
+  startedAt: string;
+  finishedAt: string;
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  glnMasked: string | null;
+  saleUrl: string;
+  cancelUrl: string;
+  unit?: { gtin: string; serialNo: string; batchNo: string; expiryDate: string };
+  probes?: { sale?: ProbeEvidence; cancel?: ProbeEvidence };
+  steps: StepResult[];
+  ledger: Awaited<ReturnType<typeof getStatus>>['ledger'];
+  result: 'pass' | 'fail';
+}
+
+interface ProbeEvidence {
+  url: string;
+  httpStatus: number | null;
+  contentType?: string;
+  bytes: number;
+  operations: string[];
+  networkError?: string;
+  snippet?: string;
+}
+
+interface Options {
+  probe: boolean;
+  yes: boolean;
+  unit?: RsdUnit;
+  out?: string;
+}
+
+function parseArgs(argv: string[]): Options {
+  const options: Options = { probe: false, yes: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--probe') options.probe = true;
+    else if (arg === '--yes') options.yes = true;
+    else if (arg === '--unit') {
+      const raw = argv[++i] ?? '';
+      const [gtin, serialNo, batchNo, expiryDate] = raw.split(':');
+      if (!gtin || !serialNo || !batchNo || !expiryDate) {
+        throw new Error('--unit must be gtin:serialNo:batchNo:YYYY-MM-DD');
+      }
+      options.unit = { gtin, serialNo, batchNo, expiryDate };
+    } else if (arg === '--out') {
+      options.out = argv[++i];
+    } else if (arg === '--help' || arg === '-h') {
+      console.log('See the header of src/rsd/trial.ts for usage.');
+      process.exit(0);
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+  return options;
+}
+
+function maskGln(gln: string): string | null {
+  if (!gln) return null;
+  return gln.length <= 4 ? '****' : `${'*'.repeat(Math.max(0, gln.length - 4))}${gln.slice(-4)}`;
+}
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
+
+function runId(): string {
+  return Date.now().toString(36).toUpperCase().slice(-6);
+}
+
+async function step(
+  steps: StepResult[],
+  name: string,
+  fn: () => Promise<string>,
+): Promise<void> {
+  const started = Date.now();
+  try {
+    const detail = await fn();
+    steps.push({ name, status: 'pass', detail, durationMs: Date.now() - started });
+  } catch (err) {
+    steps.push({
+      name,
+      status: 'fail',
+      detail: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - started,
+    });
+  }
+}
+
+function saleSummary(result: RsdReportResult): string {
+  const { record } = result;
+  return `${result.outcome} (${record.id}, RC ${record.rc ?? 'n/a'}, attempts ${record.attempts.length})`;
+}
+
+function probeEvidence(probe: WsdlProbeResult): ProbeEvidence {
+  return {
+    url: probe.url,
+    httpStatus: probe.httpStatus,
+    contentType: probe.contentType,
+    bytes: probe.bytes,
+    operations: probe.operations,
+    networkError: probe.networkError,
+    // Only surface a snippet when the probe failed; a healthy WSDL is large and not useful here.
+    snippet: probe.httpStatus && probe.httpStatus >= 200 && probe.httpStatus < 300 ? undefined : probe.snippet,
+  };
+}
+
+// Offline suite: every rule the live flow cannot safely test (unknown unit, wrong batch, retryable
+// infrastructure failure, cancel ordering) is exercised here against the mock state machine.
+async function runMock(steps: StepResult[]): Promise<void> {
+  const run = runId();
+  const gtin = '06281007320021';
+  const good: RsdUnit = {
+    gtin,
+    serialNo: `T${run}A`,
+    batchNo: 'AX24C09',
+    expiryDate: '2027-05-31',
+  };
+  const batchUnit: RsdUnit = {
+    gtin,
+    serialNo: `T${run}B`,
+    batchNo: 'BATCH-B',
+    expiryDate: '2027-06-30',
+  };
+  const unknown: RsdUnit = {
+    gtin,
+    serialNo: `T${run}C`,
+    batchNo: 'BATCH-C',
+    expiryDate: '2027-07-31',
+  };
+  const neverSold: RsdUnit = {
+    gtin,
+    serialNo: `T${run}E`,
+    batchNo: 'BATCH-E',
+    expiryDate: '2027-09-30',
+  };
+  const flaky: RsdUnit = {
+    gtin,
+    serialNo: `HTTP500-${run}D`,
+    batchNo: 'BATCH-D',
+    expiryDate: '2027-08-31',
+  };
+
+  await step(steps, 'mock reset', async () => {
+    await resetMock();
+    return 'mock inventory and sales cleared';
+  });
+
+  await step(steps, 'mock accept sellable units', async () => {
+    for (const unit of [good, batchUnit, flaky]) {
+      const result = await acceptMockUnit(unit);
+      assert(result.accepted, `unit ${unit.serialNo} was not accepted`);
+    }
+    return `accepted ${good.serialNo}, ${batchUnit.serialNo}, ${flaky.serialNo}`;
+  });
+
+  let saleAttempts = 0;
+  await step(steps, 'sale accepted', async () => {
+    const result = await reportSale(good);
+    saleAttempts = result.record.attempts.length;
+    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}`);
+    assert(isSuccessRc(result.record.rc), `expected RC 00000, got ${result.record.rc}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'duplicate sale is not sent twice', async () => {
+    const result = await reportSale(good);
+    assert(result.outcome === 'already_reported', `expected already_reported, got ${result.outcome}`);
+    assert(
+      result.record.attempts.length === saleAttempts,
+      `a duplicate added an attempt (${saleAttempts} -> ${result.record.attempts.length})`,
+    );
+    return `${saleSummary(result)}; no new network attempt`;
+  });
+
+  await step(steps, 'wrong batch is rejected (11036)', async () => {
+    const result = await reportSale({ ...batchUnit, batchNo: 'WRONG-BATCH' });
+    assert(result.outcome === 'rejected', `expected rejected, got ${result.outcome}`);
+    assert(result.record.retryable === false, 'a business rejection must not be retryable');
+    assert(result.record.rc === '11036', `expected RC 11036, got ${result.record.rc}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'unit outside RSD inventory is rejected (11043)', async () => {
+    const result = await reportSale(unknown);
+    assert(result.outcome === 'rejected', `expected rejected, got ${result.outcome}`);
+    assert(result.record.rc === '11043', `expected RC 11043, got ${result.record.rc}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'cancel accepted', async () => {
+    const result = await reportCancel(good);
+    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}`);
+    assert(isSuccessRc(result.record.rc), `expected RC 00000, got ${result.record.rc}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'duplicate cancel is not sent twice', async () => {
+    const before = await getStatus();
+    const result = await reportCancel(good);
+    assert(result.outcome === 'already_cancelled', `expected already_cancelled, got ${result.outcome}`);
+    const after = await getStatus();
+    assert(
+      after.ledger.cancelsSent === before.ledger.cancelsSent,
+      'a duplicate cancel created another accepted cancel',
+    );
+    return `${saleSummary(result)}; no new accepted cancel`;
+  });
+
+  await step(steps, 'cancel without a sale is refused locally', async () => {
+    try {
+      await reportCancel(neverSold);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      assert(/no sale record/i.test(message), `unexpected error: ${message}`);
+      return `refused before any network call: ${message}`;
+    }
+    throw new Error('cancel of an unsold unit was not refused');
+  });
+
+  await step(steps, 'HTTP 500 is retryable and retries append attempts', async () => {
+    const first = await reportSale(flaky);
+    assert(first.outcome === 'failed', `expected failed, got ${first.outcome}`);
+    assert(first.record.retryable, 'an HTTP 500 must be retryable');
+    const second = await reportSale(flaky);
+    assert(second.record.id === first.record.id, 'a retry created a second sale record');
+    assert(
+      second.record.attempts.length === first.record.attempts.length + 1,
+      `expected one extra attempt, got ${first.record.attempts.length} -> ${second.record.attempts.length}`,
+    );
+    return `${saleSummary(second)}; same record, attempts appended`;
+  });
+}
+
+async function runLive(
+  steps: StepResult[],
+  unit: RsdUnit,
+  probes: { sale?: ProbeEvidence; cancel?: ProbeEvidence },
+): Promise<void> {
+  const config = getRsdConfig();
+  const creds = { gln: config.gln, username: config.username, password: config.password };
+
+  await step(steps, 'probe sale WSDL', async () => {
+    const probe = await probeWsdl(config.saleUrl, creds, config.timeoutMs);
+    probes.sale = probeEvidence(probe);
+    assert(
+      probe.httpStatus === 200 && probe.bytes > 0,
+      `sale WSDL probe failed: HTTP ${probe.httpStatus ?? 'n/a'} ${probe.networkError ?? ''}`.trim(),
+    );
+    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}`;
+  });
+
+  await step(steps, 'probe cancel WSDL', async () => {
+    const probe = await probeWsdl(config.cancelUrl, creds, config.timeoutMs);
+    probes.cancel = probeEvidence(probe);
+    assert(
+      probe.httpStatus === 200 && probe.bytes > 0,
+      `cancel WSDL probe failed: HTTP ${probe.httpStatus ?? 'n/a'} ${probe.networkError ?? ''}`.trim(),
+    );
+    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}`;
+  });
+
+  let saleAttempts = 0;
+  await step(steps, 'live sale', async () => {
+    const result = await reportSale(unit);
+    saleAttempts = result.record.attempts.length;
+    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'duplicate live sale is not re-sent', async () => {
+    const result = await reportSale(unit);
+    assert(result.outcome === 'already_reported', `expected already_reported, got ${result.outcome}`);
+    assert(
+      result.record.attempts.length === saleAttempts,
+      `a duplicate added an attempt (${saleAttempts} -> ${result.record.attempts.length})`,
+    );
+    return `${saleSummary(result)}; no new network attempt`;
+  });
+
+  await step(steps, 'live cancel', async () => {
+    const result = await reportCancel(unit);
+    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
+    return saleSummary(result);
+  });
+
+  await step(steps, 'duplicate live cancel is not re-sent', async () => {
+    const result = await reportCancel(unit);
+    assert(result.outcome === 'already_cancelled', `expected already_cancelled, got ${result.outcome}`);
+    return `${saleSummary(result)}; no new accepted cancel`;
+  });
+}
+
+async function writeEvidence(evidence: TrialEvidence, out?: string): Promise<string> {
+  const file =
+    out ??
+    path.resolve(
+      process.cwd(),
+      'data',
+      `rsd-trial-${evidence.startedAt.replace(/[:.]/g, '-')}.json`,
+    );
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(evidence, null, 2), 'utf8');
+  return file;
+}
+
+async function main(): Promise<void> {
+  const options = parseArgs(process.argv.slice(2));
+  const config = getRsdConfig();
+  const startedAt = new Date().toISOString();
+
+  if (config.mode === 'live') {
+    if (!hasRsdCredentials(config.environment)) {
+      throw new Error(
+        `RSD_MODE=live but ${config.environment} credentials are missing from server/.env.`,
+      );
+    }
+    if (!config.saleUrl || !config.cancelUrl) {
+      throw new Error(
+        `RSD_MODE=live but the ${config.environment} service URLs are missing. ` +
+          'Set RSD_TEST_SALE_URL / RSD_TEST_CANCEL_URL (or the PROD equivalents).',
+      );
+    }
+    if (config.environment === 'production' && !options.yes) {
+      throw new Error(
+        'Refusing to touch production without --yes. Every sale/cancel here is a real national movement.',
+      );
+    }
+    if (!options.probe && !options.unit) {
+      throw new Error('Live trial needs --unit gtin:serialNo:batchNo:YYYY-MM-DD (or --probe).');
+    }
+  }
+
+  const steps: StepResult[] = [];
+  const probes: { sale?: ProbeEvidence; cancel?: ProbeEvidence } = {};
+  if (config.mode === 'mock') {
+    await runMock(steps);
+  } else {
+    await runLive(steps, options.unit as RsdUnit, probes);
+  }
+
+  const status = await getStatus();
+  const evidence: TrialEvidence = {
+    tool: 'rsd-trial',
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    mode: config.mode,
+    environment: config.environment,
+    glnMasked: maskGln(config.gln),
+    saleUrl: config.saleUrl,
+    cancelUrl: config.cancelUrl,
+    unit: options.unit,
+    probes: probes.sale || probes.cancel ? probes : undefined,
+    steps,
+    ledger: status.ledger,
+    result: steps.every((s) => s.status === 'pass') ? 'pass' : 'fail',
+  };
+
+  const file = await writeEvidence(evidence, options.out);
+  for (const s of steps) {
+    console.log(`${s.status === 'pass' ? 'PASS' : 'FAIL'}  ${s.name} - ${s.detail}`);
+  }
+  console.log(`\n${evidence.result.toUpperCase()}  evidence: ${file}`);
+  if (evidence.result === 'fail') process.exitCode = 1;
+}
+
+main().catch((err) => {
+  console.error(`RSD trial failed: ${err instanceof Error ? err.message : String(err)}`);
+  process.exitCode = 1;
+});

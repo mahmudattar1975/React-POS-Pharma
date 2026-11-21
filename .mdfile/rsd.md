@@ -177,13 +177,30 @@ cancelSale ──► rsdStore.enqueue(cancel) ──┘   POST /api/rsd/sales/ca
 | --- | --- | --- |
 | 0. Inputs | Credentials + WSDL + ISD for `PHARMACYSALE`, test GLN, confirmation of who accepts incoming units | WSDL retrievable; one manual SOAP call succeeds against the test server |
 | 1. Serial capture | **Done:** GS1 serial kept on cart line, duplicate refused, serials frozen on `SaleLine`, selling level frozen for serialised lines. **Still open:** manual serial entry for a damaged DataMatrix label. | E2E: scan two DataMatrix units → two serials on the sale; rescanning the same SN is refused |
-| 2. Server adapter + mock | `server/src/rsd/*`, config, SOAP client, mock mode, ledger, routes, `rsdApi` | Mock: sale reported, duplicate retry idempotent, rejection surfaces the error code |
+| 2. Server adapter + mock | **Done:** `server/src/rsd/*` (types, config, normalisation, wire, SOAP client, mock state machine, ledger, service), `/api/rsd` routes, `src/api/rsdApi.ts`, `npm run rsd:trial` | Mock: sale reported, duplicate retry idempotent, rejection surfaces the error code |
 | 3. Sale reporting | Outbox in `rsdStore`, 60 s retry, RSD status column on the invoice + RSD monitoring tab, settings panel | POS completes with server down; sale reports automatically when it returns; status visible |
 | 4. Sale cancel | Full return (invoice `returned`) triggers `PharmacySaleCancel` for its accepted units; partial returns send nothing | Full return reports cancel exactly once per unit; partial return leaves the RSD sale untouched; retry-safe |
 | 5. Hardening | Reconciliation (RSD ledger vs sales), CSV export, error-code dictionary, docs | No unmatched sold unit; audit export for an SFDA inspection |
 
 Rough effort: **8–12 development days**, excluding SFDA test-server turnaround, assuming
 credentials and ISD arrive at the start of phase 1.
+
+### 4.1 Phase 2 as built
+
+- `server/src/rsd/` is a self-contained adapter: `config.ts` (mock/live, test/production,
+  credentials only server-side), `normalize.ts` (GTIN/SN/BN/XD validation, GS1 day-00 expiry),
+  `wire.ts` (verified SOAP 1.1 sale envelope + response parser), `soapClient.ts` (HTTP Basic,
+  timeout, WSDL probe), `mock.ts` (inventory/sale/cancel state machine + failure injection),
+  `store.ts` (append-oriented ledger), `service.ts` (idempotency + sale-before-cancel ordering),
+  `trial.ts` (mock suite and live probe/one-unit trial).
+- `/api/rsd`: `GET /status`, `POST /sales`, `POST /sales/cancel`, `GET /records|/reports`,
+  `GET /units/:gtin/:serialNo`, plus mock-only `POST /mock/accept` and `/mock/reset`.
+- `src/api/rsdApi.ts` is the browser contract; it never sees credentials and reports failures as
+  `RsdReportError { retryable }` so the Phase 3 outbox can queue them.
+- Tests: `server/tests/rsd/{wire,normalize,service}.test.ts` (37 tests). Mock trial:
+  `cd server && npm run rsd:trial` (10 steps, writes masked evidence JSON to `data/`).
+- Live is fail-closed: without credentials/URLs every report is `503 rsd_not_configured`. The
+  cancel envelope is still unverified against the SFDA WSDL/ISD; probe before the first live cancel.
 
 ---
 

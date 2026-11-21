@@ -25,6 +25,14 @@ function yymmddToIso(yymmdd: string): string {
   // GS1 pivots two-digit years at 51: 00-50 -> 2000-2050, 51-99 -> 1951-1999. Pharma expiry dates
   // are always in the future, so this window is generous enough without needing a real pivot config.
   const yyyy = yy <= 50 ? 2000 + yy : 1900 + yy;
+  // GS1 allows day 00 to mean "the last day of the month" (manufacturers print only month/year).
+  // Keeping the 00 would make the date invalid for SFDA (RC 11035), so resolve it here too.
+  const month = Number(mm);
+  const day = Number(dd);
+  if (day === 0 && month >= 1 && month <= 12) {
+    const lastDay = new Date(Date.UTC(yyyy, month, 0)).getUTCDate();
+    return `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+  }
   return `${yyyy}-${mm}-${dd}`;
 }
 
