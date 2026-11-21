@@ -68,7 +68,12 @@ POS (browser, local-first)
 | `RSD_DATA_FILE`, `RSD_MOCK_FILE` | `server/data/*.json` | Ledger and mock state overrides. |
 
 Live mode fails closed: if credentials or the environment's URLs are missing, every report returns
-`503 rsd_not_configured` and nothing is faked.
+`503 rsd_not_configured` and nothing is faked. Production endpoints must be `https://`; the adapter
+refuses to send credentials over plain HTTP.
+
+> SFDA's **test** host is plain HTTP on port 8080. That means HTTP Basic sends the test password
+> unencrypted on the network. Use a password created only for this test account, never a
+> production or personal one, and never reuse it anywhere else.
 
 ## HTTP API
 
@@ -113,6 +118,9 @@ npm run rsd:trial -- --unit 06281007320021:SN123456:AX24C09:2027-05-31
 npm run rsd:trial -- --unit ... --yes   # required for RSD_ENV=production
 ```
 
+`--probe` needs only the username/password (it never reads or needs a GLN). A sale/cancel also
+needs `RSD_TEST_GLN` and a unit that is already in that GLN's RSD inventory.
+
 The mock suite covers: accepted sale, duplicate sale (no second send), wrong batch (`11036`),
 unit outside inventory (`11043`), accepted cancel, duplicate cancel, cancel without sale, and an
 HTTP 500 that stays retryable while appending attempts.
@@ -123,6 +131,10 @@ test unknown units or wrong batches live: every such attempt is a real operation
 
 Evidence is written to `server/data/rsd-trial-<timestamp>.json` (gitignored) with steps, RC codes,
 notification ids, attempt counts and probe results. No credentials are written; the GLN is masked.
+
+Interpretation: `HTTP 401` means the username/password were rejected. `UND_ERR_CONNECT_TIMEOUT` /
+`ECONNREFUSED` means the host is unreachable from this machine - SFDA's test environment is often
+restricted by VPN or source-IP allowlisting, so check that before touching credentials.
 
 ## Open questions (blocking parts of a production rollout)
 

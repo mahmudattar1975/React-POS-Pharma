@@ -28,6 +28,19 @@ function basicAuth(creds: RsdCredentials): string {
   return `Basic ${Buffer.from(`${creds.username}:${creds.password}`, 'utf8').toString('base64')}`;
 }
 
+// Node's fetch hides the useful network detail in `cause` ("fetch failed" alone tells an operator
+// nothing). Surface the code (ENOTFOUND, ECONNREFUSED, ETIMEDOUT, ...) without any credential.
+function networkDetail(err: unknown, timedOut: boolean, timeoutMs: number): string {
+  if (timedOut) return `Timed out after ${timeoutMs} ms`;
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: { code?: string; message?: string } }).cause;
+    const code = cause?.code;
+    const detail = cause?.message ?? err.message;
+    return code ? `${code}: ${detail}` : detail;
+  }
+  return String(err);
+}
+
 export async function postSoap(
   url: string,
   xml: string,
@@ -52,12 +65,11 @@ export async function postSoap(
     const body = await res.text();
     return { httpStatus: res.status, body, durationMs: Date.now() - started };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     return {
       httpStatus: null,
       body: '',
       durationMs: Date.now() - started,
-      networkError: controller.signal.aborted ? `Timed out after ${timeoutMs} ms` : message,
+      networkError: networkDetail(err, controller.signal.aborted, timeoutMs),
     };
   } finally {
     clearTimeout(timer);
@@ -99,7 +111,7 @@ export async function probeWsdl(
       httpStatus: null,
       bytes: 0,
       operations: [],
-      networkError: controller.signal.aborted ? `Timed out after ${timeoutMs} ms` : String(err),
+      networkError: networkDetail(err, controller.signal.aborted, timeoutMs),
       snippet: '',
     };
   } finally {

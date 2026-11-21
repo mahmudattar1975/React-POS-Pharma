@@ -111,6 +111,17 @@ function assertLiveReady(): void {
       'rsd_not_configured',
     );
   }
+  // HTTP Basic over plain HTTP would put the production password on the wire in clear text.
+  // Test may be plain HTTP (SFDA's test host is), production must not be.
+  if (
+    config.environment === 'production' &&
+    (!config.saleUrl.startsWith('https://') || !config.cancelUrl.startsWith('https://'))
+  ) {
+    throw unavailable(
+      'Production RSD endpoints must use https://; refusing to send credentials over plain HTTP.',
+      'rsd_insecure_endpoint',
+    );
+  }
 }
 
 function classify(result: SendResult): Verdict {

@@ -15,7 +15,7 @@
 import 'dotenv/config';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { getRsdConfig, hasRsdCredentials } from './config.js';
+import { getRsdConfig, hasRsdAuth, hasRsdCredentials } from './config.js';
 import type { RsdEnvironment, RsdMode, RsdReportResult, RsdUnit } from './types.js';
 import {
   acceptMockUnit,
@@ -271,8 +271,9 @@ async function runMock(steps: StepResult[]): Promise<void> {
 
 async function runLive(
   steps: StepResult[],
-  unit: RsdUnit,
+  unit: RsdUnit | undefined,
   probes: { sale?: ProbeEvidence; cancel?: ProbeEvidence },
+  probeOnly: boolean,
 ): Promise<void> {
   const config = getRsdConfig();
   const creds = { gln: config.gln, username: config.username, password: config.password };
@@ -297,16 +298,19 @@ async function runLive(
     return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}`;
   });
 
+  if (probeOnly) return;
+
+  const liveUnit = unit as RsdUnit;
   let saleAttempts = 0;
   await step(steps, 'live sale', async () => {
-    const result = await reportSale(unit);
+    const result = await reportSale(liveUnit);
     saleAttempts = result.record.attempts.length;
     assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
     return saleSummary(result);
   });
 
   await step(steps, 'duplicate live sale is not re-sent', async () => {
-    const result = await reportSale(unit);
+    const result = await reportSale(liveUnit);
     assert(result.outcome === 'already_reported', `expected already_reported, got ${result.outcome}`);
     assert(
       result.record.attempts.length === saleAttempts,
@@ -316,13 +320,13 @@ async function runLive(
   });
 
   await step(steps, 'live cancel', async () => {
-    const result = await reportCancel(unit);
+    const result = await reportCancel(liveUnit);
     assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
     return saleSummary(result);
   });
 
   await step(steps, 'duplicate live cancel is not re-sent', async () => {
-    const result = await reportCancel(unit);
+    const result = await reportCancel(liveUnit);
     assert(result.outcome === 'already_cancelled', `expected already_cancelled, got ${result.outcome}`);
     return `${saleSummary(result)}; no new accepted cancel`;
   });
@@ -347,7 +351,12 @@ async function main(): Promise<void> {
   const startedAt = new Date().toISOString();
 
   if (config.mode === 'live') {
-    if (!hasRsdCredentials(config.environment)) {
+    // A WSDL probe only needs HTTP Basic credentials. A sale/cancel additionally needs the GLN
+    // that owns the inventory being reported against.
+    const credentialsReady = options.probe
+      ? hasRsdAuth(config.environment)
+      : hasRsdCredentials(config.environment);
+    if (!credentialsReady) {
       throw new Error(
         `RSD_MODE=live but ${config.environment} credentials are missing from server/.env.`,
       );
@@ -357,6 +366,12 @@ async function main(): Promise<void> {
         `RSD_MODE=live but the ${config.environment} service URLs are missing. ` +
           'Set RSD_TEST_SALE_URL / RSD_TEST_CANCEL_URL (or the PROD equivalents).',
       );
+    }
+    if (
+      config.environment === 'production' &&
+      (!config.saleUrl.startsWith('https://') || !config.cancelUrl.startsWith('https://'))
+    ) {
+      throw new Error('Production RSD endpoints must use https://; refusing plain HTTP.');
     }
     if (config.environment === 'production' && !options.yes) {
       throw new Error(
@@ -373,7 +388,7 @@ async function main(): Promise<void> {
   if (config.mode === 'mock') {
     await runMock(steps);
   } else {
-    await runLive(steps, options.unit as RsdUnit, probes);
+    await runLive(steps, options.unit, probes, options.probe || !options.unit);
   }
 
   const status = await getStatus();

@@ -64,6 +64,11 @@ export function getRsdCredentials(environment = getRsdEnvironment()): RsdCredent
   };
 }
 
+export function hasRsdAuth(environment = getRsdEnvironment()): boolean {
+  const creds = getRsdCredentials(environment);
+  return Boolean(creds.username && creds.password);
+}
+
 export function hasRsdCredentials(environment = getRsdEnvironment()): boolean {
   const creds = getRsdCredentials(environment);
   return Boolean(creds.gln && creds.username && creds.password);
