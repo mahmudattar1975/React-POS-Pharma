@@ -22,6 +22,8 @@ export interface WsdlProbeResult {
   operations: string[];
   networkError?: string;
   snippet: string;
+  // The raw WSDL, returned so the trial can save it for schema verification. Never logged.
+  body?: string;
 }
 
 function basicAuth(creds: RsdCredentials): string {
@@ -104,6 +106,7 @@ export async function probeWsdl(
       operations: [...new Set(operations)],
       // Enough to identify a fault page without dumping credentials or a huge document.
       snippet: body.slice(0, 400),
+      body: res.ok ? body : undefined,
     };
   } catch (err) {
     return {

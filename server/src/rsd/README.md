@@ -119,7 +119,9 @@ npm run rsd:trial -- --unit ... --yes   # required for RSD_ENV=production
 ```
 
 `--probe` needs only the username/password (it never reads or needs a GLN). A sale/cancel also
-needs `RSD_TEST_GLN` and a unit that is already in that GLN's RSD inventory.
+needs `RSD_TEST_GLN` and a unit that is already in that GLN's RSD inventory. The probe saves the raw
+WSDL to `server/data/rsd-wsdl-*.xml` (gitignored) so the cancel request schema can be checked
+against the envelope before any sale/cancel movement.
 
 The mock suite covers: accepted sale, duplicate sale (no second send), wrong batch (`11036`),
 unit outside inventory (`11043`), accepted cancel, duplicate cancel, cancel without sale, and an

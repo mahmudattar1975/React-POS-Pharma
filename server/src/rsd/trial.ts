@@ -45,6 +45,7 @@ interface TrialEvidence {
   cancelUrl: string;
   unit?: { gtin: string; serialNo: string; batchNo: string; expiryDate: string };
   probes?: { sale?: ProbeEvidence; cancel?: ProbeEvidence };
+  wsdlFiles?: string[];
   steps: StepResult[];
   ledger: Awaited<ReturnType<typeof getStatus>>['ledger'];
   result: 'pass' | 'fail';
@@ -140,6 +141,20 @@ function probeEvidence(probe: WsdlProbeResult): ProbeEvidence {
     // Only surface a snippet when the probe failed; a healthy WSDL is large and not useful here.
     snippet: probe.httpStatus && probe.httpStatus >= 200 && probe.httpStatus < 300 ? undefined : probe.snippet,
   };
+}
+
+// Keep the real WSDL on disk (gitignored) so the cancel request schema can be checked against the
+// envelope we build before any sale/cancel movement is sent.
+async function saveWsdl(kind: 'sale' | 'cancel', body: string | undefined): Promise<string | undefined> {
+  if (!body) return undefined;
+  const file = path.resolve(
+    process.cwd(),
+    'data',
+    `rsd-wsdl-${kind}-${new Date().toISOString().replace(/[:.]/g, '-')}.xml`,
+  );
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, body, 'utf8');
+  return file;
 }
 
 // Offline suite: every rule the live flow cannot safely test (unknown unit, wrong batch, retryable
@@ -273,6 +288,7 @@ async function runLive(
   steps: StepResult[],
   unit: RsdUnit | undefined,
   probes: { sale?: ProbeEvidence; cancel?: ProbeEvidence },
+  wsdlFiles: string[],
   probeOnly: boolean,
 ): Promise<void> {
   const config = getRsdConfig();
@@ -285,7 +301,9 @@ async function runLive(
       probe.httpStatus === 200 && probe.bytes > 0,
       `sale WSDL probe failed: HTTP ${probe.httpStatus ?? 'n/a'} ${probe.networkError ?? ''}`.trim(),
     );
-    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}`;
+    const file = await saveWsdl('sale', probe.body);
+    if (file) wsdlFiles.push(file);
+    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}${file ? `, saved ${path.basename(file)}` : ''}`;
   });
 
   await step(steps, 'probe cancel WSDL', async () => {
@@ -295,7 +313,9 @@ async function runLive(
       probe.httpStatus === 200 && probe.bytes > 0,
       `cancel WSDL probe failed: HTTP ${probe.httpStatus ?? 'n/a'} ${probe.networkError ?? ''}`.trim(),
     );
-    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}`;
+    const file = await saveWsdl('cancel', probe.body);
+    if (file) wsdlFiles.push(file);
+    return `HTTP ${probe.httpStatus}, ${probe.bytes} bytes, operations: ${probe.operations.join(', ') || 'none detected'}${file ? `, saved ${path.basename(file)}` : ''}`;
   });
 
   if (probeOnly) return;
@@ -385,10 +405,11 @@ async function main(): Promise<void> {
 
   const steps: StepResult[] = [];
   const probes: { sale?: ProbeEvidence; cancel?: ProbeEvidence } = {};
+  const wsdlFiles: string[] = [];
   if (config.mode === 'mock') {
     await runMock(steps);
   } else {
-    await runLive(steps, options.unit, probes, options.probe || !options.unit);
+    await runLive(steps, options.unit, probes, wsdlFiles, options.probe || !options.unit);
   }
 
   const status = await getStatus();
@@ -403,6 +424,7 @@ async function main(): Promise<void> {
     cancelUrl: config.cancelUrl,
     unit: options.unit,
     probes: probes.sale || probes.cancel ? probes : undefined,
+    wsdlFiles: wsdlFiles.length > 0 ? wsdlFiles : undefined,
     steps,
     ledger: status.ledger,
     result: steps.every((s) => s.status === 'pass') ? 'pass' : 'fail',
