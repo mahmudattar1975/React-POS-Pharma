@@ -197,10 +197,16 @@ credentials and ISD arrive at the start of phase 1.
   `GET /units/:gtin/:serialNo`, plus mock-only `POST /mock/accept` and `/mock/reset`.
 - `src/api/rsdApi.ts` is the browser contract; it never sees credentials and reports failures as
   `RsdReportError { retryable }` so the Phase 3 outbox can queue them.
-- Tests: `server/tests/rsd/{wire,normalize,service}.test.ts` (37 tests). Mock trial:
+- Tests: `server/tests/rsd/{wire,normalize,service}.test.ts` (38 tests). Mock trial:
   `cd server && npm run rsd:trial` (10 steps, writes masked evidence JSON to `data/`).
-- Live is fail-closed: without credentials/URLs every report is `503 rsd_not_configured`. The
-  cancel envelope is still unverified against the SFDA WSDL/ISD; probe before the first live cancel.
+- Live is fail-closed: without credentials/URLs every report is `503 rsd_not_configured`.
+- Wire format verified against the production WSDL **and the XSDs they import** (2026-11-21):
+  - Sale: `TOGLN, DOCTORID?, PATIENTNATIONALID?, PRESCRIPTIONID, PRESCRIPTIONDATE, PRODUCTLIST`,
+    `PRODUCT = GTIN, SN, BN?, XD?`.
+  - Cancel: `TOGLN, PRESCRIPTIONID, PRODUCTLIST?` — **no** `PRESCRIPTIONDATE`.
+  - `SN` is required and there is **no quantity element**, so a sale is one `PRODUCT` per serial;
+    batch-level aggregation is not part of `Pharmacy Sale` (no "by batch" variant exists).
+  - Evidence saved under `server/data/` (gitignored): `rsd-wsdl-*.xml`, `rsd-xsd-*.xsd`.
 
 ---
 
@@ -217,14 +223,16 @@ credentials and ISD arrive at the start of phase 1.
 
 1. **Credentials**: test/production pharmacy GLN and RSD username/password, so the WSDL and
    service are reachable. Without them the schema cannot be finalised (mock only).
-2. **ISD file** `DTTS-ISD.PHARMACYSALE-nnn` (operation names, element names, error codes) —
-   available from the RSD portal after registration.
+2. ~~**ISD file** `DTTS-ISD.PHARMACYSALE-nnn`~~ — **resolved for the request shape**: the production
+   WSDL exposes `notifyPharmacySale` / `notifyPharmacySaleCancel` and the XSDs pin the element names
+   and order. Remaining: the full error-code catalogue and the cancel-specific codes.
 3. **Who accepts incoming dispatches** in RSD today? If nobody, sales will be rejected
    ("unit not in inventory") and Accept must be added to the scope or handled in the portal.
 4. ~~Cancel semantics~~ — **decided**: a full return is the cancellation; partial returns send
    nothing.
 5. **Item scope**: report only units that carry a serial (recommended first), or block
-   non-serialised sales when RSD is enabled?
+   non-serialised sales when RSD is enabled? Note: `Pharmacy Sale` cannot accept a missing `SN`,
+   so a batch with no serials in RSD inventory is unreportable through it (no by-batch variant).
 6. **Reimbursement**: always `Direct Sale`, or is there a payer GLN for Wasfaty/insurance sales
    that should be used with the prescription ID?
 7. **Branches**: one GLN per branch? The app is multi-branch via cost centers.
