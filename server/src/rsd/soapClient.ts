@@ -26,6 +26,14 @@ export interface WsdlProbeResult {
   body?: string;
 }
 
+export interface XmlFetchResult {
+  url: string;
+  httpStatus: number | null;
+  contentType?: string;
+  body: string;
+  networkError?: string;
+}
+
 function basicAuth(creds: RsdCredentials): string {
   return `Basic ${Buffer.from(`${creds.username}:${creds.password}`, 'utf8').toString('base64')}`;
 }
@@ -78,6 +86,40 @@ export async function postSoap(
   }
 }
 
+// Read-only XML fetch with the same Basic auth as the SOAP calls. Used for the WSDL and the XSD it
+// imports; it never posts a document, so it cannot create a movement.
+export async function fetchXml(
+  url: string,
+  creds: RsdCredentials,
+  timeoutMs: number,
+): Promise<XmlFetchResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'text/xml, application/xml, */*', Authorization: basicAuth(creds) },
+      signal: controller.signal,
+    });
+    const body = await res.text();
+    return {
+      url,
+      httpStatus: res.status,
+      contentType: res.headers.get('content-type') ?? undefined,
+      body,
+    };
+  } catch (err) {
+    return {
+      url,
+      httpStatus: null,
+      body: '',
+      networkError: networkDetail(err, controller.signal.aborted, timeoutMs),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // A non-mutating connectivity check: GET the WSDL with Basic auth. Never submit a dummy sale to
 // "test the connection" - even a fake unit becomes a movement that then has to be reversed.
 export async function probeWsdl(
@@ -86,38 +128,19 @@ export async function probeWsdl(
   timeoutMs: number,
 ): Promise<WsdlProbeResult> {
   const target = /[?&]wsdl\b/i.test(url) ? url : `${url}${url.includes('?') ? '&' : '?'}wsdl`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(target, {
-      method: 'GET',
-      headers: { Accept: 'text/xml, application/xml, */*', Authorization: basicAuth(creds) },
-      signal: controller.signal,
-    });
-    const body = await res.text();
-    const operations = [...body.matchAll(/<(?:\w+:)?operation\b[^>]*\bname="([^"]+)"/gi)].map(
-      (m) => m[1],
-    );
-    return {
-      url: target,
-      httpStatus: res.status,
-      contentType: res.headers.get('content-type') ?? undefined,
-      bytes: body.length,
-      operations: [...new Set(operations)],
-      // Enough to identify a fault page without dumping credentials or a huge document.
-      snippet: body.slice(0, 400),
-      body: res.ok ? body : undefined,
-    };
-  } catch (err) {
-    return {
-      url: target,
-      httpStatus: null,
-      bytes: 0,
-      operations: [],
-      networkError: networkDetail(err, controller.signal.aborted, timeoutMs),
-      snippet: '',
-    };
-  } finally {
-    clearTimeout(timer);
-  }
+  const res = await fetchXml(target, creds, timeoutMs);
+  const operations = [...res.body.matchAll(/<(?:\w+:)?operation\b[^>]*\bname="([^"]+)"/gi)].map(
+    (m) => m[1],
+  );
+  return {
+    url: target,
+    httpStatus: res.httpStatus,
+    contentType: res.contentType,
+    bytes: res.body.length,
+    operations: [...new Set(operations)],
+    networkError: res.networkError,
+    // Enough to identify a fault page without dumping credentials or a huge document.
+    snippet: res.body.slice(0, 400),
+    body: res.httpStatus && res.httpStatus >= 200 && res.httpStatus < 300 ? res.body : undefined,
+  };
 }
