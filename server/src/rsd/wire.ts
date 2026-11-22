@@ -1,15 +1,21 @@
 // The SFDA wire format, isolated in one file.
 //
-// Sources: SFDA Integration Guide OPS-G-117-V2.1 and a field guide that probed the production
-// endpoints. Those probes found that production expects SOAP 1.1 (not the 1.2 the guide states),
-// document/literal, a namespace-qualified operation element with unqualified children, and this
-// element order:
-//   TOGLN, DOCTORID?, PATIENTNATIONALID?, PRESCRIPTIONID, PRESCRIPTIONDATE, PRODUCTLIST
-// with PRODUCT = GTIN, SN, BN, XD.
+// Sources: SFDA Integration Guide OPS-G-117-V2.1, the production WSDLs (2026-11-21) and the XSDs
+// they import. Production expects SOAP 1.1, document/literal, a namespace-qualified operation
+// element with unqualified children.
 //
-// The cancel envelope is built symmetrically from the same stored sale context. It has not been
-// probed in the field yet: confirm it against DTTS-ISD.PHARMACYSALE-nnn / the WSDL before the
-// first live cancel (see server/src/rsd/README.md).
+// Sale (PharmacySaleService, verified against ?xsd=1) is an ordered sequence:
+//   TOGLN, DOCTORID?, PATIENTNATIONALID?, PRESCRIPTIONID, PRESCRIPTIONDATE, PRODUCTLIST
+// PRODUCT = GTIN, SN, BN?, XD?. SN is required and there is no quantity element: one PRODUCT is one
+// serialized unit.
+//
+// Cancel (PharmacySaleCancelService, verified against ?xsd=1) differs from the sale: it has no
+// PRESCRIPTIONDATE and PRODUCTLIST is optional:
+//   TOGLN, PRESCRIPTIONID, PRODUCTLIST?
+// PRODUCT = GTIN, SN, BN?, XD?.
+//
+// The cancel envelope must not carry PRESCRIPTIONDATE: the cancel XSD is a strict xs:sequence, so an
+// element that is not declared there can be rejected by the service.
 import type { NormalizedCancel, NormalizedSale } from './normalize.js';
 import type { RsdParsedResponse, RsdResponseProduct } from './types.js';
 
@@ -63,7 +69,7 @@ ${productXml(sale)}
 
 export function buildCancelEnvelope(
   cancel: NormalizedCancel,
-  sale: Pick<NormalizedSale, 'toGln' | 'prescriptionId' | 'prescriptionDate'>,
+  sale: Pick<NormalizedSale, 'toGln' | 'prescriptionId'>,
 ): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="${SOAP_ENVELOPE_NS}" xmlns:phar="${CANCEL_SERVICE_NS}">
@@ -71,7 +77,6 @@ export function buildCancelEnvelope(
       <phar:PharmacySaleCancelServiceRequest>
          <TOGLN>${escapeXml(sale.toGln)}</TOGLN>
          <PRESCRIPTIONID>${escapeXml(sale.prescriptionId)}</PRESCRIPTIONID>
-         <PRESCRIPTIONDATE>${escapeXml(sale.prescriptionDate)}</PRESCRIPTIONDATE>
          <PRODUCTLIST>
 ${productXml(cancel)}
          </PRODUCTLIST>

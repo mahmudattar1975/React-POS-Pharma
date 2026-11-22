@@ -263,7 +263,7 @@ async function sendSale(input: NormalizedSale): Promise<SendResult> {
 
 async function sendCancel(
   input: NormalizedCancel,
-  sale: Pick<NormalizedSale, 'toGln' | 'prescriptionId' | 'prescriptionDate'>,
+  sale: Pick<NormalizedSale, 'toGln' | 'prescriptionId'>,
 ): Promise<SendResult> {
   const config = getRsdConfig();
   if (config.mode === 'mock') {

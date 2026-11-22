@@ -93,19 +93,28 @@ references are stored for reconciliation and never sent to SFDA.
 
 ## Wire format
 
-Verified against SFDA's production endpoints by field probes, and implemented in `wire.ts`:
+Verified against SFDA's production endpoints (WSDL and imported XSD, 2026-11-21) and implemented in
+`wire.ts`:
 
 * SOAP 1.1 (`text/xml; charset=utf-8`, `SOAPAction: ""`), HTTP Basic, document/literal.
   The integration guide states SOAP 1.2; the live endpoints answer that with HTTP 415.
 * Sale namespace `http://dtts.sfda.gov.sa/PharmacySaleService`, request element
   `PharmacySaleServiceRequest`, child order
   `TOGLN, DOCTORID?, PATIENTNATIONALID?, PRESCRIPTIONID, PRESCRIPTIONDATE, PRODUCTLIST`,
-  with `PRODUCT = GTIN, SN, BN, XD`.
+  with `PRODUCT = GTIN, SN, BN?, XD?`.
+* Cancel namespace `http://dtts.sfda.gov.sa/PharmacySaleCancelService`, request element
+  `PharmacySaleCancelServiceRequest`, child order `TOGLN, PRESCRIPTIONID, PRODUCTLIST?`.
+  The cancel has **no** `PRESCRIPTIONDATE`, unlike the sale.
 * Response: `NOTIFICATIONID` plus a per-product `RC`; faults carry `faultstring` and `<FC>`.
 
-**Unverified:** the cancel envelope/namespace (`PharmacySaleCancelService`) is built symmetrically
-and must be confirmed against `DTTS-ISD.PHARMACYSALE-nnn` or the cancel WSDL before the first live
-cancel. Run `npm run rsd:trial -- --probe` first; it never creates a movement.
+### Units, serials and quantity
+
+Both schemas declare `PRODUCT = GTIN, SN, BN?, XD?` and **no quantity element**. `SN` is required
+(`minOccurs` defaults to 1, not `nillable`). One `PRODUCT` is therefore one serialized pack, and a
+batch is reported as one `PRODUCT` per serial. There is no `Pharmacy Sale by Batch` service in the
+integration guide (unlike Accept/Return/Transfer), so a batch that has no serial numbers in RSD
+cannot be reported through `Pharmacy Sale`. A serial column that is empty in the portal's inventory
+export is a batch/aggregate view, not an invitation to send an empty `SN`.
 
 ## Trial
 
@@ -120,7 +129,8 @@ npm run rsd:trial -- --unit ... --yes   # required for RSD_ENV=production
 
 `--probe` needs only the username/password (it never reads or needs a GLN). A sale/cancel also
 needs `RSD_TEST_GLN` and a unit that is already in that GLN's RSD inventory. The probe saves the raw
-WSDL to `server/data/rsd-wsdl-*.xml` (gitignored) so the cancel request schema can be checked
+WSDL to `server/data/rsd-wsdl-*.xml` (gitignored); `npx tsx src/rsd/fetch-schemas.ts` saves the XSDs
+imported by those WSDLs to `server/data/rsd-xsd-*.xsd`. Both let the request schema be checked
 against the envelope before any sale/cancel movement.
 
 The mock suite covers: accepted sale, duplicate sale (no second send), wrong batch (`11036`),

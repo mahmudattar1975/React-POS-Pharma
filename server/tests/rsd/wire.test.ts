@@ -77,6 +77,16 @@ describe('buildCancelEnvelope', () => {
       `<GTIN>${sale.gtin}</GTIN>`,
     );
   });
+
+  it('matches the cancel XSD exactly: no PRESCRIPTIONDATE, order TOGLN/PRESCRIPTIONID/PRODUCTLIST', () => {
+    const xml = buildCancelEnvelope(cancel, sale);
+    // The cancel schema is a strict xs:sequence and has no PRESCRIPTIONDATE element.
+    expect(xml).not.toContain('<PRESCRIPTIONDATE>');
+    const order = ['<TOGLN>', '<PRESCRIPTIONID>', '<PRODUCTLIST>'];
+    const positions = order.map((tag) => xml.indexOf(tag));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
 });
 
 describe('parseSoapResponse', () => {
