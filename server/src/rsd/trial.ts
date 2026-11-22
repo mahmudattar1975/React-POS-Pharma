@@ -80,7 +80,7 @@ function parseArgs(argv: string[]): Options {
       if (!gtin || !serialNo || !batchNo || !expiryDate) {
         throw new Error('--unit must be gtin:serialNo:batchNo:YYYY-MM-DD');
       }
-      options.unit = { gtin, serialNo, batchNo, expiryDate };
+      options.unit = { gtin, serialNo, batchNo, expiryDate: expandGs1Expiry(expiryDate) };
     } else if (arg === '--out') {
       options.out = argv[++i];
     } else if (arg === '--help' || arg === '-h') {
@@ -91,6 +91,13 @@ function parseArgs(argv: string[]): Options {
     }
   }
   return options;
+}
+
+// A DataMatrix stores expiry as YYMMDD; operators copy that straight from the label. Convert it to
+// the xs:date the service needs, so "271231" means 2027-12-31 rather than a rejected request.
+function expandGs1Expiry(value: string): string {
+  const match = /^(\d{2})(\d{2})(\d{2})$/.exec(value.trim());
+  return match ? `20${match[1]}-${match[2]}-${match[3]}` : value.trim();
 }
 
 function maskGln(gln: string): string | null {
@@ -322,12 +329,23 @@ async function runLive(
 
   const liveUnit = unit as RsdUnit;
   let saleAttempts = 0;
+  let saleSent = false;
   await step(steps, 'live sale', async () => {
     const result = await reportSale(liveUnit);
     saleAttempts = result.record.attempts.length;
-    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
+    if (result.outcome !== 'sent') {
+      throw new Error(
+        `expected sent, got ${result.outcome} (RC ${result.record.rc ?? 'n/a'}): ${result.message ?? ''}`,
+      );
+    }
+    saleSent = true;
     return saleSummary(result);
   });
+
+  // A rejected sale means the unit is not in this GLN's RSD inventory (or the data is wrong).
+  // Nothing was moved, so there is nothing to duplicate or cancel - stop instead of turning one
+  // clear rejection into a cascade of failures.
+  if (!saleSent) return;
 
   await step(steps, 'duplicate live sale is not re-sent', async () => {
     const result = await reportSale(liveUnit);
@@ -339,11 +357,21 @@ async function runLive(
     return `${saleSummary(result)}; no new network attempt`;
   });
 
+  let cancelSent = false;
   await step(steps, 'live cancel', async () => {
     const result = await reportCancel(liveUnit);
-    assert(result.outcome === 'sent', `expected sent, got ${result.outcome}: ${result.message ?? ''}`);
+    if (result.outcome !== 'sent') {
+      throw new Error(
+        `expected sent, got ${result.outcome} (RC ${result.record.rc ?? 'n/a'}): ${result.message ?? ''}`,
+      );
+    }
+    cancelSent = true;
     return saleSummary(result);
   });
+
+  // Never re-send a cancel just to prove idempotency: if the reversal failed, the operator must
+  // stop and open an SFDA ticket, not fire another production movement.
+  if (!cancelSent) return;
 
   await step(steps, 'duplicate live cancel is not re-sent', async () => {
     const result = await reportCancel(liveUnit);
