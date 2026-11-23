@@ -180,8 +180,8 @@ cancelSale ──► rsdStore.enqueue(cancel) ──┘   POST /api/rsd/sales/ca
 | 0. Inputs | Credentials + WSDL + ISD for `PHARMACYSALE`, test GLN, confirmation of who accepts incoming units | WSDL retrievable; one manual SOAP call succeeds against the test server |
 | 1. Serial capture | **Done:** GS1 serial kept on cart line, duplicate refused, serials frozen on `SaleLine`, selling level frozen for serialised lines. **Still open:** manual serial entry for a damaged DataMatrix label. | E2E: scan two DataMatrix units → two serials on the sale; rescanning the same SN is refused |
 | 2. Server adapter + mock | **Done:** `server/src/rsd/*` (types, config, normalisation, wire, SOAP client, mock state machine, ledger, service), `/api/rsd` routes, `src/api/rsdApi.ts`, `npm run rsd:trial` | Mock: sale reported, duplicate retry idempotent, rejection surfaces the error code |
-| 3. Sale reporting | Outbox in `rsdStore`, 60 s retry, RSD status column on the invoice + RSD monitoring tab, settings panel | POS completes with server down; sale reports automatically when it returns; status visible |
-| 4. Sale cancel | Full return (invoice `returned`) triggers `PharmacySaleCancel` for its accepted units; partial returns send nothing | Full return reports cancel exactly once per unit; partial return leaves the RSD sale untouched; retry-safe |
+| 3. Sale reporting | **Done:** `store/rsdOutboxStore.ts` (per-unit durable outbox, 60 s retry), wired into `recordSale`, RSD column in the invoice ledger, RSD monitoring tab, settings panel | POS completes with server down; sale reports automatically when it returns; status visible |
+| 4. Sale cancel | **Done:** `recordReturn` enqueues a cancel for every unit of a line this return fully took back; partial returns send nothing | Full return reports cancel exactly once per unit; partial return leaves the RSD sale untouched; retry-safe |
 | 5. Hardening | Reconciliation (RSD ledger vs sales), CSV export, error-code dictionary, docs | No unmatched sold unit; audit export for an SFDA inspection |
 
 Rough effort: **8–12 development days**, excluding SFDA test-server turnaround, assuming
@@ -196,7 +196,8 @@ credentials and ISD arrive at the start of phase 1.
   `store.ts` (append-oriented ledger), `service.ts` (idempotency + sale-before-cancel ordering),
   `trial.ts` (mock suite and live probe/one-unit trial).
 - `/api/rsd`: `GET /status`, `POST /sales`, `POST /sales/cancel`, `GET /records|/reports`,
-  `GET /units/:gtin/:serialNo`, plus mock-only `POST /mock/accept` and `/mock/reset`.
+  `GET /units/:gtin/:serialNo`, `POST /reopen` (operator retry of a terminal rejection), plus
+  mock-only `POST /mock/accept` and `/mock/reset`.
 - `src/api/rsdApi.ts` is the browser contract; it never sees credentials and reports failures as
   `RsdReportError { retryable }` so the Phase 3 outbox can queue them.
 - `src/utils/rsdUnits.ts` decides which sold lines are reportable: the item must have **Batch /
@@ -225,6 +226,29 @@ would look different), but the account lacks the Pharmacy Sale privilege on prod
 values are the test account's, reused by mistake. Next step is SFDA enabling the privilege on the
 production account or issuing distinct production credentials; the wire format itself needs no
 further change.
+
+### 4.3 Phase 3 as built (23 Nov 2026)
+
+- `store/rsdOutboxStore.ts` is the durable outbox (localStorage `pharmacy-rsd-outbox`). One item
+  per physical unit and movement, keyed by `kind:gtin:serial` so a pack can never be queued twice.
+  It is written by `salesStore.recordSale` (sale) and `salesStore.recordReturn` (cancel for lines
+  this return fully took back); both are fire-and-forget, so checkout never waits on SFDA.
+- `utils/rsdOutbox.ts` holds the pure rules: `buildSaleOutboxItems` (drugs only, via
+  `utils/rsdUnits.ts`), `buildCancelOutboxItems` (full return only), the queue key and the
+  invoice/queue summaries. `utils/rsdOutbox.test.ts` covers them.
+- Sending: `flush()` runs on app load and every 60 s (`App.tsx`), plus immediately after an
+  enqueue. A network/5xx/429 failure stays `pending` and is retried; a business rejection is
+  `rejected` and is never resent automatically. A cancel waits for its sale: if the sale was
+  rejected the cancel becomes `blocked` (`sale_not_sent`) instead of spending a round-trip.
+- Operator retry: the RSD tab's Retry calls `POST /api/rsd/reopen` (the browser equivalent of the
+  trial's `--retry-rejected`) and then resends the same payload. Attempts and XML evidence stay in
+  the server ledger.
+- UI: an RSD chip on each invoice in the ZATCA sales-invoice ledger, an RSD monitoring tab
+  (`/rsd-reporting`) with per-unit status/RC/attempts and Retry, and a Settings panel showing the
+  server mode/environment/credentials/ledger and the local queue.
+- Tests: `src/utils/rsdOutbox.test.ts` (7) and `src/store/rsdOutboxStore.test.ts` (8) cover the
+  drug gate, full-return cancel, dedupe, retryable vs terminal failures, blocked cancels and the
+  reopen-then-resend path.
 
 ---
 

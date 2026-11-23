@@ -84,12 +84,28 @@ refuses to send credentials over plain HTTP.
 | POST | `/api/rsd/sales/cancel` | Cancel one pack after a full return. |
 | GET | `/api/rsd/records` / `/api/rsd/reports` | Ledger, filter by `kind`, `status`, `invoiceId`, `invoiceNo`, `limit`. |
 | GET | `/api/rsd/units/:gtin/:serialNo` | Sale/cancel state of one unit. |
+| POST | `/api/rsd/reopen` | Operator retry: clear the terminal flag on a rejection (body `{ kind, gtin, serialNo }`). Attempts/evidence are kept; an accepted sale is never reopened. |
 | POST | `/api/rsd/mock/accept` | Mock only: seed a unit as accepted into inventory. |
 | POST | `/api/rsd/mock/reset` | Mock only. |
 
 A sale payload is `{ gtin, serialNo, batchNo, expiryDate, toGln?, prescriptionId?,
 prescriptionDate?, doctorId?, patientNationalId?, invoiceId?, invoiceNo?, saleLineId? }`. Local
 references are stored for reconciliation and never sent to SFDA.
+
+## The POS outbox (Phase 3)
+
+`src/store/rsdOutboxStore.ts` keeps one durable row per physical unit and movement (sale/cancel),
+keyed by `kind:gtin:serialNo`. It is written after the local sale (`salesStore.recordSale`) and
+after a return that fully takes back a line (`salesStore.recordReturn`); both are fire-and-forget,
+so the POS never waits on SFDA.
+
+- `pending` rows are sent on app load and every 60 seconds, oldest first. A cancel waits until its
+  sale was accepted; if the sale was rejected, the cancel is `blocked` (`sale_not_sent`).
+- A network/5xx/429 answer stays `pending`. A business rejection (RC or SOAP fault) becomes
+  `rejected` and is never resent automatically.
+- The RSD tab's **Retry** calls `POST /api/rsd/reopen` first, then resends the same payload - the
+  browser equivalent of `--retry-rejected`. Fix the account/privilege (e.g. `21017`) before using
+  it, otherwise SFDA will reject the same payload again.
 
 ## Wire format
 
