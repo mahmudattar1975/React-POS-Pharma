@@ -84,8 +84,10 @@ Additional practical gaps:
   scans. For RSD each scan is one unit with its own SN; a repeated SN must be refused before
   the sale is recorded (locally and by SFDA).
 - **Non-serialised items.** Not every item sold in a pharmacy has a DataMatrix (cosmetics,
-  some supplies). Policy needed: report only items with captured serials (recommended
-  phase 1) or block their sale when RSD mode is on.
+  some supplies). **Decided (23 Nov 2026):** RSD is for drugs only, and the item master's
+  **Batch / expiry tracking** switch (`Item.requiresBatchTracking`) is the app's marker for a
+  drug. Lines from items with tracking off are never enqueued, even if a serial was captured.
+  A tracked drug still needs a captured serial: RSD requires `SN` and has no quantity element.
 
 ---
 
@@ -197,6 +199,9 @@ credentials and ISD arrive at the start of phase 1.
   `GET /units/:gtin/:serialNo`, plus mock-only `POST /mock/accept` and `/mock/reset`.
 - `src/api/rsdApi.ts` is the browser contract; it never sees credentials and reports failures as
   `RsdReportError { retryable }` so the Phase 3 outbox can queue them.
+- `src/utils/rsdUnits.ts` decides which sold lines are reportable: the item must have **Batch /
+  expiry tracking** on (drug, `requiresBatchTracking === true`) and the line must carry at least
+  one serial with an expiry. `SaleLine.requiresBatchTracking` is snapshotted at checkout.
 - Tests: `server/tests/rsd/{wire,normalize,service}.test.ts` (38 tests). Mock trial:
   `cd server && npm run rsd:trial` (10 steps, writes masked evidence JSON to `data/`).
 - Live is fail-closed: without credentials/URLs every report is `503 rsd_not_configured`.
@@ -245,9 +250,11 @@ further change.
    ("unit not in inventory") and Accept must be added to the scope or handled in the portal.
 4. ~~Cancel semantics~~ — **decided**: a full return is the cancellation; partial returns send
    nothing.
-5. **Item scope**: report only units that carry a serial (recommended first), or block
-   non-serialised sales when RSD is enabled? Note: `Pharmacy Sale` cannot accept a missing `SN`,
-   so a batch with no serials in RSD inventory is unreportable through it (no by-batch variant).
+5. ~~**Item scope**~~ — **decided (23 Nov 2026)**: report only lines whose item has **Batch /
+   expiry tracking** enabled (`Item.requiresBatchTracking === true`), because that switch marks a
+   drug; supplies and non-dated goods are skipped. The flag is snapshotted onto `SaleLine` at
+   checkout (`requiresBatchTracking`). A tracked drug still needs a captured serial, since
+   `Pharmacy Sale` cannot accept a missing `SN` and has no by-batch variant.
 6. **Reimbursement**: always `Direct Sale`, or is there a payer GLN for Wasfaty/insurance sales
    that should be used with the prescription ID?
 7. **Branches**: one GLN per branch? The app is multi-branch via cost centers.
