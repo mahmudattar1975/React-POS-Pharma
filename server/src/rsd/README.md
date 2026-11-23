@@ -146,7 +146,17 @@ notification ids, attempt counts and probe results. No credentials are written; 
 
 Interpretation: `HTTP 401` means the username/password were rejected. `UND_ERR_CONNECT_TIMEOUT` /
 `ECONNREFUSED` means the host is unreachable from this machine - SFDA's test environment is often
-restricted by VPN or source-IP allowlisting, so check that before touching credentials.
+restricted by VPN or source-IP allowlisting, so check that before touching credentials. A SOAP
+fault `FC 21017` means the credentials authenticated but the account is **not authorised** for
+`Pharmacy Sale` on that environment (missing privilege, or test credentials used against production).
+
+### Production evidence so far
+
+The production WSDL and XSD were fetched read-only, and `notifyPharmacySale` was called once with a
+real unit candidate. SFDA answered with SOAP fault `FC 21017` (not authorised); no unit moved. That
+is an account/privilege issue, not a wire-format issue, so the next step is for SFDA to enable the
+Pharmacy Sale privilege for the production account (or to issue the real production credentials).
+The request and response XML are stored in `server/data/rsd-ledger.json` (gitignored).
 
 ## Open questions (blocking parts of a production rollout)
 

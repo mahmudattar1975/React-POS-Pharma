@@ -76,7 +76,7 @@ const RC_TEXT: Record<string, string> = {
   '11036': 'Batch number does not match the unit registered in RSD.',
   '11037': 'GTIN is not known to RSD.',
   '11043': 'Unit is not in this pharmacy’s RSD inventory.',
-  '21017': 'Stakeholder is not authorised for this operation.',
+  '21017': 'Stakeholder is not authorised for this operation (check the account’s Pharmacy Sale privilege and that these are production credentials).',
   '21000': 'Invalid prescription date.',
   '80201': 'Wrong stakeholder type for this operation.',
 };
@@ -135,10 +135,15 @@ function classify(result: SendResult): Verdict {
   // A SOAP fault is a business answer (bad date, bad GTIN, wrong stakeholder), not a transport
   // problem: retrying the same payload unchanged would fail identically.
   if (result.fault) {
+    const code = result.fault.code;
+    // SFDA often puts only the numeric code in faultstring ("21017"). Store the readable text
+    // instead of a bare number, since this message is what an operator sees in the ledger.
+    const raw = result.fault.message;
+    const message = code && (raw === code || raw === '' || raw === undefined) ? describeRc(code) : raw;
     return {
       status: 'rejected',
-      rc: result.fault.code,
-      message: result.fault.message,
+      rc: code,
+      message,
       retryable: false,
     };
   }
