@@ -208,6 +208,19 @@ credentials and ISD arrive at the start of phase 1.
     batch-level aggregation is not part of `Pharmacy Sale` (no "by batch" variant exists).
   - Evidence saved under `server/data/` (gitignored): `rsd-wsdl-*.xml`, `rsd-xsd-*.xsd`.
 
+### 4.2 Production attempt (22 Nov 2026)
+
+Read-only first: both production WSDLs and their XSDs were fetched. Then one `notifyPharmacySale`
+was attempted with unit `07612791388842 / 1323424679 / TTXJ6 / 2029-03-24`. SFDA answered with SOAP
+fault `FC 21017` ("Stakeholder is not authorised for this operation"). No unit moved, so no cancel
+was needed.
+
+Conclusion: TLS, HTTP Basic and the request envelope reached the application layer (a schema fault
+would look different), but the account lacks the Pharmacy Sale privilege on production - or the
+values are the test account's, reused by mistake. Next step is SFDA enabling the privilege on the
+production account or issuing distinct production credentials; the wire format itself needs no
+further change.
+
 ---
 
 ## 5. Testing
@@ -221,8 +234,10 @@ credentials and ISD arrive at the start of phase 1.
 
 ## 6. Open questions (blocking)
 
-1. **Credentials**: test/production pharmacy GLN and RSD username/password, so the WSDL and
-   service are reachable. Without them the schema cannot be finalised (mock only).
+1. **Credentials/privilege**: the supplied GLN `6286479000015` / user `62864790000150000` authenticate
+   on production (WSDL `HTTP 200`) but `Pharmacy Sale` returns `21017` (not authorised). SFDA must
+   enable the Pharmacy Sale privilege on the production account, or provide distinct production
+   credentials. The test host is unreachable from this network (VPN/allowlist).
 2. ~~**ISD file** `DTTS-ISD.PHARMACYSALE-nnn`~~ — **resolved for the request shape**: the production
    WSDL exposes `notifyPharmacySale` / `notifyPharmacySaleCancel` and the XSDs pin the element names
    and order. Remaining: the full error-code catalogue and the cancel-specific codes.
