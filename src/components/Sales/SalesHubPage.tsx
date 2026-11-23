@@ -16,11 +16,13 @@ import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import MedicationIcon from '@mui/icons-material/Medication';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import POSPage from '../POS/POSPage';
 import ReturnsPage from '../Returns/ReturnsPage';
 import PrescriptionsPage from '../Prescriptions/PrescriptionsPage';
 import ControlledRegisterPage from '../Prescriptions/ControlledRegisterPage';
 import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
+import RsdMonitorPage from '../Rsd/RsdMonitorPage';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
@@ -28,6 +30,7 @@ const TABS = [
   { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
+  { path: '/rsd-reporting', label: 'RSD', icon: <VerifiedUserIcon fontSize="small" /> },
 ];
 
 export default function SalesHubPage() {
@@ -69,6 +72,11 @@ export default function SalesHubPage() {
             <Box sx={{ maxWidth: 1200 }}>
               <ZatcaInvoicesPanel />
             </Box>
+          </Box>
+        )}
+        {activeTab === 5 && (
+          <Box sx={{ height: '100%', overflow: 'auto' }}>
+            <RsdMonitorPage />
           </Box>
         )}
       </Box>

@@ -33,6 +33,9 @@ import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 
 import type { SaleHeader } from '../../types/sales';
 import { useSalesStore } from '../../store/salesStore';
+import { useRsdOutboxStore } from '../../store/rsdOutboxStore';
+import { rsdInvoiceSummary, type RsdOutboxItem } from '../../utils/rsdOutbox';
+import RsdStatusChip from '../Rsd/RsdStatusChip';
 import * as zatcaApi from '../../api/zatcaApi';
 import {
   ZATCA_STATUS_LABEL, buildSubmitRequest, needsResubmission, shortUuid, zatcaPatchFromSubmission,
@@ -49,6 +52,7 @@ type Filter = 'all' | 'needs' | 'failed' | 'accepted';
 export default function ZatcaInvoicesPanel() {
   const invoices = useSalesStore((s) => s.invoices);
   const updateInvoiceZatca = useSalesStore((s) => s.updateInvoiceZatca);
+  const rsdQueue = useRsdOutboxStore((s) => s.queue);
 
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -89,6 +93,18 @@ export default function ZatcaInvoicesPanel() {
   }, []);
 
   const summary = useMemo(() => zatcaSummary(invoices), [invoices]);
+
+  // RSD is unit-level, so one invoice can have several queue rows (one per scanned pack). Grouping
+  // once keeps the table row cheap and lets the chip say "2 queued" instead of just "not sent".
+  const rsdByInvoice = useMemo(() => {
+    const map = new Map<string, RsdOutboxItem[]>();
+    for (const item of rsdQueue) {
+      const list = map.get(item.invoiceId);
+      if (list) list.push(item);
+      else map.set(item.invoiceId, [item]);
+    }
+    return map;
+  }, [rsdQueue]);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -242,6 +258,7 @@ export default function ZatcaInvoicesPanel() {
                 <TableCell>Customer</TableCell>
                 <TableCell align="right">Total (SAR)</TableCell>
                 <TableCell>ZATCA</TableCell>
+                <TableCell>RSD</TableCell>
                 <TableCell>UUID</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -249,7 +266,7 @@ export default function ZatcaInvoicesPanel() {
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={9}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                       No invoices match this filter.
                     </Typography>
@@ -273,6 +290,9 @@ export default function ZatcaInvoicesPanel() {
                           {inv.zatcaFailureReason}
                         </Typography>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <RsdStatusChip summary={rsdInvoiceSummary(rsdByInvoice.get(inv.id) ?? [])} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ fontFamily: 'monospace' }} title={inv.zatcaUuid ?? ''}>

@@ -10,6 +10,7 @@ import ZatcaIdentityPanel from '../Zatca/ZatcaIdentityPanel';
 import ZatcaOnboardingPanel from '../Zatca/ZatcaOnboardingPanel';
 import ErpTestPanel from './ErpTestPanel';
 import WasfatySettingsPanel from './WasfatySettingsPanel';
+import RsdSettingsPanel from './RsdSettingsPanel';
 
 // Settings owns the ZATCA SETUP: the company/device identity the certificate is issued to and the
 // onboarding wizard. The invoice lifecycle moved to the till (Point of Sale > ZATCA sales
@@ -146,6 +147,18 @@ export default function SettingsPage() {
           contract without a POS change.
         </Typography>
         <WasfatySettingsPanel />
+      </Box>
+
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          RSD / SFDA (رصد)
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Report drug sales and their cancellations to SFDA&apos;s national track-and-trace service.
+          The till queues each serialised pack and sends it in the background; supplies and items
+          without Batch / expiry tracking are never reported.
+        </Typography>
+        <RsdSettingsPanel />
       </Box>
 
       <Box sx={{ mt: 3 }}>
