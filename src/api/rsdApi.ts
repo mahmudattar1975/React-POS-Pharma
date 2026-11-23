@@ -7,8 +7,10 @@
 // Reporting is best-effort. A thrown RsdReportError with `retryable` true (or a network failure)
 // means "queue it and try again"; the sale itself is already complete and must never be rolled
 // back because SFDA was unreachable.
-import type { SaleLine } from '../types/sales';
-import type { DrugSerial } from '../types/serial';
+import type { RsdUnit } from '../types/rsd';
+
+export type { RsdUnit } from '../types/rsd';
+export { isRsdReportableLine, rsdUnitsForLine } from '../utils/rsdUnits';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 const BASE_PATH = `${BASE_URL}/api/rsd`;
@@ -71,13 +73,6 @@ export type RsdOutcome =
   | 'already_cancelled'
   | 'sale_not_reported'
   | 'sale_not_sent';
-
-export interface RsdUnit {
-  gtin: string;
-  serialNo: string;
-  batchNo: string;
-  expiryDate: string;
-}
 
 export interface RsdSaleInput extends RsdUnit {
   toGln?: string;
@@ -204,22 +199,4 @@ export function mockAcceptRsdUnit(unit: RsdUnit): Promise<{ accepted: boolean; u
 
 export function mockResetRsd(): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>('/mock/reset', { method: 'POST' });
-}
-
-// One cart line -> the RSD units it represents. A line without serials is not reportable: RSD is
-// unit-level, so a non-serialised sale is out of scope rather than guessed batch-by-batch.
-export function rsdUnitsForLine(line: SaleLine): RsdUnit[] {
-  if (!line.serials || line.serials.length === 0) return [];
-  return line.serials
-    // Reporting needs a real expiry date; a serial captured without one cannot be sent and is
-    // surfaced by the caller instead of being guessed here.
-    .filter((serial): serial is DrugSerial & { expiryDate: string } =>
-      typeof serial.expiryDate === 'string' && serial.expiryDate !== '',
-    )
-    .map((serial) => ({
-      gtin: serial.gtin,
-      serialNo: serial.serialNo,
-      batchNo: serial.batchNo,
-      expiryDate: serial.expiryDate,
-    }));
 }

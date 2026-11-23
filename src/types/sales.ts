@@ -50,6 +50,11 @@ export interface SaleLine {
   totalInclVat: number;
   returnedQty: number; // running total already returned against this line
   controlledStatus?: ControlledStatus; // snapshot of Item.controlledStatus at sale time, for the receipt/audit record
+  // Snapshot of Item.requiresBatchTracking at sale time. RSD reports drugs only, and the item
+  // master's "Batch / expiry tracking" switch is this app's marker for a drug; supplies and other
+  // non-dated goods have it off and are never sent. Optional because invoices issued before RSD
+  // existed have no snapshot - and those are never enqueued.
+  requiresBatchTracking?: boolean;
   // Patient-facing directions dispensed with this line, frozen at checkout. Stored on the SALE, not
   // just referenced by id, so a reprint years later shows exactly what the patient was told even
   // after the DOS master or the item's suggested links have changed. Optional by design: not every

@@ -332,6 +332,9 @@ export default function POSPage() {
       totalInclVat: l.totalInclVat,
       returnedQty: 0,
       controlledStatus: itemById(l.itemId)?.controlledStatus,
+      // RSD reports drugs only. The item master's "Batch / expiry tracking" switch marks a drug;
+      // supplies and non-dated goods keep it off and are skipped by the RSD enqueue.
+      requiresBatchTracking: itemById(l.itemId)?.requiresBatchTracking,
       // The directions as chosen for this line - frozen on the sale, so a later library edit or a
       // reprint cannot silently change what this patient was told.
       dosage: l.dosage,
