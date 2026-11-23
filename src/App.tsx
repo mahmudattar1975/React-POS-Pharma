@@ -3,6 +3,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { theme } from './theme';
 import { usePendingSyncStore } from './store/pendingSyncStore';
+import { useRsdOutboxStore } from './store/rsdOutboxStore';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
 import RequireAuth from './components/Auth/RequireAuth';
@@ -34,6 +35,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // RSD reports each serialised drug pack in the background; a failed or unreachable report stays
+  // in the outbox. Same cadence as the SQL mirror: once on load, then every 60 seconds. Terminal
+  // SFDA rejections are never retried here - they wait for an operator (see the RSD tab).
+  useEffect(() => {
+    const flushRsd = () => useRsdOutboxStore.getState().flush();
+    flushRsd();
+    const interval = setInterval(flushRsd, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -57,6 +68,7 @@ export default function App() {
                 <Route path="/head-office-receiving" element={<PurchasingHubPage />} />
                 <Route path="/returns" element={<SalesHubPage />} />
                 <Route path="/sales-invoices" element={<SalesHubPage />} />
+                <Route path="/rsd-reporting" element={<SalesHubPage />} />
                 <Route path="/controlled-register" element={<SalesHubPage />} />
                 <Route path="/cost-centers" element={<CostCentersHubPage />} />
                 <Route path="/expenses" element={<CostCentersHubPage />} />

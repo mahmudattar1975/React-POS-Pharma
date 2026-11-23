@@ -140,6 +140,7 @@ export interface RsdStatus {
   saleUrl: string;
   cancelUrl: string;
   directToGln: string;
+  directPrescriptionId: string;
   ledger: { records: number; salesSent: number; cancelsSent: number; pendingOrFailed: number };
   mockInventoryUnits?: number;
 }
@@ -171,6 +172,20 @@ export function reportRsdCancel(input: RsdCancelInput): Promise<RsdReportResult>
 
 export function getRsdUnit(gtin: string, serialNo: string): Promise<RsdUnitStatus> {
   return request<RsdUnitStatus>(`/units/${encodeURIComponent(gtin)}/${encodeURIComponent(serialNo)}`);
+}
+
+// Clear the terminal flag on a rejection caused by the account/configuration (FC 21017, a corrected
+// credential) so the same payload may be sent again. This is the browser equivalent of the trial's
+// --retry-rejected. Attempts and evidence stay in the server ledger.
+export function reopenRsdRecord(
+  kind: RsdRecordKind,
+  gtin: string,
+  serialNo: string,
+): Promise<{ record: RsdRecord | null }> {
+  return request<{ record: RsdRecord | null }>('/reopen', {
+    method: 'POST',
+    body: JSON.stringify({ kind, gtin, serialNo }),
+  });
 }
 
 export function listRsdRecords(filter: {

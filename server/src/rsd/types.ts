@@ -119,6 +119,7 @@ export interface RsdStatus {
   saleUrl: string;
   cancelUrl: string;
   directToGln: string;
+  directPrescriptionId: string;
   ledger: { records: number; salesSent: number; cancelsSent: number; pendingOrFailed: number };
   // Only populated in mock mode, where the ledger does not reflect a real pharmacy inventory.
   mockInventoryUnits?: number;

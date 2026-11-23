@@ -11,6 +11,7 @@ import {
   acceptMockUnit,
   getStatus,
   listRecords,
+  reopenRejected,
   reportCancel,
   reportSale,
   resetMock,
@@ -83,6 +84,24 @@ rsdRouter.get('/records', reports);
 rsdRouter.get('/units/:gtin/:serialNo', async (req, res) => {
   try {
     res.json(await unitStatus(req.params.gtin, req.params.serialNo));
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// Operator action for a terminal rejection that was caused by the account/configuration rather
+// than the unit data (for example FC 21017, or a corrected credential). It clears the terminal
+// flag on the existing record and keeps every attempt; the next report sends again. The outbox's
+// Retry button calls this before resending, which is the browser equivalent of --retry-rejected.
+rsdRouter.post('/reopen', async (req, res) => {
+  try {
+    const body = req.body as { kind?: string; gtin?: string; serialNo?: string };
+    if (body.kind !== 'sale' && body.kind !== 'cancel') {
+      res.status(400).json({ error: 'kind must be "sale" or "cancel".', code: 'invalid_kind' });
+      return;
+    }
+    const record = await reopenRejected(body.kind, body.gtin ?? '', body.serialNo ?? '');
+    res.json({ record: record ?? null });
   } catch (err) {
     fail(res, err);
   }

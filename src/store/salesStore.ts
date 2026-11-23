@@ -5,6 +5,7 @@ import type { DosageSnapshot } from '../types/dosage';
 import type { WasfatyDispenseInfo } from '../types/wasfaty';
 import { backupSale, backupReturn } from '../api/salesApi';
 import { usePendingSyncStore } from './pendingSyncStore';
+import { useRsdOutboxStore } from './rsdOutboxStore';
 
 interface SalesState {
   invoices: SaleHeader[];
@@ -64,6 +65,10 @@ export const useSalesStore = create<SalesState>()(
           console.warn('Sale backup failed, queued for retry:', err);
           usePendingSyncStore.getState().enqueue({ kind: 'sale', payload: invoice });
         });
+        // SFDA RSD: enqueue the serialised DRUG packs on this invoice and let the outbox send them
+        // in the background. Item Master's "Batch / expiry tracking" switch is the drug gate (see
+        // utils/rsdUnits.ts), so supplies are skipped. This never blocks or fails the sale.
+        useRsdOutboxStore.getState().enqueueSale(invoice);
       },
 
       recordReturn: (ret, updatedInvoice) => {
@@ -82,6 +87,13 @@ export const useSalesStore = create<SalesState>()(
           console.warn('Return backup failed, queued for retry:', err);
           usePendingSyncStore.getState().enqueue({ kind: 'return', payload: returnPayload });
         });
+        // RSD treats a full return as the cancellation of that pack. Only lines this return took
+        // all the way back are enqueued; a partial return cannot say which serial came back.
+        useRsdOutboxStore.getState().enqueueReturn(
+          updatedInvoice,
+          ret.lines.map((line) => line.saleLineId),
+          ret.reason,
+        );
       },
 
       invoiceByNo: (invoiceNo) => get().invoices.find((i) => i.invoiceNo === invoiceNo),

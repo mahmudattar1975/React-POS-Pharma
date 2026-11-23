@@ -533,6 +533,7 @@ export async function getStatus(): Promise<RsdStatus> {
     saleUrl: config.saleUrl,
     cancelUrl: config.cancelUrl,
     directToGln: config.directToGln,
+    directPrescriptionId: config.directPrescriptionId,
     ledger: {
       records: state.records.length,
       salesSent: sales.filter((r) => r.status === 'sent').length,
