@@ -6,6 +6,8 @@
 //   * a cancel can only exist after its sale was accepted, so it can never overtake the sale;
 //   * a business rejection (RC or fault) is terminal until someone corrects the data - an
 //     automatic retry of the exact same payload would just be rejected again;
+//   * an operator can explicitly reopen a rejected record after fixing an account/configuration
+//     problem (for example FC 21017: not authorised); the attempts and evidence are kept.
 //   * only infrastructure failures (timeout, connection loss, HTTP 5xx/429) are retryable.
 //
 // Sending happens INSIDE the ledger's serialised section. That is deliberate: it guarantees two
@@ -455,6 +457,30 @@ export async function reportCancel(raw: RsdCancelInput): Promise<RsdReportResult
     };
     state.records.push(record);
     return applyResult(record, await sendCancel(input, context));
+  });
+}
+
+// Operator action for a rejection that was caused by the account/environment rather than the unit
+// data (FC 21017, wrong stakeholder type, a corrected credential). It keeps the record and every
+// attempt, and only clears the terminal flag so the next report sends again. It refuses to touch a
+// record that SFDA already accepted.
+export async function reopenRejected(
+  kind: 'sale' | 'cancel',
+  gtin: string,
+  serialNo: string,
+): Promise<RsdRecord | undefined> {
+  const normalizedGtin = normalizeGtin(gtin);
+  const normalizedSerial = normalizeSerialNo(serialNo);
+  return mutateLedger(async (state) => {
+    const record =
+      kind === 'sale'
+        ? findSaleRecord(state, normalizedGtin, normalizedSerial)
+        : findCancelRecord(state, normalizedGtin, normalizedSerial);
+    if (!record || record.status !== 'rejected') return record;
+    record.status = 'failed';
+    record.retryable = true;
+    record.updatedAt = new Date().toISOString();
+    return record;
   });
 }
 

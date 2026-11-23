@@ -125,6 +125,8 @@ npm run rsd:trial                 # full offline suite against the mock
 npm run rsd:trial -- --probe      # live WSDL/auth probe only, no sale/cancel
 npm run rsd:trial -- --unit 06281007320021:SN123456:AX24C09:2027-05-31
 npm run rsd:trial -- --unit ... --yes   # required for RSD_ENV=production
+npm run rsd:trial -- --unit ... --yes --retry-rejected
+                                        # after fixing an account/config rejection (e.g. 21017)
 ```
 
 `--probe` needs only the username/password (it never reads or needs a GLN). A sale/cancel also
@@ -140,6 +142,11 @@ HTTP 500 that stays retryable while appending attempts.
 The live suite probes both WSDLs, sells one real unit, replays the sale (must be local
 `already_reported`, no second send), cancels it, and replays the cancel. It deliberately does not
 test unknown units or wrong batches live: every such attempt is a real operation.
+
+A rejected payload is not resent automatically, even with identical data. If the rejection was an
+account/configuration problem (for example `FC 21017`), fix it and rerun with `--retry-rejected`:
+that clears the terminal flag on the existing record (the attempts and XML stay in the ledger) and
+the same payload is sent again. It never reopens a sale SFDA already accepted.
 
 Evidence is written to `server/data/rsd-trial-<timestamp>.json` (gitignored) with steps, RC codes,
 notification ids, attempt counts and probe results. No credentials are written; the GLN is masked.

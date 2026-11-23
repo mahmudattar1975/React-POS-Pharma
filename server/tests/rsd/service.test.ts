@@ -10,6 +10,7 @@ import {
   acceptMockUnit,
   getStatus,
   listRecords,
+  reopenRejected,
   reportCancel,
   reportSale,
   resetMock,
@@ -106,6 +107,33 @@ describe('Pharmacy Sale', () => {
     expect(corrected.record.id).toBe(first.record.id);
     expect(corrected.record.attempts).toHaveLength(2);
     expect(corrected.record.batchNo).toBe('AX24C09');
+  });
+
+  it('reopens a rejection caused by the account and resends the same payload', async () => {
+    // Rejected because the unit was not in inventory yet; the operator then fixes the inventory
+    // (or the account privilege) and explicitly reopens the record.
+    const first = await reportSale(UNIT);
+    expect(first.outcome).toBe('rejected');
+    await accept(UNIT);
+
+    const reopened = await reopenRejected('sale', UNIT.gtin, UNIT.serialNo);
+    expect(reopened?.status).toBe('failed');
+    expect(reopened?.retryable).toBe(true);
+
+    const retried = await reportSale(UNIT);
+    expect(retried.outcome).toBe('sent');
+    expect(retried.record.id).toBe(first.record.id);
+    expect(retried.record.attempts).toHaveLength(2);
+  });
+
+  it('never reopens a sale SFDA already accepted', async () => {
+    await accept(UNIT);
+    const sale = await reportSale(UNIT);
+    expect(sale.outcome).toBe('sent');
+
+    const reopened = await reopenRejected('sale', UNIT.gtin, UNIT.serialNo);
+    expect(reopened?.status).toBe('sent');
+    expect((await unitStatus(UNIT.gtin, UNIT.serialNo)).sale?.status).toBe('sent');
   });
 
   it('treats HTTP 500 and connection loss as retryable without creating new records', async () => {

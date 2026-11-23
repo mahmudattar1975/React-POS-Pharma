@@ -6,6 +6,8 @@
 //                                        # live sale + duplicate + cancel on ONE real unit
 //   npm run rsd:trial -- --unit ... --yes
 //                                        # required in addition when RSD_ENV=production
+//   npm run rsd:trial -- --unit ... --yes --retry-rejected
+//                                        # reopen a rejection caused by the account, then retry
 //
 // The live flow deliberately does NOT test unknown units or wrong batches: every such attempt is
 // a real operation against SFDA. Those cases are covered by the mock suite and by the unit tests.
@@ -20,6 +22,7 @@ import type { RsdEnvironment, RsdMode, RsdReportResult, RsdUnit } from './types.
 import {
   acceptMockUnit,
   getStatus,
+  reopenRejected,
   reportCancel,
   reportSale,
   resetMock,
@@ -64,16 +67,18 @@ interface ProbeEvidence {
 interface Options {
   probe: boolean;
   yes: boolean;
+  retryRejected: boolean;
   unit?: RsdUnit;
   out?: string;
 }
 
 function parseArgs(argv: string[]): Options {
-  const options: Options = { probe: false, yes: false };
+  const options: Options = { probe: false, yes: false, retryRejected: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--probe') options.probe = true;
     else if (arg === '--yes') options.yes = true;
+    else if (arg === '--retry-rejected') options.retryRejected = true;
     else if (arg === '--unit') {
       const raw = argv[++i] ?? '';
       const [gtin, serialNo, batchNo, expiryDate] = raw.split(':');
@@ -437,6 +442,15 @@ async function main(): Promise<void> {
   if (config.mode === 'mock') {
     await runMock(steps);
   } else {
+    // An explicit operator decision: the rejection was an account/configuration problem, not bad
+    // unit data, so the same payload may be sent again after the fix. Attempts stay in the ledger.
+    if (options.retryRejected && options.unit) {
+      const sale = await reopenRejected('sale', options.unit.gtin, options.unit.serialNo);
+      const cancel = await reopenRejected('cancel', options.unit.gtin, options.unit.serialNo);
+      console.log(
+        `reopened rejected records: sale=${sale?.status ?? 'none'}, cancel=${cancel?.status ?? 'none'}`,
+      );
+    }
     await runLive(steps, options.unit, probes, wsdlFiles, options.probe || !options.unit);
   }
 
