@@ -9,6 +9,7 @@
 // That response was `406: "This Version is not supported or not provided in the header"` until
 // the Accept-Version header below was added - ZATCA's gateway requires it on every call.
 import { config } from '../config.js';
+import { mockComplianceCsid, mockCheckComplianceInvoice, mockProductionCsid, mockSubmitInvoice, MOCK_CERT_BASE64 } from './mock.js';
 
 const ZATCA_API_VERSION = 'V2';
 
@@ -54,6 +55,7 @@ async function postJson<T>(url: string, body: unknown, headers: Record<string, s
 }
 
 export async function requestComplianceCsid(csrBase64: string, otp: string): Promise<CsidResponse> {
+  if (config.zatcaMode === 'mock') return mockComplianceCsid() as CsidResponse;
   return postJson<CsidResponse>(`${config.zatcaBaseUrl}/compliance`, { csr: csrBase64 }, { OTP: otp });
 }
 
@@ -63,6 +65,7 @@ export async function checkComplianceInvoice(
   uuid: string,
   invoiceBase64: string
 ): Promise<ComplianceCheckResult> {
+  if (config.zatcaMode === 'mock') return mockCheckComplianceInvoice() as ComplianceCheckResult;
   return postJson<ComplianceCheckResult>(
     `${config.zatcaBaseUrl}/compliance/invoices`,
     { invoiceHash: invoiceHashBase64, uuid, invoice: invoiceBase64 },
@@ -74,6 +77,7 @@ export async function requestProductionCsid(
   complianceCsid: Pick<CsidResponse, 'binarySecurityToken' | 'secret'>,
   complianceRequestId: string
 ): Promise<CsidResponse> {
+  if (config.zatcaMode === 'mock') return mockProductionCsid() as CsidResponse;
   return postJson<CsidResponse>(
     `${config.zatcaBaseUrl}/production/csids`,
     { compliance_request_id: complianceRequestId },
@@ -88,6 +92,7 @@ export async function submitInvoice(
   invoiceBase64: string,
   clearance: boolean
 ): Promise<SubmitResult> {
+  if (config.zatcaMode === 'mock') return mockSubmitInvoice(clearance, invoiceBase64) as SubmitResult;
   const path = clearance ? 'invoices/clearance/single' : 'invoices/reporting/single';
   const headers: Record<string, string> = { Authorization: authHeader(productionCsid.binarySecurityToken, productionCsid.secret) };
   if (clearance) headers['Clearance-Status'] = '1';

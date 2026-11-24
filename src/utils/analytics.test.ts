@@ -44,6 +44,7 @@ function saleReturn(overrides: Partial<ReturnHeader> = {}): ReturnHeader {
     lines: [{ saleLineId: 'l1', itemNameEn: 'Panadol', qty: 1, refundAmount: 10 }],
     totalRefund: 10,
     reason: 'damaged',
+    zatcaStatus: 'pending_submission',
     ...overrides,
   };
 }

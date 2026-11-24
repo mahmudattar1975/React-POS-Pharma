@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { submitSaleInvoice, type SubmitSaleInvoiceRequest } from '../zatca/submitSaleInvoice.js';
+import { submitSaleInvoice, validateSubmissionRequest } from '../zatca/submitSaleInvoice.js';
 import { findArchivedInvoice, listArchivedInvoices } from '../store/invoiceArchive.js';
 
 export const invoicesRouter = Router();
@@ -23,8 +23,13 @@ invoicesRouter.get('/:uuid', async (req, res) => {
 });
 
 invoicesRouter.post('/', async (req, res) => {
+  const parsed = validateSubmissionRequest(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.errors.join(' '), errors: parsed.errors });
+    return;
+  }
   try {
-    const result = await submitSaleInvoice(req.body as SubmitSaleInvoiceRequest);
+    const result = await submitSaleInvoice(parsed.value);
     res.json(result);
   } catch (err) {
     // Submission failures (network, ZATCA rejection, no CSID yet) are business-as-usual for a POS

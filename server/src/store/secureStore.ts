@@ -25,21 +25,23 @@ export interface StoredCsid {
 }
 
 export type ZatcaEnv = 'sandbox' | 'simulation' | 'production';
-
-// Result of step 2 of onboarding. Kept with the CSIDs so the wizard can show "checks passed" after a
-// reload instead of asking the operator to resend six sample invoices to ZATCA.
-export interface ComplianceCheckResult {
-  passed: boolean;
-  checkedAt: string;
-}
+export type ZatcaMode = 'mock' | 'live';
 
 export interface ZatcaState {
   environment: ZatcaEnv;
+  mode?: ZatcaMode;
   compliance?: StoredCsid;
   production?: StoredCsid;
-  complianceCheck?: ComplianceCheckResult;
   icv: number; // last-used Invoice Counter Value, increments per invoice on this device
   lastInvoiceHash: string; // PIH for the next invoice; "0" (base64 of a single zero byte) for the very first
+  // ZATCA will not issue a Production CSID until the six sample invoices have passed the compliance
+  // check. Persist that result: the UI's step 3 must stay locked after a reload, and a second client
+  // must not be able to skip step 2 just because it never saw the first client's screen.
+  complianceCheck?: {
+    passed: boolean;
+    passedAt?: string;
+    results: Array<{ name: string; status: string }>;
+  };
   // Seller + device identity (see store/identity.ts). Optional so state files written before it
   // existed still load; those get seeded from `.env` on first read.
   identity?: ZatcaIdentity;
@@ -88,11 +90,32 @@ export async function setEnvironment(environment: ZatcaEnv): Promise<void> {
   if (state.environment !== environment) {
     state.environment = environment;
     state.compliance = undefined;
-    state.production = undefined;
-    // A check belongs to the CSID/environment it was run against; none of it carries over.
     state.complianceCheck = undefined;
+    state.production = undefined;
     state.icv = 0;
     state.lastInvoiceHash = EMPTY_STATE.lastInvoiceHash;
+  }
+  await saveState(state);
+}
+
+export async function getMode(): Promise<ZatcaMode> {
+  const state = await loadState();
+  return state.mode ?? ((process.env.ZATCA_MODE as ZatcaMode) ?? 'live');
+}
+
+// Switching mode clears any CSID material from the other mode - a mock CSID is meaningless against
+// live ZATCA and vice versa, so carrying it over would only produce confusing failures later.
+export async function setMode(mode: ZatcaMode): Promise<void> {
+  const state = await loadState();
+  if ((state.mode ?? 'live') !== mode) {
+    state.mode = mode;
+    state.compliance = undefined;
+    state.complianceCheck = undefined;
+    state.production = undefined;
+    state.icv = 0;
+    state.lastInvoiceHash = EMPTY_STATE.lastInvoiceHash;
+  } else {
+    state.mode = mode;
   }
   await saveState(state);
 }

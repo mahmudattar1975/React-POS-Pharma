@@ -23,6 +23,8 @@ export const useSettingsStore = create<SettingsState>()(
         // This demo register belongs to the Riyadh branch (see seedCostCenters in
         // utils/seedData.ts) - sales/purchases post under its cost center by default.
         costCenterId: 'cc-br-001',
+        // RSD reporting is opt-in; Settings > RSD flips it on after credentials/GLN are confirmed.
+        rsdEnabled: false,
       },
       update: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
     }),

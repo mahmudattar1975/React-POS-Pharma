@@ -167,6 +167,12 @@ export function validateIdentity(identity: ZatcaIdentity): string[] {
   } else if (seller.vatNumber !== '' && !/^3\d{13}3$/.test(seller.vatNumber)) {
     errors.push('VAT number must be exactly 15 digits and start and end with 3.');
   }
+  // The CR is written into every UBL invoice as the supplier's CompanyID, so a blank or non-numeric
+  // CR produces a tax document ZATCA cannot match to the business. Validate it here as well as in
+  // the required-fields list so the data-entry screen can point at the exact problem.
+  if (seller.crNumber !== '' && !/^\d{8,15}$/.test(seller.crNumber)) {
+    errors.push('Commercial Registration (CR) number must contain only 8 to 15 digits.');
+  }
   if (seller.country !== '' && !/^[A-Z]{2}$/.test(seller.country)) {
     errors.push('Country must be a 2-letter ISO code (for example SA).');
   }
@@ -192,7 +198,9 @@ export function missingConfiguredFields(identity: ZatcaIdentity): string[] {
   const { seller } = identity;
   const missing: string[] = [];
   if (!seller.nameEn) missing.push('Seller name (English)');
+  if (!seller.nameAr) missing.push('Seller name (Arabic)');
   if (!/^3\d{13}3$/.test(seller.vatNumber)) missing.push('VAT number (15 digits, starting and ending with 3)');
+  if (!/^\d{8,15}$/.test(seller.crNumber)) missing.push('Commercial Registration (CR) number');
   if (!seller.street) missing.push('Street');
   if (!seller.city) missing.push('City');
   if (!seller.postalCode) missing.push('Postal code');

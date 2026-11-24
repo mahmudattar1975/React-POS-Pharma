@@ -6,6 +6,15 @@ import type { WasfatyDispenseInfo } from '../types/wasfaty';
 import { backupSale, backupReturn } from '../api/salesApi';
 import { usePendingSyncStore } from './pendingSyncStore';
 import { useRsdOutboxStore } from './rsdOutboxStore';
+import { useSettingsStore } from './settingsStore';
+
+// Only these fields may be changed by a ZATCA submission/retry. The rest of a sale is a frozen
+// legal record; a retry must never be able to touch prices, lines, the customer or the tender.
+type ZatcaEvidencePatch = Partial<Pick<
+  SaleHeader,
+  'zatcaStatus' | 'zatcaQrBase64' | 'zatcaUuid' | 'zatcaIcv' |
+  'zatcaInvoiceHashBase64' | 'zatcaSubmittedAt' | 'zatcaEnvironment' | 'zatcaFailureReason'
+>>;
 
 interface SalesState {
   invoices: SaleHeader[];
@@ -19,7 +28,10 @@ interface SalesState {
   // ZATCA Phase 2 evidence is written to an invoice AFTER it exists - the resubmission flow can
   // only learn the UUID/ICV/hash by asking ZATCA about a document that was already issued. Scoped
   // to the ZATCA fields so a retry can never touch prices, lines or the customer.
-  updateInvoiceZatca: (invoiceId: string, patch: Partial<SaleHeader>) => void;
+  updateInvoiceZatca: (invoiceId: string, patch: ZatcaEvidencePatch) => void;
+  // A return is submitted to ZATCA as a credit note. It gets the same scoped evidence update as the
+  // original sale, but lives on the ReturnHeader so a refund never rewrites the issued invoice.
+  updateReturnZatca: (returnId: string, patch: ZatcaEvidencePatch) => void;
   // Directions are chosen on the post-payment screen (after the money is settled, before the
   // receipt prints), so they are written onto the already-recorded sale. Only the clinical
   // annotation changes: prices, VAT, payments, ZATCA evidence and customer are never touched, and
@@ -68,7 +80,11 @@ export const useSalesStore = create<SalesState>()(
         // SFDA RSD: enqueue the serialised DRUG packs on this invoice and let the outbox send them
         // in the background. Item Master's "Batch / expiry tracking" switch is the drug gate (see
         // utils/rsdUnits.ts), so supplies are skipped. This never blocks or fails the sale.
-        useRsdOutboxStore.getState().enqueueSale(invoice);
+        // Reporting is opt-in: with RSD off in Settings the sale is still recorded exactly as
+        // before, it simply is not a national movement this register is responsible for.
+        if (useSettingsStore.getState().settings.rsdEnabled === true) {
+          useRsdOutboxStore.getState().enqueueSale(invoice);
+        }
       },
 
       recordReturn: (ret, updatedInvoice) => {
@@ -89,11 +105,14 @@ export const useSalesStore = create<SalesState>()(
         });
         // RSD treats a full return as the cancellation of that pack. Only lines this return took
         // all the way back are enqueued; a partial return cannot say which serial came back.
-        useRsdOutboxStore.getState().enqueueReturn(
-          updatedInvoice,
-          ret.lines.map((line) => line.saleLineId),
-          ret.reason,
-        );
+        // Like sales, this only runs when RSD reporting is enabled on this register.
+        if (useSettingsStore.getState().settings.rsdEnabled === true) {
+          useRsdOutboxStore.getState().enqueueReturn(
+            updatedInvoice,
+            ret.lines.map((line) => line.saleLineId),
+            ret.reason,
+          );
+        }
       },
 
       invoiceByNo: (invoiceNo) => get().invoices.find((i) => i.invoiceNo === invoiceNo),
@@ -105,6 +124,12 @@ export const useSalesStore = create<SalesState>()(
         // The SQL mirror is a best-effort backup of the SALE; a later ZATCA status change is a
         // local compliance record and is deliberately not pushed there (see api/salesApi.ts),
         // so this never queues a retry or blocks the UI.
+      },
+
+      updateReturnZatca: (returnId, patch) => {
+        set((s) => ({
+          returns: s.returns.map((ret) => (ret.id === returnId ? { ...ret, ...patch } : ret)),
+        }));
       },
 
       updateInvoiceDosages: (invoiceId, patches) => {
@@ -138,6 +163,31 @@ export const useSalesStore = create<SalesState>()(
         }));
       },
     }),
-    { name: 'pharmacy-sales' }
+    {
+      name: 'pharmacy-sales',
+      version: 3,
+      // Sales saved before Phase 2 existed have no `zatcaStatus`. Without this back-fill the
+      // invoices ledger dereferences `ZATCA_STATUS_LABEL[undefined]` and crashes the whole tab on
+      // an upgraded install. Those sales did carry the 5-field Phase 1 QR, so "Phase 1 only" is
+      // the honest status: accepted locally, still awaiting a Phase 2 submission.
+      // Returns gained credit-note evidence in v3; older refunds were never submitted to ZATCA, so
+      // they start as "Not submitted" rather than being falsely marked accepted.
+      migrate: (persisted, _version) => {
+        const state = (persisted ?? {}) as Partial<SalesState>;
+        return {
+          ...state,
+          invoices: (state.invoices ?? []).map((invoice) => ({
+            ...invoice,
+            zatcaStatus: invoice.zatcaStatus ?? 'phase1_fallback',
+          })),
+          returns: (state.returns ?? []).map((ret) => ({
+            ...ret,
+            zatcaStatus: ret.zatcaStatus ?? 'pending_submission',
+          })),
+          simplifiedCounter: state.simplifiedCounter ?? 0,
+          standardCounter: state.standardCounter ?? 0,
+        } as SalesState;
+      },
+    }
   )
 );

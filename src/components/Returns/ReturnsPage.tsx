@@ -12,6 +12,11 @@ import type { ReturnHeader, ReturnLine, SaleHeader } from '../../types/sales';
 import { round2 } from '../../utils/vat';
 import { formatMoney, formatQty } from '../../utils/format';
 import * as posApi from '../../api/posApi';
+import * as zatcaApi from '../../api/zatcaApi';
+import {
+  buildCreditNoteSubmitRequest, classifyZatcaCheckoutFailure, needsResubmission,
+  zatcaPatchFromSubmission, zatcaStatusLabel,
+} from '../../utils/zatcaInvoice';
 
 // Loyalty points earned/redeemed on a sale are proportional to money, so a return claws back /
 // refunds the same proportion. Uses the CUMULATIVE returned share of the invoice (not just this
@@ -42,7 +47,7 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 }
 
 export default function ReturnsPage() {
-  const { invoiceByNo, recordReturn, returns, invoices } = useSalesStore();
+  const { invoiceByNo, recordReturn, returns, invoices, updateReturnZatca } = useSalesStore();
   const { incrementBatch } = useCatalogStore();
   const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
   const pharmacist = useSettingsStore((s) => s.settings.cashierName);
@@ -57,8 +62,10 @@ export default function ReturnsPage() {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [messageSeverity, setMessageSeverity] = useState<'success' | 'error'>('success');
+  const [busyReturnId, setBusyReturnId] = useState<string | null>(null);
 
   const invoice = invoiceByNo(invoiceNo);
+  const returnRows = invoice ? returns.filter((ret) => ret.originalInvoiceId === invoice.id) : [];
 
   // The sale stores the customer id and the name, not the phone (the phone belongs to the customer
   // master and can be corrected there). Resolve it once per customer-list change instead of doing
@@ -107,6 +114,33 @@ export default function ReturnsPage() {
     setResults(null);
     setQtyByLine({});
     setMessage(null);
+  }
+
+  // The refund is final locally before this runs: a ZATCA outage must never stop a customer getting
+  // their money back. The credit note is submitted best-effort and its outcome is stored on the
+  // ReturnHeader, where the cashier can retry it from the list below.
+  async function submitCreditNote(ret: ReturnHeader, source: SaleHeader): Promise<string> {
+    setBusyReturnId(ret.id);
+    try {
+      const result = await zatcaApi.submitInvoice(buildCreditNoteSubmitRequest(source, ret));
+      const patch = zatcaPatchFromSubmission(result, source.invoiceType, new Date().toISOString());
+      updateReturnZatca(ret.id, patch);
+      if (result.status === 'failed') {
+        return `Credit note rejected: ${patch.zatcaFailureReason ?? 'see ZATCA status below'}`;
+      }
+      return `Credit note ${result.status === 'cleared' ? 'cleared' : 'reported'} by ZATCA`;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      updateReturnZatca(ret.id, {
+        zatcaStatus: classifyZatcaCheckoutFailure(err) === 'server_unavailable'
+          ? 'phase1_fallback'
+          : 'pending_submission',
+        zatcaFailureReason: reason,
+      });
+      return `Credit note not submitted: ${reason}`;
+    } finally {
+      setBusyReturnId(null);
+    }
   }
 
   async function submitReturn() {
@@ -183,6 +217,7 @@ export default function ReturnsPage() {
       lines: returnLines,
       totalRefund: round2(totalRefund),
       reason: reason.trim(),
+      zatcaStatus: 'pending_submission',
     };
 
     const pointsAdjustment = applyPointsForReturn(invoice, updatedLines);
@@ -217,9 +252,15 @@ export default function ReturnsPage() {
       }
     }
 
+    // ZATCA sees a return as a credit note against the original tax document, not as a negative
+    // sale. It is submitted after the refund is committed so a gateway failure cannot roll back
+    // money already handed to the customer.
+    const creditNoteStatus = await submitCreditNote(ret, invoice);
+
     let msg = `Refunded SAR ${formatMoney(totalRefund)} — ${ret.returnNo}`;
     if (pointsClawedBackThisReturn > 0) msg += ` · ${pointsClawedBackThisReturn} points clawed back`;
     if (pointsRefundedThisReturn > 0) msg += ` · ${pointsRefundedThisReturn} points refunded`;
+    msg += ` · ${creditNoteStatus}`;
     setMessageSeverity('success');
     setMessage(msg);
     setQtyByLine({});
@@ -329,6 +370,62 @@ export default function ReturnsPage() {
           <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth sx={{ mt: 2 }} />
           <Button variant="contained" sx={{ mt: 2 }} onClick={submitReturn}>Process Return</Button>
           {message && <Alert severity={messageSeverity} sx={{ mt: 2 }}>{message}</Alert>}
+
+          {invoice && returnRows.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                ZATCA credit notes for this invoice
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                A refund is reported as a credit note referencing the original tax invoice. If the
+                signing server was unavailable, the refund is still valid — retry the note here once
+                it is back.
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Credit note</TableCell>
+                    <TableCell align="right">Refund</TableCell>
+                    <TableCell>ZATCA</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {returnRows.map((ret) => {
+                    const label = zatcaStatusLabel(ret.zatcaStatus);
+                    return (
+                      <TableRow key={ret.id}>
+                        <TableCell>
+                          {ret.returnNo}
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {new Date(ret.date).toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{formatMoney(ret.totalRefund)}</TableCell>
+                        <TableCell>
+                          <Chip size="small" color={label.color} label={label.label} title={label.help} />
+                          {ret.zatcaFailureReason && needsResubmission(ret) && (
+                            <Typography variant="caption" color="error" sx={{ display: 'block', maxWidth: 320 }}>
+                              {ret.zatcaFailureReason}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            disabled={busyReturnId !== null || !needsResubmission(ret)}
+                            onClick={() => void submitCreditNote(ret, invoice)}
+                          >
+                            {busyReturnId === ret.id ? 'Sending…' : 'Retry credit note'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
         </Paper>
       )}
     </Box>

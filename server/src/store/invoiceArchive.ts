@@ -27,11 +27,20 @@ export interface ArchivedInvoiceRecord {
   icv: number;
   invoiceNo: string;
   invoiceType: 'standard' | 'simplified';
+  // A return produces a credit note, not another sales invoice. Kept on the archive row so the
+  // retention list can distinguish them and a dispute can show what the document actually was.
+  documentType?: 'invoice' | 'credit_note' | 'debit_note';
+  billingReference?: { id: string; uuid?: string; issueDate?: string };
+  note?: string;
   issueDate: string; // ISO - the document's own issue timestamp
   status: 'cleared' | 'reported' | 'accepted_with_warnings' | 'failed';
   invoiceHashBase64: string;
   qrBase64: string;
   signedXml: string;
+  // For clearance submissions ZATCA returns the stamped legal copy; retain it too, not just the
+  // document we sent.
+  clearedInvoiceXmlBase64?: string;
+  reason?: string; // structured failure/validation reason from the gateway
   response: unknown;
   submittedAt: string; // ISO - when this attempt was made
   environment: 'sandbox' | 'simulation' | 'production';
@@ -73,6 +82,17 @@ export async function listArchivedInvoices(limit = 200): Promise<ArchivedInvoice
     .slice(-Math.max(1, limit))
     .reverse()
     .map(({ signedXml: _xml, qrBase64: _qr, response: _res, ...summary }) => summary);
+}
+
+// The most recent FAILED attempt for a document number. A retry must reuse the UUID of the attempt
+// it is correcting: ZATCA expects one document identity per invoice/credit note, and generating a
+// new UUID on every retry would create a second document with the same invoice number.
+export async function findFailedSubmissionByInvoiceNo(invoiceNo: string): Promise<ArchivedInvoiceRecord | undefined> {
+  const all = await readAll();
+  for (let i = all.length - 1; i >= 0; i -= 1) {
+    if (all[i].invoiceNo === invoiceNo && all[i].status === 'failed') return all[i];
+  }
+  return undefined;
 }
 
 export async function findArchivedInvoice(uuid: string): Promise<ArchivedInvoiceRecord | undefined> {

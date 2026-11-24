@@ -20,4 +20,9 @@ export interface StoreSettings {
   // invoice header, not the POS. settingsStore's merge backfills this for sessions persisted
   // before the field existed (same backfill idea as purchasingStore's merge).
   costCenterId?: string;
+  // Opt-in for SFDA RSD (Drug Track & Trace) reporting. Off by default: a fresh register must not
+  // send national movements until the pharmacy has confirmed its GLN/credentials in Settings > RSD.
+  // Turning it off stops NEW units from being queued; already queued units are still sent, because
+  // abandoning a half-reported movement is worse than finishing it.
+  rsdEnabled?: boolean;
 }

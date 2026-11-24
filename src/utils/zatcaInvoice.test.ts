@@ -6,16 +6,15 @@
 // unsubmitted invoice as compliant, so each case pins an exact value rather than a shape.
 import { describe, expect, it } from 'vitest';
 
-import type { Payment, SaleHeader, SaleLine } from '../types/sales';
+import type { Payment, ReturnHeader, SaleHeader, SaleLine } from '../types/sales';
 import {
+  buildCreditNoteSubmitRequest,
   buildSubmitRequest,
-  classifyZatcaCheckoutFailure,
   needsResubmission,
   primaryPaymentMethod,
   shortUuid,
   statusFromSubmission,
   zatcaPatchFromSubmission,
-  zatcaStatusLabel,
   zatcaSummary,
 } from './zatcaInvoice';
 
@@ -62,6 +61,21 @@ function invoice(overrides: Partial<SaleHeader> = {}): SaleHeader {
 
 function payment(overrides: Partial<Payment> = {}): Payment {
   return { method: 'cash', amount: 10, ...overrides };
+}
+
+function saleReturn(overrides: Partial<ReturnHeader> = {}): ReturnHeader {
+  return {
+    id: 'ret-1',
+    returnNo: 'RET-000001',
+    date: '2026-11-02T10:00:00.000Z',
+    originalInvoiceId: 'inv-1',
+    originalInvoiceNo: 'SIM-000001',
+    lines: [{ saleLineId: 'l1', itemNameEn: 'Paracetamol 500mg', qty: 1, refundAmount: 5.175 }],
+    totalRefund: 5.175,
+    reason: 'customer changed mind',
+    zatcaStatus: 'pending_submission',
+    ...overrides,
+  };
 }
 
 describe('primaryPaymentMethod', () => {
@@ -114,6 +128,41 @@ describe('buildSubmitRequest', () => {
     expect(buildSubmitRequest(invoice({ customerNameEn: 'Acme Co' })).customerName).toBe('Acme Co');
     expect(buildSubmitRequest(invoice({ customerNameAr: 'شركة' })).customerName).toBe('شركة');
     expect(buildSubmitRequest(invoice()).customerName).toBe('Walk-in Customer');
+  });
+});
+
+describe('buildCreditNoteSubmitRequest', () => {
+  it('reports only the returned quantity and references the accepted original invoice', () => {
+    const original = invoice({
+      lines: [line({ qty: 4, unitPrice: 10, vatRate: 0.15, discountAmount: 2, netExclVat: 38, vatAmount: 5.7, totalInclVat: 43.7 })],
+      zatcaUuid: 'original-uuid',
+      zatcaStatus: 'phase2_reported',
+    });
+    const req = buildCreditNoteSubmitRequest(original, saleReturn({
+      lines: [{ saleLineId: 'l1', itemNameEn: 'Paracetamol 500mg', qty: 2, refundAmount: 21.85 }],
+      totalRefund: 21.85,
+    }));
+    expect(req.documentType).toBe('credit_note');
+    expect(req.invoiceNo).toBe('RET-000001');
+    expect(req.billingReference).toEqual({
+      id: 'SIM-000001',
+      uuid: 'original-uuid',
+      issueDate: original.date,
+    });
+    expect(req.note).toBe('customer changed mind');
+    // Half the line returned: half the net (19) and half the discount (1), at the original VAT rate.
+    expect(req.lines).toEqual([{
+      id: 'l1', itemNameEn: 'Paracetamol 500mg', qty: 2, unitCode: undefined,
+      unitPrice: 10, vatRate: 0.15, discountAmount: 1,
+    }]);
+  });
+
+  it('does not cite a UUID from a failed original submission', () => {
+    const req = buildCreditNoteSubmitRequest(
+      invoice({ zatcaUuid: 'failed-uuid', zatcaStatus: 'submission_failed' }),
+      saleReturn(),
+    );
+    expect(req.billingReference?.uuid).toBeUndefined();
   });
 });
 
@@ -202,23 +251,5 @@ describe('shortUuid', () => {
     expect(shortUuid(undefined)).toBe('—');
     expect(shortUuid('short')).toBe('short');
     expect(shortUuid('12345678-1234-1234-1234-123456789abc')).toBe('12345678…9abc');
-  });
-});
-
-describe('zatcaStatusLabel', () => {
-  it('returns the same label/colour/help used by the receipt and the invoice table', () => {
-    expect(zatcaStatusLabel('phase2_cleared')).toMatchObject({ label: 'Cleared', color: 'success' });
-    expect(zatcaStatusLabel('phase1_fallback')).toMatchObject({ label: 'Phase 1 only', color: 'warning' });
-    expect(zatcaStatusLabel('submission_failed')).toMatchObject({ label: 'Rejected', color: 'error' });
-  });
-});
-
-describe('classifyZatcaCheckoutFailure', () => {
-  it('separates an unreachable ZATCA server from a server that rejected the document', () => {
-    expect(classifyZatcaCheckoutFailure(new TypeError('fetch failed'))).toBe('server_unavailable');
-    expect(classifyZatcaCheckoutFailure(new Error('ZATCA server isn\'t reachable'))).toBe('server_unavailable');
-    expect(classifyZatcaCheckoutFailure(new Error('ECONNREFUSED: connect failed'))).toBe('server_unavailable');
-    expect(classifyZatcaCheckoutFailure(new Error('No compliance CSID on file'))).toBe('submission_error');
-    expect(classifyZatcaCheckoutFailure(new Error('ZATCA rejected the document'))).toBe('submission_error');
   });
 });

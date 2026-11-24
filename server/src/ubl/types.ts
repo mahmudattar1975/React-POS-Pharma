@@ -32,9 +32,19 @@ export interface UblInvoiceLine {
 export type UblInvoiceKind = 'standard' | 'simplified'; // B2B (clearance) vs B2C (reporting)
 export type UblDocumentType = 'invoice' | 'credit_note' | 'debit_note';
 
+// Required on a credit/debit note: which original tax document this one reverses/adjusts. Kept
+// optional on the type so the normal sales-invoice path is unchanged.
+export interface UblBillingReference {
+  id: string; // the original invoice number
+  uuid?: string; // the original ZATCA document UUID, when it was accepted
+  issueDate?: string; // ISO date of the original invoice
+}
+
 export interface UblInvoiceInput {
   kind: UblInvoiceKind;
   documentType: UblDocumentType;
+  billingReference?: UblBillingReference;
+  note?: string; // human-readable reason; required in practice for a customer-facing credit note
   id: string; // human-readable invoice number
   uuid: string;
   icv: number; // Invoice Counter Value - strictly incrementing per device, never reused

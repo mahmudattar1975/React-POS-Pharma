@@ -9,7 +9,7 @@ import { groupVatByRate, round2 } from '../../utils/vat';
 import { formatMoney, formatQty } from '../../utils/format';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { PACK_LEVELS, PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL } from '../../utils/packUnits';
-import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
+import { zatcaStatusLabel } from '../../utils/zatcaInvoice';
 import { hasDosages } from '../../utils/dosages';
 
 interface Props {
@@ -184,7 +184,7 @@ export default function ReceiptView({
       <style ref={pageSizeStyleRef} />
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         Invoice {invoice.invoiceNo}
-        <Chip size="small" color={ZATCA_STATUS_LABEL[invoice.zatcaStatus].color} label={`ZATCA: ${ZATCA_STATUS_LABEL[invoice.zatcaStatus].label}`} />
+        <Chip size="small" color={zatcaStatusLabel(invoice.zatcaStatus).color} label={`ZATCA: ${zatcaStatusLabel(invoice.zatcaStatus).label}`} />
       </DialogTitle>
       <DialogContent id="receipt-print-area" ref={printAreaRef}>
         <Stack spacing={0.5} sx={{ fontFamily: 'monospace', fontSize: 13 }}>

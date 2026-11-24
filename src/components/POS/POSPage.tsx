@@ -19,7 +19,8 @@ import { useCostCenterStore } from '../../store/costCenterStore';
 import { resolveCenterForCategory } from '../../utils/costCenters';
 import { generateInvoiceQr } from '../../utils/zatcaQr';
 import {
-  primaryPaymentMethod as primaryPaymentMethodFor,
+  buildSubmitRequest,
+  classifyZatcaCheckoutFailure,
   statusFromSubmission,
   zatcaPatchFromSubmission,
 } from '../../utils/zatcaInvoice';
@@ -27,7 +28,7 @@ import * as zatcaApi from '../../api/zatcaApi';
 import { isNearExpiry } from '../../utils/fefo';
 import { itemCodes } from '../../utils/itemMaster';
 import { activeOfferFor } from '../../utils/pricing';
-import { formatUnitPrice, PACK_LEVEL_LABEL_PLURAL, PACK_LEVEL_UNIT_CODE, SELLABLE_PACK_LEVELS } from '../../utils/packUnits';
+import { formatUnitPrice, PACK_LEVEL_LABEL_PLURAL, SELLABLE_PACK_LEVELS } from '../../utils/packUnits';
 import { pointsEarnedFor, sarToPoints } from '../../utils/loyalty';
 import { round2 } from '../../utils/vat';
 import { formatMoney, formatQty } from '../../utils/format';
@@ -268,20 +269,6 @@ export default function POSPage() {
     inputRef.current?.focus();
   }
 
-  // ZATCA's UBL PaymentMeans is a single code per invoice, but a split sale can have several
-  // tender legs (cash/card/insurance) - report the largest leg as the representative method
-  // rather than rejecting split payments outright. The full breakdown is still stored on the
-  // invoice itself (SaleHeader.payments) and shown on the receipt.
-  // 'other' legs count as reportable ZATCA payment means - the server maps them to UNCL4461's
-  // "Instrument not defined" code, which is literally what an unknown tender is. Only points
-  // redemption is excluded: ZATCA has no "loyalty points" payment means, so points legs never
-  // count toward this - only the largest of the remaining legs is picked, defaulting to cash for
-  // Tender to report to ZATCA - shared with the resubmission path (utils/zatcaInvoice.ts) so a retry
-  // can never disagree with what the original report said.
-  function primaryPaymentMethod(payments: Payment[]): 'cash' | 'card' | 'insurance' | 'other' {
-    return primaryPaymentMethodFor(payments);
-  }
-
   async function completeSale(patientPayments: Payment[]) {
     setIsSubmittingSale(true);
     const invoiceType = customer.vatNumber ? 'standard' : 'simplified';
@@ -367,23 +354,20 @@ export default function POSPage() {
     let zatcaStatus: ZatcaSubmissionStatus;
     let zatcaEvidence: Partial<SaleHeader> = {};
     try {
-      const result = await zatcaApi.submitInvoice({
+      // Build from the frozen sale snapshot (not the live cart) with the same helper the Retry
+      // button uses. Previously checkout hand-built this object while retry used a helper, so an
+      // empty buyer VAT or a missing English name could make the resubmitted document differ from
+      // the one originally issued.
+      const result = await zatcaApi.submitInvoice(buildSubmitRequest({
         invoiceNo,
         invoiceType,
         date,
-        customerName: customer.nameEn || customer.nameAr,
-        customerVatNumber: customer.vatNumber,
-        paymentMethod: primaryPaymentMethod(payments),
-        lines: lines.map((l) => ({
-          id: l.id,
-          itemNameEn: l.itemNameEn,
-          qty: l.qty,
-          unitCode: l.packLevel ? PACK_LEVEL_UNIT_CODE[l.packLevel] : undefined,
-          unitPrice: l.unitPrice,
-          vatRate: l.vatRate,
-          discountAmount: l.discountAmount,
-        })),
-      });
+        customerNameAr: customer.nameAr,
+        customerNameEn: customer.nameEn,
+        customerVatNumber: customer.vatNumber || undefined,
+        lines: saleLines,
+        payments,
+      }));
       zatcaQrBase64 = result.qrBase64;
       zatcaStatus = statusFromSubmission(result, invoiceType);
       zatcaEvidence = zatcaPatchFromSubmission(result, invoiceType, new Date().toISOString());
@@ -395,7 +379,11 @@ export default function POSPage() {
         totalInclVat: t.totalInclVat,
         totalVatAmount: t.totalVatAmount,
       });
-      zatcaStatus = 'pending_submission';
+      // Transport/onboarding failure = the signing server never took the document, so this sale is
+      // a genuine Phase 1 fallback. An HTTP answer that says "not now" keeps the invoice pending.
+      zatcaStatus = classifyZatcaCheckoutFailure(err) === 'server_unavailable'
+        ? 'phase1_fallback'
+        : 'pending_submission';
       zatcaEvidence = {
         zatcaFailureReason: err instanceof Error ? err.message : String(err),
       };

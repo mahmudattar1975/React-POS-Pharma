@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { getEnvironment, setEnvironment, type ZatcaEnv } from './store/secureStore.js';
+import { getEnvironment, setEnvironment, getMode, setMode, type ZatcaEnv, type ZatcaMode } from './store/secureStore.js';
 
-export type { ZatcaEnv };
+export type { ZatcaEnv, ZatcaMode };
 
 // Base URLs per ZATCA's e-invoicing gateway. VERIFY these against ZATCA's current developer
 // documentation before relying on them - ZATCA has restructured these paths across spec versions.
@@ -24,6 +24,11 @@ getEnvironment().then((e) => {
   cachedEnv = e;
 });
 
+let cachedMode: ZatcaMode = (process.env.ZATCA_MODE as ZatcaMode) ?? 'live';
+getMode().then((m) => {
+  cachedMode = m;
+});
+
 export const config = {
   port: Number(process.env.PORT ?? 4300),
   get zatcaEnv() {
@@ -32,6 +37,13 @@ export const config = {
   async setZatcaEnv(env: ZatcaEnv) {
     await setEnvironment(env);
     cachedEnv = env;
+  },
+  get zatcaMode() {
+    return cachedMode;
+  },
+  async setZatcaMode(mode: ZatcaMode) {
+    await setMode(mode);
+    cachedMode = mode;
   },
   get zatcaBaseUrl() {
     return ZATCA_BASE_URLS[this.zatcaEnv];

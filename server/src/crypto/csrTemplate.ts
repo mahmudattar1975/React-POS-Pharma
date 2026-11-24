@@ -28,9 +28,14 @@
 //    got past this file's config entirely and reached ZATCA's own CSR content validator (see
 //    server/README.md).
 //
-// STILL NOT LIVE-VALIDATED end-to-end: no real OTP was available to re-attempt onboarding after
-// this pass (see server/README.md) - what's confirmed here is that CSR generation itself is
-// correct and matches ZATCA's documented field set, not that the whole onboarding flow succeeds.
+// LIVE FINDING (2026-11-23): the earlier `registeredAddress = UTF8:...` workaround was wrong.
+// Decoding the generated CSR with `openssl asn1parse` showed the literal characters "UTF8:" inside
+// the UTF8String value (0C 06 55 54 46 38 3A ...), i.e. ZATCA was being sent "UTF8:الدمام..." as
+// the registered address. A plain value is encoded as a UTF8String correctly even with Arabic text,
+// so it is used now. The full registered address (street/district/city/postal code) is sent too,
+// not just city + district. Live acceptance is still unverified: a corrected CSR and a CSR built
+// from a published library's known-good sample values both returned Invalid-CSR when retried with
+// the same one-time OTP (which may have been consumed by the first attempt).
 import { deriveIdentity, type ZatcaIdentity } from '../store/identity.js';
 
 const CERT_TEMPLATE_OID = '1.3.6.1.4.1.311.20.2';
@@ -67,9 +72,25 @@ export function csrFieldsFromIdentity(identity: ZatcaIdentity): CsrFields {
     serialNumber: derived.egsSerialNumber,
     vatNumber: seller.vatNumber,
     invoiceType: device.invoiceType,
-    location: [seller.city, seller.district].filter(Boolean).join(', '),
+    // ZATCA's registeredAddress is the business's full registered address, not just its city.
+    // Include every address component the Settings form collects so the CSR describes the same
+    // legal entity as the commercial registration.
+    location: [seller.street, seller.district, seller.city, seller.postalCode, seller.country]
+      .filter(Boolean)
+      .join(', '),
     industry: seller.industry,
   };
+}
+
+// OpenSSL config treats `#` as a comment and `=` as a key/value separator; a legal entity name or
+// address containing either would silently truncate the CSR field (or the whole config line).
+// Escaping backslashes first also prevents an injected `\n` from escaping into a new section.
+function configValue(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, ' ')
+    .replace(/#/g, '\\#')
+    .replace(/=/g, '\\=');
 }
 
 export function buildOpenSslConfig(f: CsrFields, envForZatca: 'sandbox' | 'simulation' | 'production'): string {
@@ -83,26 +104,24 @@ prompt = no
 utf8 = no
 
 [ req_distinguished_name ]
-C = ${f.country}
-OU = ${f.organizationUnit}
-O = ${f.organizationName}
-CN = ${f.commonName}
+C = ${configValue(f.country)}
+OU = ${configValue(f.organizationUnit)}
+O = ${configValue(f.organizationName)}
+CN = ${configValue(f.commonName)}
 
 [ req_ext ]
 subjectAltName = dirName:alt_names
 ${CERT_TEMPLATE_OID} = ${certTemplate}
 
 [ alt_names ]
-# registeredAddress is X.500-typed as PostalAddress, not a plain string - OpenSSL's built-in
-# attribute-type inference for it rejected a plain string value here (confirmed via a local
-# smoke test: "ASN1_mbstring_ncopy: string too short"), so it's forced to UTF8String explicitly.
-# The other fields below use OpenSSL's default inference for their OIDs and haven't shown the
-# same problem in that smoke test, but they were only exercised with the specific sample values in
-# server/.env.example - re-verify if real onboarding data produces different string lengths/content.
-SN = ${f.serialNumber}
-UID = ${f.vatNumber}
-title = ${f.invoiceType}
-registeredAddress = UTF8:${f.location}
-businessCategory = ${f.industry}
+# A plain value here is encoded as a UTF8String by OpenSSL (verified with openssl asn1parse).
+# Prefixing it with UTF8: does NOT select a string type - it literally puts "UTF8:" in the
+# registered address sent to ZATCA. A later attempt with this corrected value still returned
+# Invalid-CSR while reusing the same one-time OTP, so live acceptance remains unverified.
+SN = ${configValue(f.serialNumber)}
+UID = ${configValue(f.vatNumber)}
+title = ${configValue(f.invoiceType)}
+registeredAddress = ${configValue(f.location)}
+businessCategory = ${configValue(f.industry)}
 `;
 }

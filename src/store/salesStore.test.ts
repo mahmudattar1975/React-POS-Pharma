@@ -2,7 +2,7 @@
 // things that must stay true: only the line's `dosage` annotation changes (never money, status or
 // ZATCA evidence), and clearing a direction is applied just like setting one.
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SaleHeader, SaleLine } from '../types/sales';
+import type { ReturnHeader, SaleHeader, SaleLine } from '../types/sales';
 import { seedDosages } from '../utils/seedData';
 import { snapshotDosage } from '../utils/dosages';
 
@@ -106,5 +106,40 @@ describe('sales dosage update after payment', () => {
       { lineId: 'missing-line', dosage: snapshotDosage(seedDosages[0]) },
     ]);
     expect(sales.getState().invoices[0]).toEqual(before);
+  });
+});
+
+describe('ZATCA credit note evidence update', () => {
+  function refund(): ReturnHeader {
+    return {
+      id: 'ret-1',
+      returnNo: 'RET-000001',
+      date: '2026-11-05T11:00:00.000Z',
+      originalInvoiceId: 'sale-1',
+      originalInvoiceNo: 'SIM-000001',
+      lines: [{ saleLineId: 'line-1', itemNameEn: 'Paracetamol', qty: 1, refundAmount: 4.5 }],
+      totalRefund: 4.5,
+      reason: 'damaged',
+      zatcaStatus: 'pending_submission',
+    };
+  }
+
+  it('stores acceptance evidence without changing the refund economics', () => {
+    sales.setState({ returns: [refund()] });
+    sales.getState().updateReturnZatca('ret-1', {
+      zatcaStatus: 'phase2_reported',
+      zatcaUuid: 'cn-uuid',
+      zatcaIcv: 7,
+      zatcaEnvironment: 'simulation',
+    });
+    const after = sales.getState().returns[0];
+    expect(after).toMatchObject({
+      zatcaStatus: 'phase2_reported',
+      zatcaUuid: 'cn-uuid',
+      zatcaIcv: 7,
+      zatcaEnvironment: 'simulation',
+      totalRefund: 4.5,
+      reason: 'damaged',
+    });
   });
 });

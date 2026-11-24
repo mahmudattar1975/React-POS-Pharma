@@ -78,8 +78,23 @@ export function buildUnsignedInvoiceXml(input: UblInvoiceInput): string {
   doc.ele(NS.cbc, 'IssueDate').txt(input.issueDateTime.toISOString().slice(0, 10)).up();
   doc.ele(NS.cbc, 'IssueTime').txt(input.issueDateTime.toISOString().slice(11, 19)).up();
   doc.ele(NS.cbc, 'InvoiceTypeCode').att('name', typeCode.name).txt(typeCode.id).up();
+  if (input.note) doc.ele(NS.cbc, 'Note').txt(input.note).up();
   doc.ele(NS.cbc, 'DocumentCurrencyCode').txt(input.currency).up();
   doc.ele(NS.cbc, 'TaxCurrencyCode').txt(input.currency).up();
+
+  // A credit/debit note is meaningless without the document it adjusts. ZATCA validates this
+  // reference against the original clearance/reporting record, so use the stored UUID when the
+  // original sale was actually accepted, not just the local invoice number.
+  if (input.billingReference) {
+    const ref = doc.ele(NS.cac, 'BillingReference');
+    ref.ele(NS.cbc, 'ID').txt(input.billingReference.id).up();
+    if (input.billingReference.uuid) ref.ele(NS.cbc, 'UUID').txt(input.billingReference.uuid).up();
+    if (input.billingReference.issueDate) {
+      ref.ele(NS.cbc, 'IssueDate').txt(input.billingReference.issueDate.slice(0, 10)).up();
+    }
+    ref.ele(NS.cbc, 'DocumentTypeCode').txt('388').up();
+    ref.up();
+  }
 
   // Invoice Counter Value - strictly incrementing per device, never reused across the device's lifetime.
   doc
@@ -224,6 +239,10 @@ export function embedSigningExtension(unsignedXml: string, signing: SigningMater
     /(<cbc:ID>QR<\/cbc:ID>[\s\S]*?<cbc:EmbeddedDocumentBinaryObject mimeCode="text\/plain">)(<\/cbc:EmbeddedDocumentBinaryObject>)/,
     `$1${signing.qrBase64}$2`
   );
+  // String splicing is only safe if BOTH placeholders were actually found. A serializer change that
+  // silently produced an empty QR / empty signature extension would otherwise still be reported as
+  // a successful submission - an invalid tax document that nobody noticed.
+  if (withQr === unsignedXml) throw new Error('Could not embed the Phase 2 QR placeholder into the invoice XML');
 
   const certB64 = signing.certificatePem
     .replace('-----BEGIN CERTIFICATE-----', '')

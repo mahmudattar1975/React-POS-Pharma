@@ -218,4 +218,16 @@ export interface ReturnHeader {
   lines: ReturnLine[];
   totalRefund: number;
   reason: string;
+  // ---- ZATCA credit note evidence -----------------------------------------------------------
+  // A sales return is submitted as a credit note referencing the original tax invoice. The fields
+  // mirror SaleHeader so the same submission/retry helpers and status labels can be used for both
+  // document types, while keeping the refund record separate from the sale it reverses.
+  zatcaStatus: ZatcaSubmissionStatus;
+  zatcaQrBase64?: string;
+  zatcaUuid?: string;
+  zatcaIcv?: number;
+  zatcaInvoiceHashBase64?: string;
+  zatcaSubmittedAt?: string;
+  zatcaEnvironment?: 'sandbox' | 'simulation' | 'production';
+  zatcaFailureReason?: string;
 }

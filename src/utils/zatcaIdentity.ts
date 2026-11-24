@@ -69,6 +69,12 @@ export function identityDraftErrors(
   const vatError = vatNumberError(seller.vatNumber);
   if (vatError) errors.push(vatError);
 
+  // Same rule as server/src/store/identity.ts: the CR is embedded in every signed invoice as the
+  // supplier CompanyID, so a typo here would put a wrong legal identifier on a tax document.
+  if (seller.crNumber.trim() !== '' && !/^\d{8,15}$/.test(seller.crNumber.trim())) {
+    errors.push('Commercial Registration (CR) number must contain only 8 to 15 digits.');
+  }
+
   if (seller.country.trim() !== '' && !/^[A-Za-z]{2}$/.test(seller.country.trim())) {
     errors.push('Country must be a 2-letter ISO code (for example SA).');
   }

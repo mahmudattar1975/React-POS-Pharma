@@ -1,12 +1,13 @@
 import { Router } from 'express';
-import { getOnboardingStatus, requestComplianceCsid, runComplianceChecks, requestProductionCsid, setZatcaEnvironment } from '../zatca/onboarding.js';
+import { getOnboardingStatus, requestComplianceCsid, runComplianceChecks, requestProductionCsid, setZatcaEnvironment, setZatcaMode, OnboardingStepError } from '../zatca/onboarding.js';
 import { getZatcaSettings, updateZatcaSettings } from '../zatca/settings.js';
 import { IdentityValidationError } from '../store/identity.js';
-import type { ZatcaEnv } from '../store/secureStore.js';
+import type { ZatcaEnv, ZatcaMode } from '../store/secureStore.js';
 
 export const onboardingRouter = Router();
 
 const VALID_ENVS: ZatcaEnv[] = ['sandbox', 'simulation', 'production'];
+const VALID_MODES: ZatcaMode[] = ['mock', 'live'];
 
 onboardingRouter.get('/status', async (_req, res) => {
   try {
@@ -51,6 +52,19 @@ onboardingRouter.post('/environment', async (req, res) => {
   }
 });
 
+onboardingRouter.post('/mode', async (req, res) => {
+  const { mode } = req.body as { mode?: string };
+  if (!mode || !VALID_MODES.includes(mode as ZatcaMode)) {
+    res.status(400).json({ error: `mode must be one of: ${VALID_MODES.join(', ')}` });
+    return;
+  }
+  try {
+    res.json(await setZatcaMode(mode as ZatcaMode));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 onboardingRouter.post('/compliance', async (req, res) => {
   const { otp } = req.body as { otp?: string };
   if (!otp) {
@@ -78,6 +92,10 @@ onboardingRouter.post('/production', async (_req, res) => {
     const csid = await requestProductionCsid();
     res.json({ issuedAt: csid.issuedAt, requestId: csid.requestId });
   } catch (err) {
+    if (err instanceof OnboardingStepError) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
     res.status(502).json({ error: String(err) });
   }
 });
