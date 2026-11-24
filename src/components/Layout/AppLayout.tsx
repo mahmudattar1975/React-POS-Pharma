@@ -32,11 +32,11 @@ const NAV = [
 // Some screens share one tabbed workspace, so a single sidebar row must stay highlighted on
 // every tab URL (the row points at the first tab).
 const HUB_PATHS: Record<string, string[]> = {
-  '/': ['/', '/returns', '/sales-invoices', '/prescriptions', '/controlled-register', '/rsd-reporting'],
+  '/': ['/', '/returns', '/sales-invoices', '/prescriptions', '/controlled-register', '/rsd-reporting', '/incentives'],
   '/inventory': ['/inventory', '/items', '/manufacturers', '/dosages', '/wasfaty-mapping'],
   '/purchases': ['/purchases', '/purchase-returns', '/vendors', '/receiving', '/head-office-receiving'],
   '/cost-centers': ['/cost-centers', '/category-map', '/expenses'],
-  '/dashboard': ['/dashboard', '/reports'],
+  '/dashboard': ['/dashboard', '/reports', '/incentive-report'],
   '/settings': ['/settings', '/zatca-setup'],
 };
 

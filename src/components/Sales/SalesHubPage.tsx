@@ -18,12 +18,14 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import MedicationIcon from '@mui/icons-material/Medication';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import POSPage from '../POS/POSPage';
 import ReturnsPage from '../Returns/ReturnsPage';
 import PrescriptionsPage from '../Prescriptions/PrescriptionsPage';
 import ControlledRegisterPage from '../Prescriptions/ControlledRegisterPage';
 import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 import RsdMonitoringPanel from '../Rsd/RsdMonitoringPanel';
+import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
@@ -32,6 +34,7 @@ const TABS = [
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
   { path: '/rsd-reporting', label: 'RSD Reporting', icon: <TrackChangesIcon fontSize="small" /> },
+  { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
 export default function SalesHubPage() {
@@ -78,6 +81,11 @@ export default function SalesHubPage() {
         {activeTab === 5 && (
           <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
             <RsdMonitoringPanel />
+          </Box>
+        )}
+        {activeTab === 6 && (
+          <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
+            <IncentiveItemsPage />
           </Box>
         )}
       </Box>

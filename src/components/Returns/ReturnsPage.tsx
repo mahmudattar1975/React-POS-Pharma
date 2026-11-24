@@ -13,6 +13,7 @@ import { round2 } from '../../utils/vat';
 import { formatMoney, formatQty } from '../../utils/format';
 import * as posApi from '../../api/posApi';
 import * as zatcaApi from '../../api/zatcaApi';
+import * as incentiveApi from '../../api/incentiveApi';
 import {
   buildCreditNoteSubmitRequest, classifyZatcaCheckoutFailure, needsResubmission,
   zatcaPatchFromSubmission, zatcaStatusLabel,
@@ -224,13 +225,51 @@ export default function ReturnsPage() {
     const pointsClawedBackThisReturn = pointsAdjustment.pointsEarnedClawedBack - (invoice.pointsEarnedClawedBack ?? 0);
     const pointsRefundedThisReturn = pointsAdjustment.pointsRedeemedRefunded - (invoice.pointsRedeemedRefunded ?? 0);
 
+    // Incentive / profit-bonus clawback (Phase E). Mirrors the points clawback: proportional to the
+    // returned share of each incentivized line. Recorded as negative IncentiveRecords so the monthly
+    // report nets out returns against the original sale.
+    const incentiveClawbackLines = invoice.lines
+      .map((l) => {
+        const returnQty = Math.min(qtyByLine[l.id] ?? 0, l.qty - l.returnedQty);
+        if (returnQty <= 0 || !(l.incentiveAmount && l.incentiveAmount > 0)) return null;
+        const clawback = round2((returnQty / l.qty) * (l.incentiveAmount ?? 0));
+        if (clawback <= 0) return null;
+        return {
+          itemId: l.itemId,
+          itemNameEn: l.itemNameEn,
+          qty: returnQty,
+          saleAmount: round2((returnQty / l.qty) * l.netExclVat),
+          incentiveType: (l.incentiveType ?? 'percent') as 'percent' | 'amount',
+          rate: l.incentiveRate ?? 0,
+          incentiveAmount: -clawback,
+          incentiveItemId: undefined,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    const incentiveClawedBackThisReturn = round2(incentiveClawbackLines.reduce((s, l) => s + Math.abs(l.incentiveAmount), 0));
+    const newTotalIncentiveClawedBack = round2((invoice.totalIncentiveClawedBack ?? 0) + incentiveClawedBackThisReturn);
+
     recordReturn(ret, {
       ...invoice,
       lines: updatedLines,
       status: fullyReturned ? 'returned' : 'partially_returned',
       pointsEarnedClawedBack: pointsAdjustment.pointsEarnedClawedBack,
       pointsRedeemedRefunded: pointsAdjustment.pointsRedeemedRefunded,
+      totalIncentiveClawedBack: newTotalIncentiveClawedBack,
     });
+
+    // Best-effort record of incentive clawback (negative IncentiveRecords). Never blocks the return.
+    if (incentiveClawbackLines.length > 0) {
+      incentiveApi
+        .recordIncentive({
+          saleId: invoice.id,
+          invoiceNo: ret.returnNo,
+          invoiceDate: ret.date,
+          cashierName: pharmacist,
+          lines: incentiveClawbackLines,
+        })
+        .catch((err) => console.warn('incentive clawback record failed (return still completed):', err));
+    }
 
     // Best-effort mirror into dotnet-pos so the commission clawback lands on whichever cashier
     // originally made the sale (see PosReturnController.Create) - the return above is already

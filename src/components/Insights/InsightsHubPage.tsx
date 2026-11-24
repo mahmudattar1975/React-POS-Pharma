@@ -8,10 +8,13 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardPage from '../Dashboard/DashboardPage';
 import ReportsPage from '../Reports/ReportsPage';
+import IncentiveReportPage from '../Incentives/IncentiveReportPage';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 const TABS = [
   { path: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" /> },
   { path: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" /> },
+  { path: '/incentive-report', label: 'Incentive Report', icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
 export default function InsightsHubPage() {
@@ -33,7 +36,7 @@ export default function InsightsHubPage() {
         ))}
       </Tabs>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {activeTab === 0 ? <DashboardPage /> : <ReportsPage />}
+        {activeTab === 0 ? <DashboardPage /> : activeTab === 1 ? <ReportsPage /> : <IncentiveReportPage />}
       </Box>
     </Box>
   );

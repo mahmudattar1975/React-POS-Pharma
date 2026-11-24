@@ -97,6 +97,7 @@ export const useSalesStore = create<SalesState>()(
           updatedInvoiceStatus: updatedInvoice.status,
           updatedInvoicePointsEarnedClawedBack: updatedInvoice.pointsEarnedClawedBack,
           updatedInvoicePointsRedeemedRefunded: updatedInvoice.pointsRedeemedRefunded,
+    updatedInvoiceTotalIncentiveClawedBack: updatedInvoice.totalIncentiveClawedBack,
           updatedLineReturnedQtys: updatedInvoice.lines.map((l) => ({ lineId: l.id, returnedQty: l.returnedQty })),
         };
         backupReturn(returnPayload).catch((err) => {

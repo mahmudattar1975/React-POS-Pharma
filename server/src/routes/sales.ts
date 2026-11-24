@@ -88,6 +88,7 @@ salesRouter.post('/', async (req, res) => {
         totalDiscount: body.totalDiscount,
         totalVatAmount: body.totalVatAmount,
         totalInclVat: body.totalInclVat,
+  totalIncentive: body.totalIncentive ?? null,
         zatcaQrBase64: body.zatcaQrBase64,
         zatcaStatus: body.zatcaStatus,
         status: body.status,
@@ -217,6 +218,7 @@ salesRouter.post('/returns', async (req, res) => {
         data: {
           status: body.updatedInvoiceStatus,
           pointsEarnedClawedBack: body.updatedInvoicePointsEarnedClawedBack,
+          totalIncentiveClawedBack: body.updatedInvoiceTotalIncentiveClawedBack,
           pointsRedeemedRefunded: body.updatedInvoicePointsRedeemedRefunded,
         },
       }),

@@ -17,6 +17,8 @@ import InsightsHubPage from './components/Insights/InsightsHubPage';
 import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
 import PrescriptionsPage from './components/Prescriptions/PrescriptionsPage';
 import SettingsPage from './components/Settings/SettingsPage';
+import IncentiveItemsPage from './components/Incentives/IncentiveItemsPage';
+import IncentiveReportPage from './components/Incentives/IncentiveReportPage';
 import ZatcaSetupPage from './components/Zatca/ZatcaSetupPage';
 import { useAlertSounds } from './hooks/useAlertSounds';
 
@@ -79,6 +81,8 @@ export default function App() {
                 <Route path="/prescriptions" element={<PrescriptionsPage />} />
                 <Route path="/wasfaty-claims" element={<WasfatyClaimsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+  <Route path="/incentives" element={<IncentiveItemsPage />} />
+  <Route path="/incentive-report" element={<IncentiveReportPage />} />
                 <Route path="/zatca-setup" element={<ZatcaSetupPage />} />
                 {/* The invoice ledger lives beside the till now (Point of Sale > ZATCA sales
                     invoices), so old /e-invoices links and bookmarks land there instead of on
