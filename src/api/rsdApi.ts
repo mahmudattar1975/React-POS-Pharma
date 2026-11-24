@@ -145,6 +145,50 @@ export interface RsdStatus {
   mockInventoryUnits?: number;
 }
 
+// Settings > RSD. The server never returns the stored password, only whether one exists.
+export interface RsdSettingsView {
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  gln: string;
+  username: string;
+  hasPassword: boolean;
+  credentialsConfigured: boolean;
+  saleUrl: string;
+  cancelUrl: string;
+  directToGln: string;
+  directPrescriptionId: string;
+  source: 'stored' | 'env';
+}
+
+export interface RsdSettingsUpdate {
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  gln: string;
+  username: string;
+  // Omit/blank to keep the stored password.
+  password?: string;
+  saleUrl: string;
+  cancelUrl: string;
+  directToGln: string;
+  directPrescriptionId: string;
+}
+
+export interface RsdConnectionCheck {
+  name: 'sale' | 'cancel' | 'mock';
+  ok: boolean;
+  httpStatus?: number | null;
+  message?: string;
+  operations?: string[];
+}
+
+export interface RsdConnectionTest {
+  ok: boolean;
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  checkedAt: string;
+  checks: RsdConnectionCheck[];
+}
+
 export interface RsdUnitStatus {
   gtin: string;
   serialNo: string;
@@ -154,6 +198,23 @@ export interface RsdUnitStatus {
 
 export function getRsdStatus(): Promise<RsdStatus> {
   return request<RsdStatus>('/status');
+}
+
+export function getRsdSettings(): Promise<RsdSettingsView> {
+  return request<RsdSettingsView>('/settings');
+}
+
+export function updateRsdSettings(input: RsdSettingsUpdate): Promise<RsdSettingsView> {
+  return request<RsdSettingsView>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+// Read-only probe. Live mode fetches both WSDLs with Basic auth; mock mode reports the simulator.
+// It cannot create a sale or a cancel, so it is safe to press as often as needed.
+export function testRsdConnection(): Promise<RsdConnectionTest> {
+  return request<RsdConnectionTest>('/test', { method: 'POST' });
 }
 
 export function reportRsdSale(input: RsdSaleInput): Promise<RsdReportResult> {
