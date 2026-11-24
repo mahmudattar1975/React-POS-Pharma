@@ -17,6 +17,7 @@ import InsightsHubPage from './components/Insights/InsightsHubPage';
 import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
 import PrescriptionsPage from './components/Prescriptions/PrescriptionsPage';
 import SettingsPage from './components/Settings/SettingsPage';
+import ZatcaSetupPage from './components/Zatca/ZatcaSetupPage';
 import { useAlertSounds } from './hooks/useAlertSounds';
 
 export default function App() {
@@ -78,6 +79,10 @@ export default function App() {
                 <Route path="/prescriptions" element={<PrescriptionsPage />} />
                 <Route path="/wasfaty-claims" element={<WasfatyClaimsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                {/* Guided data-entry screen for a pharmacy that is onboarding ZATCA for the first
+                    time. It shows the checklist and both setup panels on one page; Settings keeps
+                    the same panels for an operator who only wants to change one field. */}
+                <Route path="/zatca-setup" element={<ZatcaSetupPage />} />
                 {/* The invoice ledger lives beside the till now (Point of Sale > ZATCA sales
                     invoices), so old /e-invoices links and bookmarks land there instead of on
                     Settings, which no longer owns the invoice list. */}

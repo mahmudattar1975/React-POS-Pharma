@@ -12,13 +12,17 @@ export interface OnboardingStatus {
   environment: ZatcaEnv;
   compliance?: { issuedAt: string };
   production?: { issuedAt: string };
+  complianceCheck?: { passed: boolean; checkedAt?: string };
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   const state = await loadState();
-  if (state.production) return { step: 'production_issued', environment: state.environment, compliance: { issuedAt: state.compliance!.issuedAt }, production: { issuedAt: state.production.issuedAt } };
-  if (state.compliance) return { step: 'compliance_issued', environment: state.environment, compliance: { issuedAt: state.compliance.issuedAt } };
-  return { step: 'not_started', environment: state.environment };
+  const complianceCheck = state.complianceCheck
+    ? { passed: state.complianceCheck.passed, checkedAt: state.complianceCheck.checkedAt }
+    : undefined;
+  if (state.production) return { step: 'production_issued', environment: state.environment, compliance: { issuedAt: state.compliance!.issuedAt }, production: { issuedAt: state.production.issuedAt }, complianceCheck };
+  if (state.compliance) return { step: 'compliance_issued', environment: state.environment, compliance: { issuedAt: state.compliance.issuedAt }, complianceCheck };
+  return { step: 'not_started', environment: state.environment, complianceCheck };
 }
 
 export async function setZatcaEnvironment(env: ZatcaEnv): Promise<OnboardingStatus> {
@@ -52,6 +56,8 @@ export async function requestComplianceCsid(otp: string): Promise<StoredCsid> {
 
   const state = await loadState();
   state.compliance = stored;
+  // A new CSID means a new key pair; an earlier compliance-check result no longer describes it.
+  state.complianceCheck = undefined;
   await saveState(state);
   return stored;
 }
@@ -78,7 +84,12 @@ export async function runComplianceChecks(): Promise<{ passed: boolean; results:
     results.push({ name: sample.name, status: check.status });
   }
 
-  return { passed: results.every((r) => r.status === 'PASS'), results };
+  const passed = results.every((r) => r.status === 'PASS');
+  // Persist the outcome: the wizard must not ask for six new sample invoices after a page reload,
+  // and it must not hide a failed run behind the old "compliance issued" step either.
+  state.complianceCheck = { passed, checkedAt: new Date().toISOString() };
+  await saveState(state);
+  return { passed, results };
 }
 
 // Step 3: exchange the (now-validated) compliance CSID for a Production CSID - this is the one

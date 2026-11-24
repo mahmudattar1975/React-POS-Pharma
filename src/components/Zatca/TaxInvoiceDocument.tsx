@@ -20,7 +20,7 @@ import QRCode from 'qrcode';
 import type { Payment, SaleHeader, SaleLine } from '../../types/sales';
 import { useSettingsStore } from '../../store/settingsStore';
 import { groupVatByRate, round2 } from '../../utils/vat';
-import { ZATCA_STATUS_LABEL } from '../../utils/zatcaInvoice';
+import { zatcaStatusLabel } from '../../utils/zatcaInvoice';
 import { formatMoney, formatQty } from '../../utils/format';
 
 interface Props {
@@ -164,7 +164,7 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
                 borderRadius: 0.5, fontSize: 10.5, fontWeight: 700,
               }}
             >
-              {ZATCA_STATUS_LABEL[invoice.zatcaStatus].label.toUpperCase()}
+              {zatcaStatusLabel(invoice.zatcaStatus).label.toUpperCase()}
             </Box>
           </Box>
         </Stack>
@@ -301,7 +301,7 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
           <Typography sx={{ fontSize: 9.5, color: '#444' }}>
             {stamped
               ? `Cryptographically stamped and ${invoice.zatcaStatus === 'phase2_cleared' ? 'cleared' : 'reported'} by ZATCA${invoice.zatcaSubmittedAt ? ` on ${invoice.zatcaSubmittedAt.slice(0, 10)}` : ''}. Invoice hash: ${invoice.zatcaInvoiceHashBase64 ?? '—'}`
-              : `NOT YET STAMPED BY ZATCA (${ZATCA_STATUS_LABEL[invoice.zatcaStatus].label}). This document is not a valid Phase 2 tax invoice until it is submitted and accepted - see Point of Sale > ZATCA Sales Invoices.`}
+              : `NOT YET STAMPED BY ZATCA (${zatcaStatusLabel(invoice.zatcaStatus).label}). This document is not a valid Phase 2 tax invoice until it is submitted and accepted - see Point of Sale > ZATCA Sales Invoices.`}
           </Typography>
           <Typography sx={{ fontSize: 9.5, color: '#444', mt: 0.25 }}>
             {settings.storeNameEn} · {settings.address} · VAT {settings.vatRegistrationNo}

@@ -189,6 +189,27 @@ export const ZATCA_STATUS_LABEL: Record<ZatcaSubmissionStatus, ZatcaStatusLabel>
   },
 };
 
+// Single lookup point for every surface: the till receipt, the sales-invoice table and the printed
+// A4 document. A future status is described once here, so those three cannot drift apart.
+export function zatcaStatusLabel(status: ZatcaSubmissionStatus): ZatcaStatusLabel {
+  return ZATCA_STATUS_LABEL[status];
+}
+
+// A resubmission can fail because the signing server was unreachable (a retryable infrastructure
+// problem) or because it answered but would not accept the document. api/zatcaApi.ts throws plain
+// Errors carrying the server's message, so classification is by message and deliberately
+// conservative: only an unmistakable transport/offline message is called 'server_unavailable'.
+// Everything else stays in the ordinary 'submission_error' bucket with its reason on the row.
+export type ZatcaCheckoutFailureKind = 'server_unavailable' | 'submission_error';
+
+const SERVER_UNAVAILABLE_MESSAGE =
+  /(?:not|isn't|is not) reachable|unreachable|fetch failed|failed to fetch|network|timeout|timed out|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|socket hang up|server unavailable/i;
+
+export function classifyZatcaCheckoutFailure(err: unknown): ZatcaCheckoutFailureKind {
+  const message = err instanceof Error ? err.message : String(err);
+  return SERVER_UNAVAILABLE_MESSAGE.test(message) ? 'server_unavailable' : 'submission_error';
+}
+
 export interface ZatcaSummary {
   total: number;
   cleared: number;

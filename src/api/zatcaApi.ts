@@ -12,6 +12,9 @@ export interface OnboardingStatus {
   environment: ZatcaEnv;
   compliance?: { issuedAt: string };
   production?: { issuedAt: string };
+  // Persisted by the server after step 2 so a page reload cannot make a passed compliance check
+  // look unfinished. Older state files simply omit it.
+  complianceCheck?: { passed: boolean; checkedAt?: string };
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

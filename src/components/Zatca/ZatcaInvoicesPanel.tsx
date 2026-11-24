@@ -34,13 +34,12 @@ import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import type { SaleHeader } from '../../types/sales';
 import { useSalesStore } from '../../store/salesStore';
 import { useRsdOutboxStore } from '../../store/rsdOutboxStore';
-import { rsdInvoiceSummary, type RsdOutboxItem } from '../../utils/rsdOutbox';
-import RsdStatusChip from '../Rsd/RsdStatusChip';
 import * as zatcaApi from '../../api/zatcaApi';
 import {
-  ZATCA_STATUS_LABEL, buildSubmitRequest, needsResubmission, shortUuid, zatcaPatchFromSubmission,
-  zatcaSummary,
+  buildSubmitRequest, classifyZatcaCheckoutFailure, needsResubmission, shortUuid,
+  zatcaPatchFromSubmission, zatcaStatusLabel, zatcaSummary,
 } from '../../utils/zatcaInvoice';
+import { rsdInvoiceSummary } from '../../utils/rsdOutbox';
 import { hasDosages } from '../../utils/dosages';
 import { formatMoney } from '../../utils/format';
 import TaxInvoiceDocument from './TaxInvoiceDocument';
@@ -94,16 +93,19 @@ export default function ZatcaInvoicesPanel() {
 
   const summary = useMemo(() => zatcaSummary(invoices), [invoices]);
 
-  // RSD is unit-level, so one invoice can have several queue rows (one per scanned pack). Grouping
-  // once keeps the table row cheap and lets the chip say "2 queued" instead of just "not sent".
+  // The RSD side of the same invoice: how many of its serialised drug packs have been reported.
+  // Invoices with no queued packs (no serialised drugs, or RSD was off) get no chip at all, which
+  // is the honest answer - not a green "sent" for something that was never in scope.
   const rsdByInvoice = useMemo(() => {
-    const map = new Map<string, RsdOutboxItem[]>();
+    const grouped = new Map<string, typeof rsdQueue>();
     for (const item of rsdQueue) {
-      const list = map.get(item.invoiceId);
-      if (list) list.push(item);
-      else map.set(item.invoiceId, [item]);
+      const items = grouped.get(item.invoiceId);
+      if (items) items.push(item);
+      else grouped.set(item.invoiceId, [item]);
     }
-    return map;
+    const result = new Map<string, ReturnType<typeof rsdInvoiceSummary>>();
+    for (const [invoiceId, items] of grouped) result.set(invoiceId, rsdInvoiceSummary(items));
+    return result;
   }, [rsdQueue]);
 
   const rows = useMemo(() => {
@@ -130,12 +132,10 @@ export default function ZatcaInvoicesPanel() {
     setNotice(null);
     try {
       const result = await zatcaApi.submitInvoice(buildSubmitRequest(invoice));
-      updateInvoiceZatca(
-        invoice.id,
-        zatcaPatchFromSubmission(result, invoice.invoiceType, new Date().toISOString()),
-      );
+      const patch = zatcaPatchFromSubmission(result, invoice.invoiceType, new Date().toISOString());
+      updateInvoiceZatca(invoice.id, patch);
       if (result.status === 'failed') {
-        setError(`${invoice.invoiceNo}: ZATCA rejected the document. See the reason on the row.`);
+        setError(`${invoice.invoiceNo}: ${patch.zatcaFailureReason ?? 'ZATCA rejected the document.'} See the reason on the row.`);
       } else {
         setNotice(`${invoice.invoiceNo}: accepted by ZATCA (${result.status}).`);
       }
@@ -143,7 +143,12 @@ export default function ZatcaInvoicesPanel() {
       // Infrastructure/onboarding problems are NOT document rejections - record the reason but keep
       // the invoice in the retryable bucket instead of marking it as ZATCA-rejected.
       const reason = err instanceof Error ? err.message : String(err);
-      updateInvoiceZatca(invoice.id, { zatcaStatus: 'pending_submission', zatcaFailureReason: reason });
+      updateInvoiceZatca(invoice.id, {
+        zatcaStatus: classifyZatcaCheckoutFailure(err) === 'server_unavailable'
+          ? 'phase1_fallback'
+          : 'pending_submission',
+        zatcaFailureReason: reason,
+      });
       setError(`${invoice.invoiceNo}: ${reason}`);
     } finally {
       setBusyId(null);
@@ -274,8 +279,17 @@ export default function ZatcaInvoicesPanel() {
                 </TableRow>
               )}
               {rows.map((inv) => {
-                const label = ZATCA_STATUS_LABEL[inv.zatcaStatus];
+                const label = zatcaStatusLabel(inv.zatcaStatus);
                 const canRetry = needsResubmission(inv);
+                const rsd = rsdByInvoice.get(inv.id);
+                const rsdColor =
+                  rsd?.state === 'sent'
+                    ? 'success'
+                    : rsd?.state === 'queued'
+                      ? 'info'
+                      : rsd?.state === 'rejected'
+                        ? 'error'
+                        : 'default';
                 return (
                   <TableRow key={inv.id} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{inv.date.slice(0, 10)}</TableCell>
@@ -292,7 +306,17 @@ export default function ZatcaInvoicesPanel() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <RsdStatusChip summary={rsdInvoiceSummary(rsdByInvoice.get(inv.id) ?? [])} />
+                      {rsd ? (
+                        <Chip
+                          size="small"
+                          variant={rsd.state === 'sent' ? 'filled' : 'outlined'}
+                          color={rsdColor}
+                          label={`${rsd.sent}/${rsd.total}`}
+                          title={`${rsd.sent} of ${rsd.total} RSD packs reported${rsd.rejected ? ` · ${rsd.rejected} need attention` : ''}${rsd.pending ? ` · ${rsd.pending} queued` : ''}`}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">—</Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ fontFamily: 'monospace' }} title={inv.zatcaUuid ?? ''}>

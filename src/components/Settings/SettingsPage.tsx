@@ -110,14 +110,19 @@ export default function SettingsPage() {
           invoice list moved to the till - a sale, its refund and the tax invoice ZATCA stamped are
           one counter workflow, so it now sits under Point of Sale &gt; ZATCA Sales Invoices.
         </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => navigate('/sales-invoices')}
-          sx={{ mb: 2, textTransform: 'none' }}
-        >
-          Open ZATCA Sales Invoices
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Button size="small" variant="contained" onClick={() => navigate('/zatca-setup')}>
+            Open guided setup page
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => navigate('/sales-invoices')}
+            sx={{ textTransform: 'none' }}
+          >
+            Open ZATCA Sales Invoices
+          </Button>
+        </Stack>
         <Tabs
           value={zatcaTab}
           onChange={(_e, next: number) => setZatcaTab(next)}

@@ -40,9 +40,14 @@ export default function ZatcaOnboardingPanel() {
   const [checkResults, setCheckResults] = useState<Array<{ name: string; status: string }> | null>(null);
 
   async function refresh() {
-    const up = await zatcaApi.isServerReachable();
-    setServerUp(up);
-    if (up) setStatus(await zatcaApi.getOnboardingStatus());
+    try {
+      const up = await zatcaApi.isServerReachable();
+      setServerUp(up);
+      if (up) setStatus(await zatcaApi.getOnboardingStatus());
+    } catch (err) {
+      setServerUp(false);
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   useEffect(() => {
@@ -75,8 +80,12 @@ export default function ZatcaOnboardingPanel() {
 
   const step = status?.step ?? 'not_started';
   const complianceState: StepState = step === 'not_started' ? 'active' : 'done';
-  const checkState: StepState = step === 'not_started' ? 'pending' : step === 'compliance_issued' ? 'active' : 'done';
-  const productionState: StepState = step === 'production_issued' ? 'done' : step === 'compliance_checked' ? 'active' : 'pending';
+  // A failed local run must not silently look "done" just because the persisted step is still
+  // compliance_issued. The server now persists the pass too, so this is a belt-and-braces guard.
+  const checksPassed = status?.complianceCheck?.passed === true ||
+    (checkResults !== null && checkResults.length > 0 && checkResults.every((r) => r.status === 'PASS'));
+  const checkState: StepState = step === 'not_started' ? 'pending' : checksPassed ? 'done' : 'active';
+  const productionState: StepState = step === 'production_issued' ? 'done' : checksPassed ? 'active' : 'pending';
 
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
@@ -156,7 +165,11 @@ export default function ZatcaOnboardingPanel() {
           <Button
             variant="outlined"
             disabled={checkState === 'pending' || busy !== null || serverUp === false}
-            onClick={() => run('check', async () => setCheckResults((await zatcaApi.runComplianceCheck()).results))}
+            onClick={() => run('check', async () => {
+              const result = await zatcaApi.runComplianceCheck();
+              setCheckResults(result.results);
+              if (!result.passed) throw new Error('Compliance checks did not all pass - fix the failures before requesting a Production CSID.');
+            })}
           >
             {busy === 'check' ? <CircularProgress size={20} /> : 'Run Compliance Checks'}
           </Button>

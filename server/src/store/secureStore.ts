@@ -26,10 +26,18 @@ export interface StoredCsid {
 
 export type ZatcaEnv = 'sandbox' | 'simulation' | 'production';
 
+// Result of step 2 of onboarding. Kept with the CSIDs so the wizard can show "checks passed" after a
+// reload instead of asking the operator to resend six sample invoices to ZATCA.
+export interface ComplianceCheckResult {
+  passed: boolean;
+  checkedAt: string;
+}
+
 export interface ZatcaState {
   environment: ZatcaEnv;
   compliance?: StoredCsid;
   production?: StoredCsid;
+  complianceCheck?: ComplianceCheckResult;
   icv: number; // last-used Invoice Counter Value, increments per invoice on this device
   lastInvoiceHash: string; // PIH for the next invoice; "0" (base64 of a single zero byte) for the very first
   // Seller + device identity (see store/identity.ts). Optional so state files written before it
@@ -81,6 +89,8 @@ export async function setEnvironment(environment: ZatcaEnv): Promise<void> {
     state.environment = environment;
     state.compliance = undefined;
     state.production = undefined;
+    // A check belongs to the CSID/environment it was run against; none of it carries over.
+    state.complianceCheck = undefined;
     state.icv = 0;
     state.lastInvoiceHash = EMPTY_STATE.lastInvoiceHash;
   }

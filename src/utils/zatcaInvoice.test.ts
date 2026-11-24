@@ -9,11 +9,13 @@ import { describe, expect, it } from 'vitest';
 import type { Payment, SaleHeader, SaleLine } from '../types/sales';
 import {
   buildSubmitRequest,
+  classifyZatcaCheckoutFailure,
   needsResubmission,
   primaryPaymentMethod,
   shortUuid,
   statusFromSubmission,
   zatcaPatchFromSubmission,
+  zatcaStatusLabel,
   zatcaSummary,
 } from './zatcaInvoice';
 
@@ -200,5 +202,23 @@ describe('shortUuid', () => {
     expect(shortUuid(undefined)).toBe('—');
     expect(shortUuid('short')).toBe('short');
     expect(shortUuid('12345678-1234-1234-1234-123456789abc')).toBe('12345678…9abc');
+  });
+});
+
+describe('zatcaStatusLabel', () => {
+  it('returns the same label/colour/help used by the receipt and the invoice table', () => {
+    expect(zatcaStatusLabel('phase2_cleared')).toMatchObject({ label: 'Cleared', color: 'success' });
+    expect(zatcaStatusLabel('phase1_fallback')).toMatchObject({ label: 'Phase 1 only', color: 'warning' });
+    expect(zatcaStatusLabel('submission_failed')).toMatchObject({ label: 'Rejected', color: 'error' });
+  });
+});
+
+describe('classifyZatcaCheckoutFailure', () => {
+  it('separates an unreachable ZATCA server from a server that rejected the document', () => {
+    expect(classifyZatcaCheckoutFailure(new TypeError('fetch failed'))).toBe('server_unavailable');
+    expect(classifyZatcaCheckoutFailure(new Error('ZATCA server isn\'t reachable'))).toBe('server_unavailable');
+    expect(classifyZatcaCheckoutFailure(new Error('ECONNREFUSED: connect failed'))).toBe('server_unavailable');
+    expect(classifyZatcaCheckoutFailure(new Error('No compliance CSID on file'))).toBe('submission_error');
+    expect(classifyZatcaCheckoutFailure(new Error('ZATCA rejected the document'))).toBe('submission_error');
   });
 });

@@ -37,6 +37,8 @@ const HUB_PATHS: Record<string, string[]> = {
   '/purchases': ['/purchases', '/purchase-returns', '/vendors', '/receiving', '/head-office-receiving'],
   '/cost-centers': ['/cost-centers', '/category-map', '/expenses'],
   '/dashboard': ['/dashboard', '/reports'],
+  // The guided ZATCA setup screen is still configuration, so the Settings row stays highlighted.
+  '/settings': ['/settings', '/zatca-setup'],
 };
 
 export default function AppLayout() {

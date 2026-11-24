@@ -175,7 +175,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
     };
   }
 
-  function deviceField(key: 'solutionName' | 'solutionRelease') {
+  function deviceField(key: 'solutionName' | 'solutionRelease' | 'egUuid') {
     return {
       value: currentDevice[key],
       onChange: (e: ChangeEvent<HTMLInputElement>) =>
@@ -220,8 +220,18 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
 
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Seller</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-          <TextField label="Seller Name (English)" {...sellerField('nameEn')} fullWidth />
-          <TextField label="Seller Name (Arabic)" {...sellerField('nameAr')} fullWidth />
+          <TextField
+            label="Legal Seller Name (English)"
+            {...sellerField('nameEn')}
+            helperText="Exactly as registered for VAT - used as the CSR organization and UBL supplier name."
+            fullWidth
+          />
+          <TextField
+            label="Legal Seller Name (Arabic)"
+            {...sellerField('nameAr')}
+            helperText="Registered Arabic legal name - required before ZATCA onboarding."
+            fullWidth
+          />
           <TextField
             label="VAT Registration Number"
             {...sellerField('vatNumber')}
@@ -235,10 +245,30 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
             slotProps={{ htmlInput: { maxLength: 15, inputMode: 'numeric' } }}
             fullWidth
           />
-          <TextField label="Commercial Registration (CR) No." {...sellerField('crNumber')} fullWidth />
-          <TextField label="Organization Unit / Branch" {...sellerField('organizationUnit')} fullWidth />
-          <TextField label="Industry (business category)" {...sellerField('industry')} fullWidth />
-          <TextField label="Street" {...sellerField('street')} fullWidth />
+          <TextField
+            label="Commercial Registration (CR) No."
+            {...sellerField('crNumber')}
+            helperText="Required. Signed into every invoice as the supplier CompanyID."
+            fullWidth
+          />
+          <TextField
+            label="Organization Unit / Branch"
+            {...sellerField('organizationUnit')}
+            helperText="The ZATCA-registered branch name used as the CSR OU."
+            fullWidth
+          />
+          <TextField
+            label="Industry (business category)"
+            {...sellerField('industry')}
+            helperText="e.g. Pharmacy Retail - goes into the CSR businessCategory."
+            fullWidth
+          />
+          <TextField
+            label="Street"
+            {...sellerField('street')}
+            helperText="Full registered address: street, district, city, postal code and country are combined for the CSR registeredAddress."
+            fullWidth
+          />
           <TextField label="District" {...sellerField('district')} fullWidth />
           <TextField label="City" {...sellerField('city')} fullWidth />
           <TextField label="Postal Code" {...sellerField('postalCode')} fullWidth />
@@ -272,8 +302,39 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
             helperText="1 = the only/default terminal. Each additional register gets its own number."
             fullWidth
           />
-          <TextField label="Solution Name" {...deviceField('solutionName')} fullWidth />
-          <TextField label="Solution Release" {...deviceField('solutionRelease')} fullWidth />
+          <TextField
+            label="Solution Name"
+            {...deviceField('solutionName')}
+            helperText="The EGS solution name registered with ZATCA, e.g. POS PHARMA."
+            fullWidth
+          />
+          <TextField
+            label="Solution Release"
+            {...deviceField('solutionRelease')}
+            helperText="Version of the solution used for this device, e.g. 1.0."
+            fullWidth
+          />
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+            <TextField
+              label="Device UUID (EGS UUID)"
+              {...deviceField('egUuid')}
+              helperText="Unique ID for this register. It is the third part of the EGS serial; keep it stable after onboarding."
+              fullWidth
+            />
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ mt: 1, whiteSpace: 'nowrap', textTransform: 'none' }}
+              disabled={busy}
+              onClick={() =>
+                setDevice((current) =>
+                  current ? { ...current, egUuid: crypto.randomUUID() } : current,
+                )
+              }
+            >
+              Generate
+            </Button>
+          </Stack>
           <TextField
             label="Common Name (derived)"
             value={deriveCommonName(device)}
