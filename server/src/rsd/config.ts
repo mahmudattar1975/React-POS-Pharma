@@ -11,54 +11,12 @@
 //
 // Safe defaults: mock + test. Live production is only ever reached when both switches are set
 // explicitly, because a Pharmacy Sale in production is a real national track-and-trace movement.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { RsdEnvironment, RsdMode } from './types.js';
 
 const DEFAULT_PROD_SALE_URL =
   'https://rsd.sfda.gov.sa/ws/PharmacySaleService/PharmacySaleService';
 const DEFAULT_PROD_CANCEL_URL =
   'https://rsd.sfda.gov.sa/ws/PharmacySaleCancelService/PharmacySaleCancelService';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SETTINGS_FILE = path.join(__dirname, '..', '..', 'data', 'rsd-settings.json');
-
-// An operator can save RSD settings through the server API. They override .env but stay on disk in
-// server/data (gitignored) and are NEVER returned to the browser except as the fields below -
-// in particular, a password is never echoed back once it has been stored.
-export interface RsdStoredSettings {
-  mode: RsdMode;
-  environment: RsdEnvironment;
-  gln: string;
-  username: string;
-  password: string;
-  saleUrl: string;
-  cancelUrl: string;
-  directToGln: string;
-  directPrescriptionId: string;
-}
-
-export function loadRsdStoredSettings(): Partial<RsdStoredSettings> {
-  try {
-    return JSON.parse(readFileSync(SETTINGS_FILE, 'utf8')) as Partial<RsdStoredSettings>;
-  } catch {
-    // A missing or unreadable file simply means ".env is the source of truth".
-    return {};
-  }
-}
-
-export function saveRsdStoredSettings(settings: RsdStoredSettings): void {
-  mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-  writeFileSync(SETTINGS_FILE, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-}
-
-// Stored credentials belong to the environment they were saved against. Reusing test credentials
-// just because .env switched to production would be a dangerous silent fallback.
-function storedFor(environment: RsdEnvironment): Partial<RsdStoredSettings> {
-  const stored = loadRsdStoredSettings();
-  return stored.environment === environment ? stored : {};
-}
 
 export interface RsdCredentials {
   gln: string;
@@ -99,11 +57,10 @@ export function credentialsEnvNames(environment: RsdEnvironment): string[] {
 
 export function getRsdCredentials(environment = getRsdEnvironment()): RsdCredentials {
   const prefix = environment === 'production' ? 'RSD_PROD' : 'RSD_TEST';
-  const stored = storedFor(environment);
   return {
-    gln: stored.gln || env(`${prefix}_GLN`),
-    username: stored.username || env(`${prefix}_USERNAME`),
-    password: stored.password || env(`${prefix}_PASSWORD`),
+    gln: env(`${prefix}_GLN`),
+    username: env(`${prefix}_USERNAME`),
+    password: env(`${prefix}_PASSWORD`),
   };
 }
 
@@ -127,23 +84,34 @@ function endpoint(environment: RsdEnvironment, kind: 'sale' | 'cancel'): string 
   return kind === 'sale' ? DEFAULT_PROD_SALE_URL : DEFAULT_PROD_CANCEL_URL;
 }
 
+// The selected environment's endpoints. Exported so Settings > RSD can show exactly what the
+// adapter will call (and seed an edit form) without duplicating the default URLs.
+export function getRsdUrls(environment = getRsdEnvironment()): {
+  saleUrl: string;
+  cancelUrl: string;
+} {
+  return {
+    saleUrl: endpoint(environment, 'sale'),
+    cancelUrl: endpoint(environment, 'cancel'),
+  };
+}
+
 export function getRsdConfig(): RsdConfig {
-  const stored = loadRsdStoredSettings();
-  const environment = stored.environment ?? getRsdEnvironment();
+  const environment = getRsdEnvironment();
   const creds = getRsdCredentials(environment);
   const timeout = Number(env('RSD_TIMEOUT_MS') || 20_000);
   return {
-    mode: stored.mode ?? getRsdMode(),
+    mode: getRsdMode(),
     environment,
     ...creds,
-    saleUrl: stored.saleUrl || endpoint(environment, 'sale'),
-    cancelUrl: stored.cancelUrl || endpoint(environment, 'cancel'),
+    saleUrl: endpoint(environment, 'sale'),
+    cancelUrl: endpoint(environment, 'cancel'),
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 20_000,
     // The portal's "Direct Sale" (patient at the counter) uses the all-zero to-GLN in the field
     // guide's verified envelope. A payer GLN can be supplied per sale instead.
-    directToGln: stored.directToGln || env('RSD_DIRECT_TO_GLN') || '0000000000000',
+    directToGln: env('RSD_DIRECT_TO_GLN') || '0000000000000',
     // PRESCRIPTIONID is part of the verified element ordering. Direct/OTC sales have no real
     // prescription id, so a stable placeholder is used until the ISD says otherwise.
-    directPrescriptionId: stored.directPrescriptionId || env('RSD_DIRECT_PRESCRIPTION_ID') || 'DIRECT-SALE',
+    directPrescriptionId: env('RSD_DIRECT_PRESCRIPTION_ID') || 'DIRECT-SALE',
   };
 }

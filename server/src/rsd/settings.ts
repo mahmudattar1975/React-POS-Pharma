@@ -1,51 +1,172 @@
-// Server side of the Settings > RSD panel. The browser can read the non-secret fields, save new
-// values, and run a read-only WSDL probe - it never receives a password and never speaks SOAP to
-// SFDA itself. This mirrors src/api/rsdApi.ts, which is the only client of these routes.
+// Runtime-editable RSD settings for Settings > RSD.
+//
+// `server/.env` stays the seed: it is what a fresh installation uses. Once the panel saves, the
+// values live in `server/data/rsd-settings.json` and are pushed into `process.env`, because
+// config.ts reads the environment on every call. That makes a saved change take effect without a
+// restart, while keeping every credential on the server - the browser only ever receives booleans
+// such as `hasPassword` / `credentialsConfigured`.
+//
+// DEV-GRADE, like store/secureStore.ts: the file is plaintext on disk. Before a production rollout,
+// move these values to a real secrets store (KMS/HSM or an encrypted store with access control).
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   getRsdConfig,
-  getRsdCredentials,
-  hasRsdAuth,
+  getRsdEnvironment,
+  getRsdMode,
+  getRsdUrls,
   hasRsdCredentials,
-  loadRsdStoredSettings,
-  saveRsdStoredSettings,
-  type RsdStoredSettings,
 } from './config.js';
 import { badRequest } from './errors.js';
-import { probeWsdl } from './soapClient.js';
 import type { RsdEnvironment, RsdMode } from './types.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_FILE = path.join(__dirname, '..', '..', 'data', 'rsd-settings.json');
+
+export interface RsdEnvSettings {
+  gln: string;
+  username: string;
+  password: string;
+  saleUrl: string;
+  cancelUrl: string;
+}
+
+export interface RsdStoredSettings {
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  test: RsdEnvSettings;
+  production: RsdEnvSettings;
+  directToGln: string;
+  directPrescriptionId: string;
+  updatedAt: string;
+}
+
+// What the browser is allowed to see. Deliberately no password field.
 export interface RsdSettingsView {
   mode: RsdMode;
   environment: RsdEnvironment;
   gln: string;
   username: string;
-  // The password itself is never returned, only whether one is available to the adapter.
   hasPassword: boolean;
   credentialsConfigured: boolean;
   saleUrl: string;
   cancelUrl: string;
   directToGln: string;
   directPrescriptionId: string;
+  // 'stored' once the panel has saved; 'env' means the values still come from server/.env.
   source: 'stored' | 'env';
 }
 
-export interface RsdConnectionCheck {
-  name: 'sale' | 'cancel' | 'mock';
-  ok: boolean;
-  httpStatus?: number | null;
-  message?: string;
-  operations?: string[];
+export interface RsdSettingsUpdate {
+  mode?: string;
+  environment?: string;
+  gln?: string;
+  username?: string;
+  // Blank/absent keeps the stored password: the UI never receives it back, so an empty box must
+  // not wipe a working credential.
+  password?: string;
+  saleUrl?: string;
+  cancelUrl?: string;
+  directToGln?: string;
+  directPrescriptionId?: string;
 }
 
-export interface RsdConnectionTest {
-  ok: boolean;
-  mode: RsdMode;
-  environment: RsdEnvironment;
-  checkedAt: string;
-  checks: RsdConnectionCheck[];
+const ENVIRONMENTS: RsdEnvironment[] = ['test', 'production'];
+
+function settingsFile(): string {
+  return (process.env.RSD_SETTINGS_FILE ?? '').trim() || DEFAULT_FILE;
 }
 
-export function rsdSettingsView(): RsdSettingsView {
+function envPrefix(environment: RsdEnvironment): string {
+  return environment === 'production' ? 'RSD_PROD' : 'RSD_TEST';
+}
+
+function setEnv(name: string, value: string): void {
+  if (value === '') delete process.env[name];
+  else process.env[name] = value;
+}
+
+function currentEnvSettings(environment: RsdEnvironment): RsdEnvSettings {
+  const prefix = envPrefix(environment);
+  const urls = getRsdUrls(environment);
+  return {
+    gln: (process.env[`${prefix}_GLN`] ?? '').trim(),
+    username: (process.env[`${prefix}_USERNAME`] ?? '').trim(),
+    password: process.env[`${prefix}_PASSWORD`] ?? '',
+    saleUrl: urls.saleUrl,
+    cancelUrl: urls.cancelUrl,
+  };
+}
+
+export async function loadStoredSettings(): Promise<RsdStoredSettings | null> {
+  try {
+    const text = await readFile(settingsFile(), 'utf8');
+    const parsed = JSON.parse(text) as Partial<RsdStoredSettings>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const base = {
+      mode: getRsdMode(),
+      environment: getRsdEnvironment(),
+      test: currentEnvSettings('test'),
+      production: currentEnvSettings('production'),
+      directToGln: getRsdConfig().directToGln,
+      directPrescriptionId: getRsdConfig().directPrescriptionId,
+      updatedAt: new Date(0).toISOString(),
+    };
+    for (const environment of ENVIRONMENTS) {
+      const block = parsed[environment];
+      if (block && typeof block === 'object') {
+        base[environment] = { ...base[environment], ...block };
+      }
+    }
+    return {
+      ...base,
+      mode: parsed.mode === 'live' ? 'live' : parsed.mode === 'mock' ? 'mock' : base.mode,
+      environment:
+        parsed.environment === 'production'
+          ? 'production'
+          : parsed.environment === 'test'
+            ? 'test'
+            : base.environment,
+      directToGln: typeof parsed.directToGln === 'string' ? parsed.directToGln : base.directToGln,
+      directPrescriptionId:
+        typeof parsed.directPrescriptionId === 'string'
+          ? parsed.directPrescriptionId
+          : base.directPrescriptionId,
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : base.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Push a saved configuration into the process environment so the per-call config reader sees it.
+export function applyStoredSettings(stored: RsdStoredSettings): void {
+  setEnv('RSD_MODE', stored.mode);
+  setEnv('RSD_ENV', stored.environment);
+  setEnv('RSD_DIRECT_TO_GLN', stored.directToGln);
+  setEnv('RSD_DIRECT_PRESCRIPTION_ID', stored.directPrescriptionId);
+  for (const environment of ENVIRONMENTS) {
+    const prefix = envPrefix(environment);
+    const block = stored[environment];
+    setEnv(`${prefix}_GLN`, block.gln);
+    setEnv(`${prefix}_USERNAME`, block.username);
+    setEnv(`${prefix}_PASSWORD`, block.password);
+    setEnv(`${prefix}_SALE_URL`, block.saleUrl);
+    setEnv(`${prefix}_CANCEL_URL`, block.cancelUrl);
+  }
+}
+
+// Called once at server start, before routes are mounted. A missing/corrupt file leaves the .env
+// seed in place, which is the right failure mode: an unreadable settings file must not silently
+// switch RSD off or point it at a different environment.
+export async function initRsdSettings(): Promise<void> {
+  const stored = await loadStoredSettings();
+  if (stored) applyStoredSettings(stored);
+}
+
+export async function getRsdSettingsView(): Promise<RsdSettingsView> {
+  const stored = await loadStoredSettings();
   const config = getRsdConfig();
   return {
     mode: config.mode,
@@ -58,117 +179,73 @@ export function rsdSettingsView(): RsdSettingsView {
     cancelUrl: config.cancelUrl,
     directToGln: config.directToGln,
     directPrescriptionId: config.directPrescriptionId,
-    source: Object.keys(loadRsdStoredSettings()).length > 0 ? 'stored' : 'env',
+    source: stored ? 'stored' : 'env',
   };
 }
 
-function text(value: unknown, field: string): string {
-  if (typeof value !== 'string') throw badRequest(`${field} must be a string.`);
-  return value.trim();
+function clean(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value.trim() : fallback;
 }
 
-// Saving settings writes the complete record. A blank password means "keep the one already stored"
-// (or keep using the .env value), so the UI never has to round-trip the secret.
-export function updateRsdSettings(input: unknown): RsdSettingsView {
-  const body = (input ?? {}) as Partial<RsdStoredSettings>;
-  const mode = text(body.mode, 'mode');
-  if (mode !== 'mock' && mode !== 'live') throw badRequest('mode must be "mock" or "live".');
-  const environment = text(body.environment, 'environment');
-  if (environment !== 'test' && environment !== 'production') {
-    throw badRequest('environment must be "test" or "production".');
+export async function updateRsdSettings(raw: RsdSettingsUpdate): Promise<RsdSettingsView> {
+  const existing = await loadStoredSettings();
+  const current = getRsdConfig();
+  const base: RsdStoredSettings =
+    existing ?? {
+      mode: getRsdMode(),
+      environment: getRsdEnvironment(),
+      test: currentEnvSettings('test'),
+      production: currentEnvSettings('production'),
+      directToGln: current.directToGln,
+      directPrescriptionId: current.directPrescriptionId,
+      updatedAt: new Date(0).toISOString(),
+    };
+
+  const mode: RsdMode = raw.mode === 'live' ? 'live' : raw.mode === 'mock' ? 'mock' : base.mode;
+  const environment: RsdEnvironment =
+    raw.environment === 'production'
+      ? 'production'
+      : raw.environment === 'test'
+        ? 'test'
+        : base.environment;
+  const active = base[environment];
+  const password = typeof raw.password === 'string' && raw.password.trim() !== ''
+    ? raw.password
+    : active.password;
+  const nextBlock: RsdEnvSettings = {
+    gln: clean(raw.gln, active.gln),
+    username: clean(raw.username, active.username),
+    password,
+    saleUrl: clean(raw.saleUrl, active.saleUrl),
+    cancelUrl: clean(raw.cancelUrl, active.cancelUrl),
+  };
+
+  // Keep the stricter rule from this repo: a saved setting must never become a way to put HTTP
+  // Basic credentials on the wire in clear text. The adapter also refuses at send time, but an
+  // insecure value should not be persisted in the first place.
+  if (environment === 'production' &&
+      (!nextBlock.saleUrl.startsWith('https://') || !nextBlock.cancelUrl.startsWith('https://'))) {
+    throw badRequest(
+      'Production RSD endpoints must use https://; refusing plain HTTP.',
+      'rsd_insecure_endpoint',
+    );
   }
-  const saleUrl = text(body.saleUrl, 'saleUrl');
-  const cancelUrl = text(body.cancelUrl, 'cancelUrl');
-  if (environment === 'production' && (!saleUrl.startsWith('https://') || !cancelUrl.startsWith('https://'))) {
-    // Same guard as the send path: never let a saved setting become a way to put Basic credentials
-    // on the wire in clear text.
-    throw badRequest('Production RSD endpoints must use https://; refusing plain HTTP.', 'rsd_insecure_endpoint');
-  }
-  const previous = loadRsdStoredSettings();
-  const passwordInput = typeof body.password === 'string' ? body.password.trim() : '';
-  const settings: RsdStoredSettings = {
+
+  const next: RsdStoredSettings = {
+    ...base,
     mode,
     environment,
-    gln: text(body.gln, 'gln'),
-    username: text(body.username, 'username'),
-    password: passwordInput || previous.password || '',
-    saleUrl,
-    cancelUrl,
-    directToGln: text(body.directToGln, 'directToGln'),
-    directPrescriptionId: text(body.directPrescriptionId, 'directPrescriptionId'),
+    test: environment === 'test' ? nextBlock : base.test,
+    production: environment === 'production' ? nextBlock : base.production,
+    directToGln: clean(raw.directToGln, base.directToGln) || base.directToGln,
+    directPrescriptionId:
+      clean(raw.directPrescriptionId, base.directPrescriptionId) || base.directPrescriptionId,
+    updatedAt: new Date().toISOString(),
   };
-  saveRsdStoredSettings(settings);
-  return rsdSettingsView();
-}
 
-function probeCheck(
-  name: 'sale' | 'cancel',
-  result: Awaited<ReturnType<typeof probeWsdl>>,
-): RsdConnectionCheck {
-  const ok = result.httpStatus === 200 && result.bytes > 0 && !result.networkError;
-  return {
-    name,
-    ok,
-    httpStatus: result.httpStatus,
-    operations: result.operations,
-    message: ok
-      ? 'WSDL reachable with the stored credentials; no sale or cancel was sent.'
-      : result.networkError
-        ? `Network failure: ${result.networkError}`
-        : result.httpStatus
-          ? `WSDL request answered HTTP ${result.httpStatus}; check the URL and credentials.`
-          : 'WSDL request did not complete.',
-  };
-}
-
-// Read-only: fetching a WSDL cannot move a unit. Safe to press before a live trial or after saving
-// new credentials, unlike a dummy sale which would have to be cancelled again.
-export async function testRsdConnection(): Promise<RsdConnectionTest> {
-  const config = getRsdConfig();
-  const base = { mode: config.mode, environment: config.environment, checkedAt: new Date().toISOString() };
-  if (config.mode === 'mock') {
-    return {
-      ...base,
-      ok: true,
-      checks: [{ name: 'mock', ok: true, message: 'Mock mode - SFDA is never contacted.' }],
-    };
-  }
-  if (!config.saleUrl || !config.cancelUrl) {
-    return {
-      ...base,
-      ok: false,
-      checks: [
-        { name: 'sale', ok: false, message: 'Sale service URL is not configured.' },
-        { name: 'cancel', ok: false, message: 'Cancel service URL is not configured.' },
-      ],
-    };
-  }
-  if (!hasRsdAuth(config.environment)) {
-    return {
-      ...base,
-      ok: false,
-      checks: [
-        { name: 'sale', ok: false, message: 'Username or password is missing.' },
-        { name: 'cancel', ok: false, message: 'Username or password is missing.' },
-      ],
-    };
-  }
-  if (config.environment === 'production' &&
-      (!config.saleUrl.startsWith('https://') || !config.cancelUrl.startsWith('https://'))) {
-    return {
-      ...base,
-      ok: false,
-      checks: [
-        { name: 'sale', ok: false, message: 'Production endpoint must use https://; credentials were not sent.' },
-        { name: 'cancel', ok: false, message: 'Production endpoint must use https://; credentials were not sent.' },
-      ],
-    };
-  }
-  const creds = getRsdCredentials(config.environment);
-  const [sale, cancel] = await Promise.all([
-    probeWsdl(config.saleUrl, creds, config.timeoutMs),
-    probeWsdl(config.cancelUrl, creds, config.timeoutMs),
-  ]);
-  const checks = [probeCheck('sale', sale), probeCheck('cancel', cancel)];
-  return { ...base, ok: checks.every((c) => c.ok), checks };
+  const file = settingsFile();
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(next, null, 2), 'utf8');
+  applyStoredSettings(next);
+  return getRsdSettingsView();
 }

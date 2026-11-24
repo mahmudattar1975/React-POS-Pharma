@@ -24,7 +24,7 @@ import {
   type NormalizedCancel,
   type NormalizedSale,
 } from './normalize.js';
-import { postSoap } from './soapClient.js';
+import { postSoap, probeWsdl, type WsdlProbeResult } from './soapClient.js';
 import {
   findCancelRecord,
   findSaleRecord,
@@ -34,6 +34,8 @@ import {
 } from './store.js';
 import type {
   RsdCancelInput,
+  RsdConnectionCheck,
+  RsdConnectionTest,
   RsdRecord,
   RsdRecordStatus,
   RsdReportResult,
@@ -541,6 +543,61 @@ export async function getStatus(): Promise<RsdStatus> {
       pendingOrFailed: state.records.filter((r) => r.status !== 'sent').length,
     },
     mockInventoryUnits: config.mode === 'mock' ? await mockInventorySize() : undefined,
+  };
+}
+
+function describeProbe(name: 'sale' | 'cancel', probe: WsdlProbeResult): RsdConnectionCheck {
+  const ok = probe.httpStatus === 200 && !probe.networkError;
+  return {
+    name,
+    ok,
+    httpStatus: probe.httpStatus,
+    operations: probe.operations,
+    message: probe.networkError
+      ? probe.networkError
+      : probe.httpStatus === 401 || probe.httpStatus === 403
+        ? 'Credentials were rejected by the service.'
+        : ok
+          ? 'WSDL reachable with these credentials.'
+          : `Service answered HTTP ${probe.httpStatus ?? '—'}.`,
+  };
+}
+
+// Read-only connectivity check for Settings > RSD. It NEVER submits a dummy sale or cancel: even a
+// fake unit would become a real movement that then has to be reversed. In mock mode the local
+// state machine is the check, because there is nothing remote to reach.
+export async function testConnection(): Promise<RsdConnectionTest> {
+  const config = getRsdConfig();
+  const checkedAt = new Date().toISOString();
+  if (config.mode === 'mock') {
+    return {
+      ok: true,
+      mode: 'mock',
+      environment: config.environment,
+      checkedAt,
+      checks: [
+        {
+          name: 'mock',
+          ok: true,
+          message: 'Mock mode: sales and cancellations are handled by the local simulator.',
+        },
+      ],
+    };
+  }
+
+  assertLiveReady();
+  const creds = { gln: config.gln, username: config.username, password: config.password };
+  const [sale, cancel] = await Promise.all([
+    probeWsdl(config.saleUrl, creds, config.timeoutMs),
+    probeWsdl(config.cancelUrl, creds, config.timeoutMs),
+  ]);
+  const checks = [describeProbe('sale', sale), describeProbe('cancel', cancel)];
+  return {
+    ok: checks.every((check) => check.ok),
+    mode: 'live',
+    environment: config.environment,
+    checkedAt,
+    checks,
   };
 }
 

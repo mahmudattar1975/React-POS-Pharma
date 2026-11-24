@@ -30,7 +30,7 @@ const TABS = [
   { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
-  { path: '/rsd-reporting', label: 'RSD', icon: <VerifiedUserIcon fontSize="small" /> },
+  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" /> },
 ];
 
 export default function SalesHubPage() {

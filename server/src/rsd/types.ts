@@ -125,6 +125,24 @@ export interface RsdStatus {
   mockInventoryUnits?: number;
 }
 
+// Settings > RSD "Test connection": a read-only probe that never sells or cancels anything. In
+// mock mode there is nothing remote to reach, so the local state machine is the check.
+export interface RsdConnectionCheck {
+  name: 'sale' | 'cancel' | 'mock';
+  ok: boolean;
+  httpStatus?: number | null;
+  message?: string;
+  operations?: string[];
+}
+
+export interface RsdConnectionTest {
+  ok: boolean;
+  mode: RsdMode;
+  environment: RsdEnvironment;
+  checkedAt: string;
+  checks: RsdConnectionCheck[];
+}
+
 export interface RsdResponseProduct {
   gtin?: string;
   sn?: string;

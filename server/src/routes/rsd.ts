@@ -15,9 +15,10 @@ import {
   reportCancel,
   reportSale,
   resetMock,
+  testConnection,
   unitStatus,
 } from '../rsd/service.js';
-import { rsdSettingsView, testRsdConnection, updateRsdSettings } from '../rsd/settings.js';
+import { getRsdSettingsView, updateRsdSettings, type RsdSettingsUpdate } from '../rsd/settings.js';
 import type { RsdCancelInput, RsdRecordStatus, RsdSaleInput, RsdUnit } from '../rsd/types.js';
 
 export const rsdRouter = Router();
@@ -39,32 +40,6 @@ function query(req: Request, key: string): string | undefined {
 rsdRouter.get('/status', async (_req, res) => {
   try {
     res.json(await getStatus());
-  } catch (err) {
-    fail(res, err);
-  }
-});
-
-// Settings > RSD. No password is ever returned; a blank password on update keeps the old one.
-rsdRouter.get('/settings', (_req, res) => {
-  try {
-    res.json(rsdSettingsView());
-  } catch (err) {
-    fail(res, err);
-  }
-});
-
-rsdRouter.put('/settings', (req, res) => {
-  try {
-    res.json(updateRsdSettings(req.body));
-  } catch (err) {
-    fail(res, err);
-  }
-});
-
-// Read-only WSDL probe. Cannot create a sale or a cancel, so it is safe to press repeatedly.
-rsdRouter.post('/test', async (_req, res) => {
-  try {
-    res.json(await testRsdConnection());
   } catch (err) {
     fail(res, err);
   }
@@ -129,6 +104,34 @@ rsdRouter.post('/reopen', async (req, res) => {
     }
     const record = await reopenRejected(body.kind, body.gtin ?? '', body.serialNo ?? '');
     res.json({ record: record ?? null });
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// Settings > RSD. The GET view never contains the password; PUT accepts a blank password to mean
+// "keep the stored one", because the UI cannot echo a value it never received.
+rsdRouter.get('/settings', async (_req, res) => {
+  try {
+    res.json(await getRsdSettingsView());
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+rsdRouter.put('/settings', async (req, res) => {
+  try {
+    res.json(await updateRsdSettings((req.body ?? {}) as RsdSettingsUpdate));
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// Read-only connectivity probe: WSDL + Basic auth in live mode, local simulator in mock mode.
+// It never sends a sale/cancel, so pressing "Test connection" cannot create a movement.
+rsdRouter.post('/test', async (_req, res) => {
+  try {
+    res.json(await testConnection());
   } catch (err) {
     fail(res, err);
   }

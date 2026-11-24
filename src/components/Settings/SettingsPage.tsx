@@ -110,9 +110,14 @@ export default function SettingsPage() {
           invoice list moved to the till - a sale, its refund and the tax invoice ZATCA stamped are
           one counter workflow, so it now sits under Point of Sale &gt; ZATCA Sales Invoices.
         </Typography>
-        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Button size="small" variant="contained" onClick={() => navigate('/zatca-setup')}>
-            Open guided setup page
+        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => navigate('/zatca-setup')}
+            sx={{ textTransform: 'none' }}
+          >
+            Open ZATCA Data Entry Screen
           </Button>
           <Button
             size="small"
@@ -156,12 +161,12 @@ export default function SettingsPage() {
 
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-          RSD / SFDA (رصد)
+          SFDA RSD (Drug Track &amp; Trace)
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Report drug sales and their cancellations to SFDA&apos;s national track-and-trace service.
-          The till queues each serialised pack and sends it in the background; supplies and items
-          without Batch / expiry tracking are never reported.
+          Report each sold serialised drug pack to SFDA and cancel it on a full return. Reporting is
+          an opt-in background mirror: it never blocks a sale, and its status is visible on the
+          Point of Sale &gt; RSD Reporting tab.
         </Typography>
         <RsdSettingsPanel />
       </Box>
