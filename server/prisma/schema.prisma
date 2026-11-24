@@ -1,0 +1,195 @@
+// Originally scoped to sales/invoices/returns only (see server/README.md) - Item/Batch/Offer were
+// added afterward as a TEST catalog (see prisma/seed.ts): a mix of this app's existing fictional
+// seed data (src/utils/seedData.ts) and a real snapshot copied once from XPH, so the app can be
+// exercised against PharmaDB alone without a live ERP connection. The live, read-only XPH
+// integration (server/src/erp/) still exists separately and is unaffected - this is not a
+// replacement for it, and NOT the legacy ftotsalf_ph/ftrnsalf_ph tables (see erp/README.md's
+// "Multi-branch" section for why those weren't used: incomplete scaffolding, no stock decrement, no
+// safe invoice numbering).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Mirrors src/types/sales.ts's SaleHeader - field-for-field, so mapping to/from the frontend type
+// is a straight copy, not a reshaping exercise.
+model Sale {
+  id          String   @id @default(uuid())
+  invoiceNo   String   @unique
+  invoiceType String // 'simplified' | 'standard'
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  customerId     String?
+  customerNameAr String?
+  customerNameEn String?
+
+  subtotalExclVat Decimal @db.Decimal(12, 3)
+  totalDiscount   Decimal @db.Decimal(12, 3)
+  totalVatAmount  Decimal @db.Decimal(12, 3)
+  totalInclVat    Decimal @db.Decimal(12, 3)
+
+  zatcaQrBase64 String @db.NVarChar(Max)
+  zatcaStatus   String // ZatcaSubmissionStatus
+  status        String // InvoiceStatus - 'completed' | 'returned' | 'partially_returned'
+  cashierName   String
+
+  pointsEarned           Int?
+  pointsRedeemed         Int?
+  pointsEarnedClawedBack Int?
+  pointsRedeemedRefunded Int?
+
+  // PrescriptionInfo, inlined - at most one per sale, so no separate table.
+  prescriptionSource        String?
+  prescriptionWasfatyRefNo  String?
+  prescriberName            String?
+  prescriberId              String?
+  prescriptionId            String?
+  prescriptionDate          DateTime?
+  patientNationalId         String?
+
+  lines    SaleLine[]
+  payments Payment[]
+  returns  ReturnRecord[]
+
+  @@map("sales")
+}
+
+// Mirrors SaleLine.
+model SaleLine {
+  id     String @id @default(uuid())
+  saleId String
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  itemId     String
+  itemNameAr String
+  itemNameEn String
+  batchId    String
+  batchNo    String
+  expiryDate DateTime
+
+  qty       Int
+  unitPrice Decimal @db.Decimal(12, 3)
+  vatRate   Decimal @db.Decimal(6, 4)
+
+  offerLabel          String?
+  manualDiscountType  String? // 'amount' | 'percent'
+  manualDiscountValue Decimal? @db.Decimal(12, 3)
+
+  discountAmount   Decimal @db.Decimal(12, 3)
+  netExclVat       Decimal @db.Decimal(12, 3)
+  vatAmount        Decimal @db.Decimal(12, 3)
+  totalInclVat     Decimal @db.Decimal(12, 3)
+  returnedQty      Int     @default(0)
+  controlledStatus String?
+
+  @@map("sale_lines")
+}
+
+// Mirrors Payment.
+model Payment {
+  id     String @id @default(uuid())
+  saleId String
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  method                String // PaymentMethod - 'cash' | 'card' | 'insurance' | 'points' (SQL Server connector doesn't support native enums)
+  amount                Decimal @db.Decimal(12, 3)
+  cardNetwork           String?
+  insuranceCompany      String?
+  insuranceApprovalCode String?
+
+  @@map("payments")
+}
+
+// Mirrors ReturnHeader.
+model ReturnRecord {
+  id                String @id @default(uuid())
+  returnNo          String @unique
+  date              DateTime
+  originalInvoiceId String
+  sale              Sale   @relation(fields: [originalInvoiceId], references: [id])
+  originalInvoiceNo String
+  totalRefund       Decimal @db.Decimal(12, 3)
+  reason            String
+
+  lines ReturnLine[]
+
+  @@map("return_records")
+}
+
+// Mirrors ReturnLine.
+model ReturnLine {
+  id             String       @id @default(uuid())
+  returnRecordId String
+  returnRecord   ReturnRecord @relation(fields: [returnRecordId], references: [id], onDelete: Cascade)
+
+  saleLineId   String
+  itemNameEn   String
+  qty          Int
+  refundAmount Decimal @db.Decimal(12, 3)
+
+  @@map("return_lines")
+}
+
+// Mirrors src/types/catalog.ts's Item. id is kept exactly as the app already assigns it elsewhere
+// ('itm-1' for fictional seed items, 'erp-<itemNo>' for real XPH items - see
+// store/catalogStore.ts's upsertErpItem) rather than a generated key, so rows copied from either
+// source need no id translation at all.
+model Item {
+  id                    String  @id
+  barcode               String  @unique
+  nameAr                String
+  nameEn                String
+  unit                  String
+  category              String
+  basePrice             Decimal @db.Decimal(12, 3)
+  controlledStatus      String?
+  vatRate               Decimal @db.Decimal(6, 4)
+  requiresBatchTracking Boolean
+  reorderLevel          Int
+
+  batches Batch[]
+  offers  Offer[]
+
+  @@map("items")
+}
+
+// Mirrors Batch.
+model Batch {
+  id                      String   @id
+  itemId                  String
+  item                    Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  batchNo                 String
+  expiryDate              DateTime
+  receivedDate            DateTime
+  qtyOnHand               Int
+  purchasePrice           Decimal  @db.Decimal(12, 3)
+  purchaseDiscountPercent Decimal  @db.Decimal(6, 4)
+  costPrice               Decimal  @db.Decimal(12, 3)
+  gtin                    String?
+  salePriceOverride       Decimal? @db.Decimal(12, 3)
+
+  @@map("batches")
+}
+
+// Mirrors Offer. No real source for this in XPH at all (confirmed live) - every row here is
+// fictional demo data, copied as-is from seedData.ts, not a snapshot of anything real.
+model Offer {
+  id         String   @id
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  type       String // OfferType - 'percent' | 'value' | 'bogo'
+  percent    Decimal? @db.Decimal(6, 4)
+  value      Decimal? @db.Decimal(12, 3)
+  buyQty     Int?
+  freeQty    Int?
+  activeFrom DateTime
+  activeTo   DateTime
+  label      String
+
+  @@map("offers")
+}
