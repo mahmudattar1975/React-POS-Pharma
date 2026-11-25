@@ -189,19 +189,24 @@ export default function IncentiveItemsPage() {
                     <ListItem><ListItemText primary="No matching items in the POS catalog" /></ListItem>
                   )}
                   {itemSuggestions.map((it) => {
-                    const alreadyConfigured = !dialog.item && configuredKeys.has(it.barcode);
+                    const configuredRule = !dialog.item ? items.find((rule) => rule.itemId === it.barcode) : undefined;
                     return (
                       <ListItemButton
                         key={it.id}
-                        disabled={alreadyConfigured}
+                        sx={configuredRule ? { backgroundColor: 'rgba(237, 108, 2, 0.10)' } : undefined}
                         onClick={() => {
+                          if (configuredRule) {
+                            // One rule per item - open it for editing instead of creating a second one.
+                            setDialog({ open: true, item: configuredRule });
+                            return;
+                          }
                           setForm({ ...form, itemId: it.barcode });
                           setItemQuery(`${it.nameEn} (${itemCodes(it).join(' / ')})`);
                         }}
                       >
                         <ListItemText
                           primary={it.nameEn}
-                          secondary={`${it.nameAr} · ${itemCodes(it).join(' / ')}${alreadyConfigured ? ' · Already has an incentive' : ''}`}
+                          secondary={`${it.nameAr} · ${itemCodes(it).join(' / ')}${configuredRule ? ' · Has Incentive' : ''}`}
                         />
                       </ListItemButton>
                     );
@@ -210,17 +215,10 @@ export default function IncentiveItemsPage() {
               </Paper>
             )}
             {existingRule && (
-              <Alert
-                severity="warning"
-                action={
-                  <Button size="small" onClick={() => setDialog({ open: true, item: existingRule })}>
-                    Edit existing
-                  </Button>
-                }
-              >
-                This item already has an incentive ({existingRule.incentiveType === 'percent'
+              <Alert severity="warning">
+                This item has an Incentive ({existingRule.incentiveType === 'percent'
                   ? formatDiscountPercent(existingRule.rate)
-                  : formatMoney(existingRule.rate)}). Only one rule per item is allowed.
+                  : formatMoney(existingRule.rate)}). Pick it from the list above to edit it.
               </Alert>
             )}
             <FormControl fullWidth size="small">

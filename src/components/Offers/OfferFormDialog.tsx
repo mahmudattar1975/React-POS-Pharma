@@ -133,19 +133,24 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
                   <ListItem><ListItemText primary="No matching items in the catalog" /></ListItem>
                 )}
                 {itemSuggestions.map((i) => {
-                  const alreadyConfigured = !offer && configuredIds.has(i.id);
+                  const configuredOffer = !offer ? offers.find((o) => o.itemId === i.id) : undefined;
                   return (
                     <ListItemButton
                       key={i.id}
-                      disabled={alreadyConfigured}
+                      sx={configuredOffer ? { backgroundColor: 'rgba(237, 108, 2, 0.10)' } : undefined}
                       onClick={() => {
+                        if (configuredOffer) {
+                          // One offer per item - open it for editing instead of creating a second one.
+                          onEditExisting(configuredOffer);
+                          return;
+                        }
                         setItemId(i.id);
                         setItemQuery(`${i.nameEn} (${itemCodes(i).join(' / ')})`);
                       }}
                     >
                       <ListItemText
                         primary={i.nameEn}
-                        secondary={`${i.nameAr} · ${itemCodes(i).join(' / ')}${alreadyConfigured ? ' · Already has an offer' : ''}`}
+                        secondary={`${i.nameAr} · ${itemCodes(i).join(' / ')}${configuredOffer ? ' · Has offer' : ''}`}
                       />
                     </ListItemButton>
                   );
@@ -154,19 +159,12 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
             </Paper>
           )}
           {existingOffer && (
-            <Alert
-              severity="warning"
-              action={
-                <Button size="small" onClick={() => onEditExisting(existingOffer)}>
-                  Edit existing
-                </Button>
-              }
-            >
-              This item already has an offer ({existingOffer.type === 'percent'
+            <Alert severity="warning">
+              This item has offer ({existingOffer.type === 'percent'
                 ? formatDiscountPercent(existingOffer.percent ?? 0)
                 : existingOffer.type === 'value'
                   ? `SAR ${formatMoney(existingOffer.value ?? 0)}`
-                  : `Buy ${formatQty(existingOffer.buyQty)} Get ${formatQty(existingOffer.freeQty)}`}). Only one offer per item is allowed.
+                  : `Buy ${formatQty(existingOffer.buyQty)} Get ${formatQty(existingOffer.freeQty)}`}). Pick it from the list above to edit it.
             </Alert>
           )}
 
