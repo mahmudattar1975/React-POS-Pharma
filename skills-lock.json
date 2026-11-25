@@ -8,6 +8,13 @@
       "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "a0dfac7503f69bcf529b2660fc79964064c4f179eb65695904ddc45fc0d99d20"
     },
+    "ai-image-generation": {
+      "source": "inference-sh/skills",
+      "commit": "13ccb5ea05deaa3ff9c8ba5c78d1e37756cc14b5",
+      "sourceType": "github",
+      "skillPath": "tools/image/ai-image-generation/SKILL.md",
+      "computedHash": "2447f8f421d5fe5a5f7af5ebd6b819d349aedbd1cc0a4b776aabdf4a2c3b42d1"
+    },
     "find-skills": {
       "source": "vercel-labs/skills",
       "commit": "57217cf86ba38148a57af9e90d14a4c049558330",
