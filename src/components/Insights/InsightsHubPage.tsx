@@ -1,17 +1,21 @@
-// The owner's analysis workspace is one sidebar entry with two tabs: the Dashboard for the
-// at-a-glance view, and Reports for the same figures broken out into printable sections. Both
-// pages stay addressable on their original URLs (/dashboard and /reports), so old links and the
-// dashboard's "Detailed reports" button still land on the right tab.
+// The owner's analysis workspace is one sidebar entry with three tabs: the Dashboard for the
+// at-a-glance view, Reports for the same figures broken out into printable sections, and the
+// Incentive Report for the profit-bonus ledger. All pages stay addressable on their original URLs
+// (/dashboard, /reports and /incentive-report), so old links and the dashboard's "Detailed reports"
+// button still land on the right tab.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs } from '@mui/material';
 import InsightsIcon from '@mui/icons-material/Insights';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardPage from '../Dashboard/DashboardPage';
 import ReportsPage from '../Reports/ReportsPage';
+import IncentiveReportPage from '../Incentives/IncentiveReportPage';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 const TABS = [
   { path: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" /> },
   { path: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" /> },
+  { path: '/incentive-report', label: 'Incentive Report', icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
 export default function InsightsHubPage() {
@@ -33,7 +37,7 @@ export default function InsightsHubPage() {
         ))}
       </Tabs>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {activeTab === 0 ? <DashboardPage /> : <ReportsPage />}
+        {activeTab === 0 ? <DashboardPage /> : activeTab === 1 ? <ReportsPage /> : <IncentiveReportPage />}
       </Box>
     </Box>
   );

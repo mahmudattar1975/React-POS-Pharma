@@ -258,6 +258,12 @@ export default function ReceiptView({
               <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
             </Stack>
           ))}
+          {(invoice.totalIncentive ?? 0) > 0 && (
+            <Stack direction="row" sx={ROW_SX}>
+              <Typography variant="body2" color="success.main">حافز بيع / Sales incentive</Typography>
+              <Typography variant="body2" color="success.main">{formatMoney(invoice.totalIncentive ?? 0)}</Typography>
+            </Stack>
+          )}
           <Stack direction="row" sx={ROW_SX}>
             <Typography sx={{ fontWeight: 700 }}>الإجمالي / Total (SAR)</Typography>
             <Typography sx={{ fontWeight: 700 }}>{formatMoney(invoice.totalInclVat)}</Typography>

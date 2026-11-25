@@ -96,6 +96,7 @@ export const useSalesStore = create<SalesState>()(
           ret,
           updatedInvoiceStatus: updatedInvoice.status,
           updatedInvoicePointsEarnedClawedBack: updatedInvoice.pointsEarnedClawedBack,
+          updatedInvoiceTotalIncentiveClawedBack: updatedInvoice.totalIncentiveClawedBack,
           updatedInvoicePointsRedeemedRefunded: updatedInvoice.pointsRedeemedRefunded,
           updatedLineReturnedQtys: updatedInvoice.lines.map((l) => ({ lineId: l.id, returnedQty: l.returnedQty })),
         };

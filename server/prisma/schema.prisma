@@ -32,6 +32,8 @@ model Sale {
   totalDiscount   Decimal @db.Decimal(12, 3)
   totalVatAmount  Decimal @db.Decimal(12, 3)
   totalInclVat    Decimal @db.Decimal(12, 3)
+  totalIncentive  Decimal? @db.Decimal(12, 3)
+  totalIncentiveClawedBack Decimal? @db.Decimal(12, 3)
 
   zatcaQrBase64 String @db.NVarChar(Max)
   zatcaStatus   String // ZatcaSubmissionStatus
@@ -52,9 +54,10 @@ model Sale {
   prescriptionDate          DateTime?
   patientNationalId         String?
 
-  lines    SaleLine[]
-  payments Payment[]
-  returns  ReturnRecord[]
+  lines     SaleLine[]
+  payments  Payment[]
+  returns   ReturnRecord[]
+  incentiveRecords IncentiveRecord[]
 
   @@map("sales")
 }
@@ -86,6 +89,11 @@ model SaleLine {
   totalInclVat     Decimal @db.Decimal(12, 3)
   returnedQty      Int     @default(0)
   controlledStatus String?
+
+  // ---- Incentive / profit bonus (Phase A) -------------------------------------------
+  incentiveType   String?
+  incentiveRate   Decimal? @db.Decimal(12, 4)
+  incentiveAmount Decimal? @db.Decimal(12, 3)
 
   @@map("sale_lines")
 }
@@ -152,8 +160,9 @@ model Item {
   requiresBatchTracking Boolean
   reorderLevel          Int
 
-  batches Batch[]
-  offers  Offer[]
+  batches    Batch[]
+  offers     Offer[]
+  incentives IncentiveItem[]
 
   @@map("items")
 }
@@ -192,4 +201,47 @@ model Offer {
   label      String
 
   @@map("offers")
+}
+
+
+// ---- Incentive / profit bonus (Phase A) ---------------------------------------------------
+model IncentiveItem {
+  id            String   @id @default(cuid())
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  incentiveType String   // 'percent' | 'amount'
+  rate          Decimal  @db.Decimal(12, 4)
+  activeFrom    DateTime
+  activeTo      DateTime
+  branchNo      Int?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  records IncentiveRecord[]
+
+  @@map("incentive_items")
+}
+
+model IncentiveRecord {
+  id             String        @id @default(cuid())
+  saleId         String
+  sale           Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  invoiceNo      String
+  invoiceDate    DateTime
+  itemId         String
+  itemNameEn     String
+  qty            Int
+  saleAmount     Decimal       @db.Decimal(12, 3)
+  incentiveType  String        // 'percent' | 'amount'
+  rate           Decimal       @db.Decimal(12, 4)
+  incentiveAmount Decimal      @db.Decimal(12, 3)
+  cashierName    String
+  branchNo       Int?
+  createdAt      DateTime      @default(now())
+
+  incentiveItemId String?
+  incentiveItem   IncentiveItem? @relation(fields: [incentiveItemId], references: [id])
+
+  @@map("incentive_records")
 }

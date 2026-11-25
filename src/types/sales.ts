@@ -66,6 +66,13 @@ export interface SaleLine {
   // which case the invoice HEADER's costCenterId (the branch) still applies - the Expenses report
   // falls back to it line by line, so historical invoices keep reporting exactly as they did.
   costCenterId?: string;
+  // ---- Incentive / profit bonus (Phase A) -----------------------------------------------
+  // Snapshot of the incentive rule applied to this line at checkout (mirrors the legacy mode 11
+  // read_bonuc_disc_rate_sal). Editing the incentive item list later must not rewrite an issued
+  // invoice. Undefined means no incentive was granted for this line.
+  incentiveType?: 'percent' | 'amount';
+  incentiveRate?: number;
+  incentiveAmount?: number;
   // dotnet-pos's PosItem.Id for this line, if the sale was successfully mirrored there (see
   // POSPage.tsx's completeSale) - undefined if that call failed or hasn't been attempted (older
   // invoices). ReturnsPage uses this to also mirror a return there for commission clawback.
@@ -153,6 +160,12 @@ export interface SaleHeader {
   totalDiscount: number;
   totalVatAmount: number;
   totalInclVat: number;
+  // Sum of line incentiveAmount across this invoice (Phase A). Internal cost — not a tax line,
+  // never enters ZATCA UBL. Undefined on pre-incentive invoices.
+  totalIncentive?: number;
+  // Cumulative incentive/profit bonus clawed back by returns processed so far (Phase E). Mirrors
+  // pointsEarnedClawedBack so partial returns never double-adjust.
+  totalIncentiveClawedBack?: number;
   payments: Payment[];
   zatcaQrBase64: string;
   zatcaStatus: ZatcaSubmissionStatus;

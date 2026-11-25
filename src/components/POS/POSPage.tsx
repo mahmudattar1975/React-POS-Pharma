@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, TextField, Table, TableHead, TableRow, TableCell, TableBody, IconButton, Typography,
@@ -15,6 +15,9 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useSalesStore } from '../../store/salesStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useCustomerStore } from '../../store/customerStore';
+import { useIncentiveStore } from '../../store/incentiveStore';
+import { computeLineIncentive } from '../../utils/incentive';
+import * as incentiveApi from '../../api/incentiveApi';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { resolveCenterForCategory } from '../../utils/costCenters';
 import { generateInvoiceQr } from '../../utils/zatcaQr';
@@ -58,6 +61,11 @@ import WasfatyCaptureDialog from './WasfatyCaptureDialog';
 
 export default function POSPage() {
   const navigate = useNavigate();
+  // Load active incentive rules once so badges/totals/records reflect the current list.
+  useEffect(() => {
+    useIncentiveStore.getState().refresh();
+    useIncentiveStore.getState().refreshActive();
+  }, []);
   const {
     lines, customer, wasfatySession, startWasfaty, endWasfaty, setCustomer, scan, pickItem,
     addLineForBatch, setLinePackLevel, setLineDosage, updateQty, setLineDiscount, removeLine,
@@ -343,6 +351,21 @@ export default function POSPage() {
       patientShare: l.wasfaty ? 0 : undefined,
       claimAmount: l.wasfaty ? l.totalInclVat : undefined,
       wasfatyLineId: l.wasfaty ? l.id : undefined,
+      // Incentive / profit bonus snapshot (Phase C). Computed from the active rule for this item on
+      // the sale date; undefined when no rule applies. Editing the incentive list later never rewrites
+      // an issued invoice.
+      incentiveType: (() => {
+        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        return rule?.incentiveType;
+      })(),
+      incentiveRate: (() => {
+        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        return rule?.rate;
+      })(),
+      incentiveAmount: (() => {
+        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        return computeLineIncentive({ incentiveItem: rule, qty: l.qty, netExclVat: l.netExclVat, today: date.slice(0, 10) });
+      })(),
     }));
 
     // Try the real ZATCA Phase 2 flow (server-side signing + clearance/reporting submission)
@@ -440,6 +463,7 @@ export default function POSPage() {
       totalDiscount: t.totalDiscount,
       totalVatAmount: t.totalVatAmount,
       totalInclVat: t.totalInclVat,
+      totalIncentive: round2(saleLines.reduce((s, l) => s + (l.incentiveAmount ?? 0), 0)),
       payments,
       // Phase 2 evidence (UUID, ICV, invoice hash, environment) from the submission attempt above;
       // the QR is the stamped one when ZATCA answered, otherwise the Phase 1 fallback.
@@ -505,6 +529,33 @@ export default function POSPage() {
     if (pointsRedeemed > 0) redeemPoints(customer.id, pointsRedeemed);
     if (pointsEarned > 0) earnPoints(customer.id, pointsEarned);
     recordSale(invoice);
+
+    // Best-effort record of incentive/profit bonus granted on this sale. Never blocks the sale
+    // (same "never block a sale" principle as the ZATCA submission and dotnet-pos mirror above).
+    const incentiveLines = saleLines
+      .filter((l) => (l.incentiveAmount ?? 0) > 0)
+      .map((l) => ({
+        itemId: l.itemId,
+        itemNameEn: l.itemNameEn,
+        qty: l.qty,
+        saleAmount: l.netExclVat,
+        incentiveType: l.incentiveType ?? 'percent',
+        rate: l.incentiveRate ?? 0,
+        incentiveAmount: l.incentiveAmount ?? 0,
+        incentiveItemId: useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10))?.id,
+      }));
+    if (incentiveLines.length > 0) {
+      incentiveApi
+        .recordIncentive({
+          saleId: invoice.id,
+          invoiceNo,
+          invoiceDate: date,
+          cashierName: settings.cashierName,
+          branchNo: settings.costCenterId ? undefined : undefined,
+          lines: incentiveLines,
+        })
+        .catch((err) => console.warn('incentive record failed (sale still completed):', err));
+    }
 
     // Advance the prescription registry only after the sale itself is recorded: a cancelled payment
     // means nothing was dispensed, so the remaining quantity and refill counters must stay untouched.
@@ -1041,6 +1092,20 @@ export default function POSPage() {
                 <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
               </Stack>
             ))}
+            {(() => {
+              const totalIncentive = round2(lines.reduce((s, l) => {
+                const rule = useIncentiveStore.getState().activeRuleFor(l.itemId);
+                return s + computeLineIncentive({ incentiveItem: rule, qty: l.qty, netExclVat: l.netExclVat });
+              }, 0));
+              return totalIncentive > 0 ? (
+                <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="success.main">
+                    Sales incentive (حافز)
+                  </Typography>
+                  <Typography variant="body2" color="success.main">{formatMoney(totalIncentive)}</Typography>
+                </Stack>
+              ) : null;
+            })()}
             {wasfatySession && coveredTotal > 0 && (
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="primary">

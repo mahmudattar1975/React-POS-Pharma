@@ -51,6 +51,7 @@ interface SaleInput {
   totalDiscount: number;
   totalVatAmount: number;
   totalInclVat: number;
+  totalIncentive?: number;
   payments: PaymentInput[];
   zatcaQrBase64: string;
   zatcaStatus: string;
@@ -88,6 +89,7 @@ salesRouter.post('/', async (req, res) => {
         totalDiscount: body.totalDiscount,
         totalVatAmount: body.totalVatAmount,
         totalInclVat: body.totalInclVat,
+        totalIncentive: body.totalIncentive ?? null,
         zatcaQrBase64: body.zatcaQrBase64,
         zatcaStatus: body.zatcaStatus,
         status: body.status,
@@ -176,6 +178,7 @@ interface ReturnInput {
   // salesStore.ts's recordReturn() already does atomically on the frontend's local copy.
   updatedInvoiceStatus: string;
   updatedInvoicePointsEarnedClawedBack?: number;
+  updatedInvoiceTotalIncentiveClawedBack?: number;
   updatedInvoicePointsRedeemedRefunded?: number;
   updatedLineReturnedQtys: { lineId: string; returnedQty: number }[];
 }
@@ -217,6 +220,7 @@ salesRouter.post('/returns', async (req, res) => {
         data: {
           status: body.updatedInvoiceStatus,
           pointsEarnedClawedBack: body.updatedInvoicePointsEarnedClawedBack,
+          totalIncentiveClawedBack: body.updatedInvoiceTotalIncentiveClawedBack,
           pointsRedeemedRefunded: body.updatedInvoicePointsRedeemedRefunded,
         },
       }),

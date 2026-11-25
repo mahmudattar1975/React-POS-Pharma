@@ -1,8 +1,9 @@
 // Selling, refunding and the invoices those two produce are one counter workflow: the cashier
 // rings up a basket, takes goods back, and may need the tax invoice ZATCA stamped for either.
-// They share one nav entry ("Point of Sale") with five tabs. /returns, /sales-invoices and
+// They share one nav entry ("Point of Sale") with seven tabs. /returns, /sales-invoices and
 // /controlled-register keep working as direct links so a bookmark or a pasted URL still opens the
-// right tab; "/" keeps opening the till.
+// right tab; "/" keeps opening the till. Incentive Items joins the same counter workspace because
+// its rates are maintained by the same people who run the till.
 //
 // The controlled-drug register lives here rather than under Reports because it is written by the
 // same counter actions (dispense, return, write-off) and is read at the same counter.
@@ -17,12 +18,14 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import MedicationIcon from '@mui/icons-material/Medication';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import POSPage from '../POS/POSPage';
 import ReturnsPage from '../Returns/ReturnsPage';
 import PrescriptionsPage from '../Prescriptions/PrescriptionsPage';
 import ControlledRegisterPage from '../Prescriptions/ControlledRegisterPage';
 import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 import RsdMonitorPage from '../Rsd/RsdMonitorPage';
+import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
@@ -31,6 +34,7 @@ const TABS = [
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
   { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
   { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" /> },
+  { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" /> },
 ];
 
 export default function SalesHubPage() {
@@ -77,6 +81,11 @@ export default function SalesHubPage() {
         {activeTab === 5 && (
           <Box sx={{ height: '100%', overflow: 'auto' }}>
             <RsdMonitorPage />
+          </Box>
+        )}
+        {activeTab === 6 && (
+          <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
+            <IncentiveItemsPage />
           </Box>
         )}
       </Box>
