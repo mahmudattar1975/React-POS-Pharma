@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   Divider, FormControl, FormControlLabel, IconButton, InputLabel, List, ListItemButton,
   ListItemText, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, Typography,
@@ -115,8 +115,8 @@ export default function PurchaseInvoicePage() {
   // from the current vendor/item master, so a later rename cannot rewrite history.
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
   // Posted-invoice search: the internal PUR-xxxxxx sequence, the party's own document number,
-  // the party number or the party name. The owner can type "PUR-000001" and jump straight to the
-  // edit action on that row.
+  // the party number, name, VAT or phone number. The owner can type "PUR-000001" and jump straight
+  // to the edit action on that row.
   const [historyFilter, setHistoryFilter] = useState('');
   const printingParty = printing
     ? vendors.find(
@@ -139,6 +139,7 @@ export default function PurchaseInvoicePage() {
     [partyTable, partyType]
   );
   const party = vendors.find((v) => v.id === partyId && v.typeFlag === partyType);
+  const selectedParty = partyOptions.find((p) => p.id === partyId) ?? null;
 
   // Returns are posted documents too, but they are not purchases: editing or deleting one through
   // this form would move stock in the wrong direction. They live on the Purchase Returns tab.
@@ -157,6 +158,8 @@ export default function PurchaseInvoicePage() {
         partyRow?.vendorNo,
         partyRow?.nameEn,
         partyRow?.nameAr,
+        partyRow?.vatNumber,
+        partyRow?.phone,
       ].some((value) => (value ?? '').toLowerCase().includes(query));
     });
   }, [purchaseInvoices, vendors, historyFilter]);
@@ -475,26 +478,44 @@ export default function PurchaseInvoicePage() {
               label="Customer (type_flag = 2) — unchecked means vendor (type_flag = 1)"
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Select
-                labelId="party-label"
-                value={partyId}
-                onChange={(e) => setPartyId(e.target.value)}
-                displayEmpty
-                fullWidth
-                size="small"
+              <Autocomplete
+                options={partyOptions}
+                value={selectedParty}
+                onChange={(_, value) => setPartyId(value?.id ?? '')}
+                getOptionLabel={(p) => `${p.no} — ${p.nameEn}`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, state) => {
+                  const query = state.inputValue.trim().toLowerCase();
+                  if (!query) return options;
+                  return options.filter((p) =>
+                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.phone]
+                      .some((value) => (value ?? '').toLowerCase().includes(query))
+                  );
+                }}
+                renderOption={(props, p) => (
+                  <li {...props} key={p.id}>
+                    <Box>
+                      <Typography variant="body2">{p.no} — {p.nameEn}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {p.nameAr}
+                        {p.phone ? ` · ${p.phone}` : ''}
+                        {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
+                        {!p.isActive ? ' · inactive' : ''}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText={`No ${partyType === PARTY_TYPE_FLAG.customer ? 'customers' : 'vendors'} found`}
                 disabled={newPartyOpen}
-              >
-                <MenuItem value="">
-                  <em>{partyType === PARTY_TYPE_FLAG.customer ? 'Select customer' : 'Select vendor'}</em>
-                </MenuItem>
-                {partyOptions.map((p) => (
-                  <MenuItem key={`${p.typeFlag}-${p.id}`} value={p.id}>
-                    {`${p.no} — ${p.nameEn}`}
-                    {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
-                    {!p.isActive ? ' (inactive)' : ''}
-                  </MenuItem>
-                ))}
-              </Select>
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
+                    placeholder="Name, no, VAT or phone"
+                    size="small"
+                  />
+                )}
+              />
               <Button
                 variant={newPartyOpen ? 'text' : 'outlined'}
                 size="small"
