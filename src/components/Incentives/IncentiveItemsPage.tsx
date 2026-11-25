@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Button, Paper, Table, TableHead, TableRow, TableCell, TableBody, Chip,
   IconButton, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select,
-  MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel,
+  MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel, Alert,
   List, ListItem, ListItemButton, ListItemText,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -82,6 +82,13 @@ export default function IncentiveItemsPage() {
   // The dotnet_pos commission_item list is keyed by barcode (item.Code), so the picker stores
   // the barcode as the item id and resolves names from either the barcode or the local catalog id.
   const itemName = (id: string) => catalogItems.find((i) => i.barcode === id || i.id === id)?.nameEn ?? id;
+
+  // One rule per item: a configured item is not offered for Add, only for Edit. The server applies
+  // the same rule so a direct API call can't create a duplicate either.
+  const configuredKeys = useMemo(() => new Set(items.map((it) => it.itemId)), [items]);
+  const existingRule = !dialog.item && form.itemId && configuredKeys.has(form.itemId)
+    ? items.find((it) => it.itemId === form.itemId)
+    : undefined;
 
   // Same substring match as POS: English/Arabic name or ANY scannable code, capped to a short list.
   const itemSuggestions = useMemo(() => {
@@ -181,22 +188,40 @@ export default function IncentiveItemsPage() {
                   {itemSuggestions.length === 0 && (
                     <ListItem><ListItemText primary="No matching items in the POS catalog" /></ListItem>
                   )}
-                  {itemSuggestions.map((it) => (
-                    <ListItemButton
-                      key={it.id}
-                      onClick={() => {
-                        setForm({ ...form, itemId: it.barcode });
-                        setItemQuery(`${it.nameEn} (${itemCodes(it).join(' / ')})`);
-                      }}
-                    >
-                      <ListItemText
-                        primary={it.nameEn}
-                        secondary={`${it.nameAr} · ${itemCodes(it).join(' / ')}`}
-                      />
-                    </ListItemButton>
-                  ))}
+                  {itemSuggestions.map((it) => {
+                    const alreadyConfigured = !dialog.item && configuredKeys.has(it.barcode);
+                    return (
+                      <ListItemButton
+                        key={it.id}
+                        disabled={alreadyConfigured}
+                        onClick={() => {
+                          setForm({ ...form, itemId: it.barcode });
+                          setItemQuery(`${it.nameEn} (${itemCodes(it).join(' / ')})`);
+                        }}
+                      >
+                        <ListItemText
+                          primary={it.nameEn}
+                          secondary={`${it.nameAr} · ${itemCodes(it).join(' / ')}${alreadyConfigured ? ' · Already has an incentive' : ''}`}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
                 </List>
               </Paper>
+            )}
+            {existingRule && (
+              <Alert
+                severity="warning"
+                action={
+                  <Button size="small" onClick={() => setDialog({ open: true, item: existingRule })}>
+                    Edit existing
+                  </Button>
+                }
+              >
+                This item already has an incentive ({existingRule.incentiveType === 'percent'
+                  ? formatDiscountPercent(existingRule.rate)
+                  : formatMoney(existingRule.rate)}). Only one rule per item is allowed.
+              </Alert>
             )}
             <FormControl fullWidth size="small">
               <InputLabel>Type</InputLabel>
@@ -230,7 +255,7 @@ export default function IncentiveItemsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialog({ open: false, item: null })}>Cancel</Button>
-          <Button variant="contained" onClick={save} disabled={!form.itemId}>Save</Button>
+          <Button variant="contained" onClick={save} disabled={!form.itemId || !!existingRule}>Save</Button>
         </DialogActions>
       </Dialog>
     </Box>

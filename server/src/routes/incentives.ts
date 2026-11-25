@@ -163,6 +163,16 @@ incentivesRouter.post('/items', async (req, res) => {
       res.status(400).json({ error: `Unknown dotnet_pos item: ${itemKey}. Use the item's barcode.` });
       return;
     }
+    // One rule per item. Editing the existing row is the supported way to change or disable it;
+    // without this guard a second Add (or a direct API call) would silently double-pay commission.
+    const duplicate = await dotnetPos.commissionItem.findFirst({ where: { itemId: item.id } });
+    if (duplicate) {
+      res.status(409).json({
+        error: 'This item already has an incentive rule. Edit the existing rule instead.',
+        existingId: String(duplicate.id),
+      });
+      return;
+    }
     const row = await dotnetPos.commissionItem.create({
       data: {
         itemId: item.id,

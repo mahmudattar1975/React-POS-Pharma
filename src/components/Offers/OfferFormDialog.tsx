@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, Select, MenuItem,
-  FormControl, InputLabel, ToggleButtonGroup, ToggleButton, InputAdornment,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, Alert, Paper,
+  ToggleButtonGroup, ToggleButton, InputAdornment,
+  List, ListItem, ListItemButton, ListItemText,
 } from '@mui/material';
 import type { Item, Offer, OfferType } from '../../types/catalog';
-import { discountInputToFraction, formatDiscountInput } from '../../utils/purchasing';
+import { discountInputToFraction, formatDiscountInput, formatDiscountPercent } from '../../utils/purchasing';
+import { itemCodes } from '../../utils/itemMaster';
+import { formatMoney, formatQty } from '../../utils/format';
 import DiscountInput from '../common/DiscountInput';
 
 interface Props {
   open: boolean;
   items: Item[];
+  offers: Offer[];
   offer: Offer | null; // null = creating a new offer
   onSave: (input: Omit<Offer, 'id'>) => void;
+  onEditExisting: (offer: Offer) => void;
   onClose: () => void;
 }
 
@@ -19,8 +24,9 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function OfferFormDialog({ open, items, offer, onSave, onClose }: Props) {
+export default function OfferFormDialog({ open, items, offers, offer, onSave, onEditExisting, onClose }: Props) {
   const [itemId, setItemId] = useState('');
+  const [itemQuery, setItemQuery] = useState('');
   const [type, setType] = useState<OfferType>('percent');
   const [percentInput, setPercentInput] = useState(''); // whole percentage, e.g. "20" = 20%
   const [valueInput, setValueInput] = useState('');
@@ -45,8 +51,11 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
       setLabel(offer.label);
       setActiveFrom(offer.activeFrom);
       setActiveTo(offer.activeTo);
+      const selected = items.find((i) => i.id === offer.itemId);
+      setItemQuery(selected ? `${selected.nameEn} (${itemCodes(selected).join(' / ')})` : '');
     } else {
       setItemId('');
+      setItemQuery('');
       setType('percent');
       setPercentInput('');
       setValueInput('');
@@ -56,13 +65,34 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
       setActiveFrom(today());
       setActiveTo(today());
     }
-  }, [open, offer]);
+  }, [open, offer, items]);
 
+  // Same search as POS and Incentive Items: EN/AR name or any scannable code.
+  const itemSuggestions = useMemo(() => {
+    const q = itemQuery.trim().toLowerCase();
+    if (!q) return [];
+    const selected = items.find((i) => i.id === itemId);
+    if (selected && q === `${selected.nameEn} (${itemCodes(selected).join(' / ')})`.toLowerCase()) return [];
+    return items
+      .filter(
+        (i) =>
+          i.nameEn.toLowerCase().includes(q) ||
+          i.nameAr.includes(q) ||
+          itemCodes(i).some((code) => code.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
+  }, [items, itemQuery, itemId]);
+
+  // One offer per item: a promoted item is offered only for Edit, never a second Add.
+  const configuredIds = useMemo(() => new Set(offers.map((o) => o.itemId)), [offers]);
+  const existingOffer = !offer && itemId && configuredIds.has(itemId)
+    ? offers.find((o) => o.itemId === itemId)
+    : undefined;
   const typeValid =
     (type === 'percent' && Number(percentInput) > 0 && Number(percentInput) <= 100) ||
     (type === 'value' && Number(valueInput) > 0) ||
     (type === 'bogo' && Number(buyQtyInput) > 0 && Number(freeQtyInput) > 0);
-  const valid = !!itemId && typeValid && label.trim().length > 0 && !!activeFrom && !!activeTo && activeFrom <= activeTo;
+  const valid = !!itemId && !existingOffer && typeValid && label.trim().length > 0 && !!activeFrom && !!activeTo && activeFrom <= activeTo;
 
   function save() {
     if (!valid) return;
@@ -85,14 +115,60 @@ export default function OfferFormDialog({ open, items, offer, onSave, onClose }:
       <DialogTitle>{offer ? 'Edit Offer' : 'New Offer'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
-          <FormControl fullWidth>
-            <InputLabel id="offer-item-label">Item</InputLabel>
-            <Select labelId="offer-item-label" label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
-              {items.map((i) => (
-                <MenuItem key={i.id} value={i.id}>{i.nameEn}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <TextField
+            label="Search item (name or barcode)"
+            value={itemQuery}
+            onChange={(e) => {
+              setItemQuery(e.target.value);
+              setItemId('');
+            }}
+            placeholder="Type name, Arabic name, or barcode"
+            size="small"
+            fullWidth
+          />
+          {itemQuery.trim() !== '' && (
+            <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+              <List dense disablePadding>
+                {itemSuggestions.length === 0 && (
+                  <ListItem><ListItemText primary="No matching items in the catalog" /></ListItem>
+                )}
+                {itemSuggestions.map((i) => {
+                  const alreadyConfigured = !offer && configuredIds.has(i.id);
+                  return (
+                    <ListItemButton
+                      key={i.id}
+                      disabled={alreadyConfigured}
+                      onClick={() => {
+                        setItemId(i.id);
+                        setItemQuery(`${i.nameEn} (${itemCodes(i).join(' / ')})`);
+                      }}
+                    >
+                      <ListItemText
+                        primary={i.nameEn}
+                        secondary={`${i.nameAr} · ${itemCodes(i).join(' / ')}${alreadyConfigured ? ' · Already has an offer' : ''}`}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Paper>
+          )}
+          {existingOffer && (
+            <Alert
+              severity="warning"
+              action={
+                <Button size="small" onClick={() => onEditExisting(existingOffer)}>
+                  Edit existing
+                </Button>
+              }
+            >
+              This item already has an offer ({existingOffer.type === 'percent'
+                ? formatDiscountPercent(existingOffer.percent ?? 0)
+                : existingOffer.type === 'value'
+                  ? `SAR ${formatMoney(existingOffer.value ?? 0)}`
+                  : `Buy ${formatQty(existingOffer.buyQty)} Get ${formatQty(existingOffer.freeQty)}`}). Only one offer per item is allowed.
+            </Alert>
+          )}
 
           <ToggleButtonGroup exclusive fullWidth value={type} onChange={(_, v) => v && setType(v)}>
             <ToggleButton value="percent">% Off</ToggleButton>

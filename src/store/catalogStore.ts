@@ -571,10 +571,14 @@ export const useCatalogStore = create<CatalogState>()(
       },
 
       addOffer: (input) =>
-        set((s) => ({ offers: [...s.offers, { ...input, id: `off-${Date.now()}` }] })),
+        set((s) => (s.offers.some((o) => o.itemId === input.itemId)
+          ? s
+          : { offers: [...s.offers, { ...input, id: `off-${Date.now()}` }] })),
 
       updateOffer: (id, input) =>
-        set((s) => ({ offers: s.offers.map((o) => (o.id === id ? { ...input, id } : o)) })),
+        set((s) => (s.offers.some((o) => o.id !== id && o.itemId === input.itemId)
+          ? s
+          : { offers: s.offers.map((o) => (o.id === id ? { ...input, id } : o)) })),
 
       deleteOffer: (id) => set((s) => ({ offers: s.offers.filter((o) => o.id !== id) })),
 

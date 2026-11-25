@@ -99,8 +99,10 @@ export default function OffersPage() {
       <OfferFormDialog
         open={dialog.open}
         items={items}
+        offers={offers}
         offer={dialog.offer}
         onSave={save}
+        onEditExisting={(existing) => setDialog({ open: true, offer: existing })}
         onClose={() => setDialog({ open: false, offer: null })}
       />
     </Box>
