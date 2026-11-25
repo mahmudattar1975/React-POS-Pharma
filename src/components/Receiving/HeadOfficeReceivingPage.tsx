@@ -4,7 +4,6 @@ import {
   Divider, Table, TableHead, TableRow, TableCell, TableBody, Chip, Checkbox, FormControlLabel,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import * as XLSX from 'xlsx';
 import { useCatalogStore } from '../../store/catalogStore';
 import { getErpStoreNo } from '../../api/erpApi';
 import { parseTransferCode } from '../../utils/transferCode';
@@ -177,6 +176,7 @@ export default function HeadOfficeReceivingPage() {
     setConfirmDuplicates(false);
     try {
       const buf = await file.arrayBuffer();
+      const XLSX = await import('xlsx');
       const workbook = XLSX.read(buf, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, dateNF: 'yyyy-mm-dd', defval: '' });

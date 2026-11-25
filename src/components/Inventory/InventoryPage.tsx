@@ -108,6 +108,7 @@ export default function InventoryPage() {
                   <Select
                     size="small"
                     displayEmpty
+                    inputProps={{ 'aria-label': `Controlled status for ${item.nameEn}` }}
                     value={item.controlledStatus ?? ''}
                     onChange={(e) => setControlledStatus(item.id, (e.target.value as ControlledStatus) || undefined)}
                     sx={{ minWidth: 160, fontSize: 13 }}

@@ -146,6 +146,7 @@ export default function CategoryMapPage() {
                         </TableCell>
                         <TableCell>
                           <Select
+                            inputProps={{ 'aria-label': `Cost center for ${o.label}` }}
                             value={rule?.costCenterId ?? ''}
                             onChange={(e) => save(o.label, e.target.value)}
                             displayEmpty

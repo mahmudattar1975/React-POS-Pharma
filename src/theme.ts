@@ -12,11 +12,14 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: { main: '#1565c0', light: '#3d84d6', dark: '#0d3f7a', contrastText: '#ffffff' },
-    secondary: { main: '#c4762a', light: '#d99757', dark: '#94581c' },
+    secondary: { main: '#8a4f13', light: '#d99757', dark: '#6b3b0e' },
+    info: { main: '#026994' },
     background: { default: '#f2f5fa', paper: '#ffffff' },
     error: { main: '#b3261e' },
-    warning: { main: '#b8862c' },
-    success: { main: '#2f7a52' },
+    // Darkened from the earlier tints so tab labels keep >= 4.5:1 contrast on both the page
+    // background and the selected-tab tint (verified with the axe audit on every hub).
+    warning: { main: '#7d5714' },
+    success: { main: '#1f5e40' },
     divider: BORDER,
     text: { primary: '#1c2430', secondary: TEXT_SECONDARY },
   },
@@ -34,6 +37,25 @@ export const theme = createTheme({
     duration: { shortest: 120, shorter: 160, short: 200, standard: 240 },
   },
   components: {
+    MuiTypography: {
+      defaultProps: {
+        // Keep the designed type scale while making the document outline meaningful:
+        // page titles are h2, section titles h3, and subtitles are plain paragraphs.
+        variantMapping: {
+          h1: 'h1',
+          h2: 'h2',
+          h3: 'h3',
+          h4: 'h2',
+          h5: 'h2',
+          h6: 'h3',
+          subtitle1: 'p',
+          subtitle2: 'p',
+          body1: 'p',
+          body2: 'p',
+          inherit: 'p',
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: { body: { backgroundColor: '#f2f5fa' } },
     },
@@ -77,6 +99,13 @@ export const theme = createTheme({
           backgroundColor: '#fff',
           transition: `box-shadow ${EASE} 150ms`,
         },
+      },
+    },
+    MuiFormHelperText: {
+      styleOverrides: {
+        // Disabled fields still carry useful business hints (chargeable units, free goods).
+        // MUI's default disabled grey fails 4.5:1, so keep those hints readable.
+        root: { '&.Mui-disabled': { color: TEXT_SECONDARY } },
       },
     },
     MuiTableCell: {

@@ -19,7 +19,7 @@ import DosagesPage from './DosagesPage';
 import WasfatyMappingPage from './WasfatyMappingPage';
 
 const TABS = [
-  { path: '/inventory', label: 'Batches & Expiry', icon: <Inventory2Icon fontSize="small" />, color: '#b8862c' }, // expiry watch
+  { path: '/inventory', label: 'Batches & Expiry', icon: <Inventory2Icon fontSize="small" />, color: '#7d5714' }, // expiry watch
   { path: '/items', label: 'Item Master', icon: <ListAltIcon fontSize="small" />, color: '#1565c0' }, // catalogue
   { path: '/manufacturers', label: 'Companies (Manufacturers)', icon: <FactoryIcon fontSize="small" />, color: '#283593' }, // suppliers
   { path: '/dosages', label: 'Dosage Instructions', icon: <MedicationOutlinedIcon fontSize="small" />, color: '#00695c' }, // clinical

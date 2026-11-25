@@ -153,10 +153,10 @@ export default function IncentiveItemsPage() {
                   <TableCell>{it.activeTo}</TableCell>
                   <TableCell><Chip size="small" color={st.color} label={st.label} /></TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDialog({ open: true, item: it })}>
+                    <IconButton size="small" aria-label={`Edit incentive for ${itemName(it.itemId)}`} onClick={() => setDialog({ open: true, item: it })}>
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => removeItem(it.id)}>
+                    <IconButton size="small" aria-label={`Delete incentive for ${itemName(it.itemId)}`} onClick={() => removeItem(it.id)}>
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

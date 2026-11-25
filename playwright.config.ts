@@ -7,6 +7,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // The default worker count (half the CPU cores) saturates this machine's Vite/dev-server and
+  // produced spurious navigation/locator timeouts. Two workers keeps the suite deterministic.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',

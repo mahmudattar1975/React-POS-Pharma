@@ -678,7 +678,7 @@ export default function PurchaseInvoicePage() {
               fullWidth
             />
             <Select
-              labelId="cost-center-label"
+              inputProps={{ 'aria-label': 'Cost center' }}
               value={costCenterId ?? ''}
               onChange={(e) => setCostCenterId(e.target.value || undefined)}
               displayEmpty

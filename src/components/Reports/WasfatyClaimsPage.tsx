@@ -14,7 +14,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PrintIcon from '@mui/icons-material/Print';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import * as XLSX from 'xlsx';
 import { useSalesStore } from '../../store/salesStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import {
@@ -153,7 +152,8 @@ export default function WasfatyClaimsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadExcel() {
+  async function downloadExcel() {
+    const XLSX = await import('xlsx');
     const workbook = XLSX.utils.book_new();
 
     const detail = XLSX.utils.aoa_to_sheet(claimsToAoa(rows));

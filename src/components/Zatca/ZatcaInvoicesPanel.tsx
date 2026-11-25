@@ -239,6 +239,7 @@ export default function ZatcaInvoicesPanel() {
           />
           <Select
             size="small"
+            inputProps={{ 'aria-label': 'Filter ZATCA invoices' }}
             value={filter}
             onChange={(e) => setFilter(e.target.value as Filter)}
             sx={{ minWidth: 200 }}

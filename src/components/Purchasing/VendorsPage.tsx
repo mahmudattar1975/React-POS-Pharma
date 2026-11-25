@@ -202,6 +202,7 @@ export default function VendorsPage() {
         />
         <Select
           size="small"
+          inputProps={{ 'aria-label': 'Filter parties' }}
           value={partyFilter}
           onChange={(e) => setPartyFilter(e.target.value as PartyFilter)}
           sx={{ minWidth: 170 }}
@@ -212,6 +213,7 @@ export default function VendorsPage() {
         </Select>
         <Select
           size="small"
+          inputProps={{ 'aria-label': 'Filter parties by status' }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
@@ -236,7 +238,7 @@ export default function VendorsPage() {
               <TableCell align="right">Purchases</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Updated</TableCell>
-              <TableCell align="right" />
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

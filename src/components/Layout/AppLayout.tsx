@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Box, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Chip, Button } from '@mui/material';
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Chip, Button } from '@mui/material';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -51,8 +51,26 @@ export default function AppLayout() {
   const [closeDrawerOpen, setCloseDrawerOpen] = useState(false);
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
+    <>
       <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: -9999,
+          top: 0,
+          zIndex: 9999,
+          bgcolor: 'background.paper',
+          p: 1,
+          '&:focus': { left: 8, outline: '2px solid', outlineColor: 'primary.main' },
+        }}
+      >
+        Skip to main content
+      </Box>
+      <Box sx={{ display: 'flex', height: '100vh' }}>
+      <Box
+        component="nav"
+        aria-label="Main navigation"
         sx={{
           width: 236,
           flex: 'none',
@@ -69,7 +87,7 @@ export default function AppLayout() {
             <LocalPharmacyIcon fontSize="small" />
           </Avatar>
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography component="h1" variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {settings.storeNameEn}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -80,18 +98,19 @@ export default function AppLayout() {
         <Divider />
         <List sx={{ px: 1, py: 1 }}>
           {NAV.map((n) => (
-            <ListItemButton
-              key={n.to}
-              component={NavLink}
-              to={n.to}
-              selected={
-                HUB_PATHS[n.to]?.includes(location.pathname) ?? location.pathname === n.to
-              }
-              sx={{ borderRadius: 2, mb: 0.5 }}
-            >
-              <ListItemIcon sx={{ minWidth: 34, color: n.color }}>{n.icon}</ListItemIcon>
-              <ListItemText slotProps={{ primary: { sx: { fontSize: 14 } } }} primary={n.label} />
-            </ListItemButton>
+            <ListItem key={n.to} disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                component={NavLink}
+                to={n.to}
+                selected={
+                  HUB_PATHS[n.to]?.includes(location.pathname) ?? location.pathname === n.to
+                }
+                sx={{ borderRadius: 2 }}
+              >
+                <ListItemIcon sx={{ minWidth: 34, color: n.color }}>{n.icon}</ListItemIcon>
+                <ListItemText slotProps={{ primary: { sx: { fontSize: 14 } } }} primary={n.label} />
+              </ListItemButton>
+            </ListItem>
           ))}
         </List>
         <Box sx={{ mt: 'auto', px: 2.5, py: 2, color: 'text.secondary' }}>
@@ -128,10 +147,11 @@ export default function AppLayout() {
           </Box>
         </Box>
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', bgcolor: 'background.default' }}>
+      <Box component="main" id="main-content" sx={{ flex: 1, minWidth: 0, overflow: 'auto', bgcolor: 'background.default' }}>
         <Outlet />
       </Box>
+      </Box>
       {closeDrawerOpen && <CloseDrawerDialog onClose={() => setCloseDrawerOpen(false)} />}
-    </Box>
+    </>
   );
 }

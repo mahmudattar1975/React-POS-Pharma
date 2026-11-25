@@ -859,7 +859,7 @@ export default function POSPage() {
               <TableCell align="right">Discount</TableCell>
               <TableCell align="right">VAT</TableCell>
               <TableCell align="right">Total</TableCell>
-              <TableCell />
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1066,7 +1066,7 @@ export default function POSPage() {
                   <Typography sx={{ fontWeight: 600 }}>{formatMoney(l.totalInclVat)}</Typography>
                 </TableCell>
                 <TableCell>
-                  <IconButton size="small" onClick={() => removeLine(l.id)}>
+                  <IconButton size="small" aria-label={`Remove ${l.itemNameEn} from sale`} onClick={() => removeLine(l.id)}>
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -1119,7 +1119,7 @@ export default function POSPage() {
             )}
           </Stack>
           <Stack spacing={1} sx={{ alignItems: 'flex-end' }}>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            <Typography component="span" variant="h4" sx={{ fontWeight: 700 }}>
               SAR {formatMoney(t.totalInclVat)}
             </Typography>
             {wasfatySession && (

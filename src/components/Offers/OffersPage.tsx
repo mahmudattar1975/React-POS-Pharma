@@ -56,7 +56,7 @@ export default function OffersPage() {
               <TableCell>Active From</TableCell>
               <TableCell>Active To</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell />
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -82,10 +82,10 @@ export default function OffersPage() {
                     <Chip size="small" color={status.color} label={status.label} />
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDialog({ open: true, offer })}>
+                    <IconButton size="small" aria-label={`Edit offer for ${itemName(offer.itemId)}`} onClick={() => setDialog({ open: true, offer })}>
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => deleteOffer(offer.id)}>
+                    <IconButton size="small" aria-label={`Delete offer for ${itemName(offer.itemId)}`} onClick={() => deleteOffer(offer.id)}>
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

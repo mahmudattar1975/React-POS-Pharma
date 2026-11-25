@@ -152,6 +152,7 @@ export default function ManufacturersPage() {
         />
         <Select
           size="small"
+          inputProps={{ 'aria-label': 'Filter companies' }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}

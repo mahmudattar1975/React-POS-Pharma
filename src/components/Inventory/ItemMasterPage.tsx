@@ -190,6 +190,7 @@ export default function ItemMasterPage() {
         />
         <Select
           size="small"
+          inputProps={{ 'aria-label': 'Filter items' }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
@@ -213,7 +214,7 @@ export default function ItemMasterPage() {
               <TableCell align="right">Balance</TableCell>
               <TableCell align="right">Min / Max</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right" />
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

@@ -157,6 +157,7 @@ export default function DosagesPage() {
         />
         <Select
           size="small"
+          inputProps={{ 'aria-label': 'Filter dosage instructions' }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}

@@ -17,8 +17,8 @@ import ReceivingPage from '../Receiving/ReceivingPage';
 import HeadOfficeReceivingPage from '../Receiving/HeadOfficeReceivingPage';
 
 const TABS = [
-  { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" />, color: '#2f7a52' }, // stock in
-  { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#b8862c' }, // reversal
+  { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" />, color: '#1f5e40' }, // stock in
+  { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#7d5714' }, // reversal
   { path: '/vendors', label: 'Vendors & Customers', icon: <StorefrontIcon fontSize="small" />, color: '#1565c0' }, // parties
   { path: '/receiving', label: 'Stock Receiving', icon: <LocalShippingIcon fontSize="small" />, color: '#283593' }, // inbound
   { path: '/head-office-receiving', label: 'Receive from Head Office', icon: <MoveToInboxIcon fontSize="small" />, color: '#00695c' }, // transfer

@@ -17,7 +17,6 @@ import {
   TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import * as XLSX from 'xlsx';
 import type { Item } from '../../types/catalog';
 import {
   planWasfatyImport, WASFATY_IMPORT_COLUMNS, type WasfatyImportStatus, type WasfatyMappingUpdate,
@@ -77,6 +76,7 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
     setApplyError(undefined);
     try {
       if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const XLSX = await import('xlsx');
         const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         setText(XLSX.utils.sheet_to_csv(sheet, { FS: ',' }));

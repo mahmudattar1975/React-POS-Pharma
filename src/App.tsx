@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { lazy, Suspense, useEffect } from 'react';
+import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { theme } from './theme';
 import { usePendingSyncStore } from './store/pendingSyncStore';
@@ -11,14 +11,18 @@ import DrawerGate from './components/Auth/DrawerGate';
 import SalesHubPage from './components/Sales/SalesHubPage';
 import InventoryHubPage from './components/Inventory/InventoryHubPage';
 import PurchasingHubPage from './components/Purchasing/PurchasingHubPage';
-import OffersPage from './components/Offers/OffersPage';
-import CostCentersHubPage from './components/CostCenters/CostCentersHubPage';
-import InsightsHubPage from './components/Insights/InsightsHubPage';
-import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
-import SettingsPage from './components/Settings/SettingsPage';
-import IncentiveReportPage from './components/Incentives/IncentiveReportPage';
-import ZatcaSetupPage from './components/Zatca/ZatcaSetupPage';
 import { useAlertSounds } from './hooks/useAlertSounds';
+
+// The till, inventory and purchasing hubs stay eager: they are the cashier's hot path.
+// Compliance, reporting and configuration screens load on demand so their heavy dependencies
+// (spreadsheet export, QR/ZATCA panels, claim tooling) are not in the first paint.
+const OffersPage = lazy(() => import('./components/Offers/OffersPage'));
+const CostCentersHubPage = lazy(() => import('./components/CostCenters/CostCentersHubPage'));
+const InsightsHubPage = lazy(() => import('./components/Insights/InsightsHubPage'));
+const WasfatyClaimsPage = lazy(() => import('./components/Reports/WasfatyClaimsPage'));
+const SettingsPage = lazy(() => import('./components/Settings/SettingsPage'));
+const IncentiveReportPage = lazy(() => import('./components/Incentives/IncentiveReportPage'));
+const ZatcaSetupPage = lazy(() => import('./components/Zatca/ZatcaSetupPage'));
 
 export default function App() {
   // Every success / error / warning / info alert gets a matching short tone, so a message is
@@ -50,6 +54,7 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
+        <Suspense fallback={<Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<RequireAuth />}>
@@ -96,6 +101,7 @@ export default function App() {
             </Route>
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </ThemeProvider>
   );

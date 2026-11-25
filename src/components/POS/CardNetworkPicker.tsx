@@ -1,4 +1,4 @@
-import { Box, Tooltip } from '@mui/material';
+import { Box, ButtonBase, Tooltip } from '@mui/material';
 import type { CardNetwork } from '../../types/sales';
 
 // Small, self-drawn badges rather than official logo assets - close enough to be instantly
@@ -78,19 +78,20 @@ export default function CardNetworkPicker({ value, onChange }: Props) {
     <Box sx={{ display: 'flex', gap: 1 }}>
       {NETWORKS.map((n) => (
         <Tooltip key={n.id} title={n.label}>
-          <Box
-            role="button"
+          <ButtonBase
             aria-label={n.label}
+            aria-pressed={value === n.id}
             onClick={() => onChange(n.id)}
             sx={{
               ...BADGE_SX,
               borderColor: value === n.id ? 'primary.main' : 'transparent',
               transform: value === n.id ? 'scale(1.05)' : 'none',
               opacity: value && value !== n.id ? 0.5 : 1,
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
           >
             <NetworkBadge network={n.id} />
-          </Box>
+          </ButtonBase>
         </Tooltip>
       ))}
     </Box>

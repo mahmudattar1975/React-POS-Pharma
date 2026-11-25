@@ -141,7 +141,7 @@ export default function RsdMonitorPage() {
   return (
     <Box sx={{ p: 3, maxWidth: 1400 }}>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
           RSD / SFDA reporting
         </Typography>
         <Chip
@@ -228,6 +228,7 @@ export default function RsdMonitorPage() {
           />
           <Select
             size="small"
+            inputProps={{ 'aria-label': 'Filter RSD units' }}
             value={filter}
             onChange={(e) => setFilter(e.target.value as Filter)}
             sx={{ minWidth: 190 }}

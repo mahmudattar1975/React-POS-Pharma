@@ -29,14 +29,16 @@ import RsdMonitorPage from '../Rsd/RsdMonitorPage';
 import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
 // Each tab gets a semantic colour so the cashier can recognise the workspace at a glance.
+// Short on-screen labels keep the tab strip compact; ariaLabel gives screen readers (and the
+// accessibility-tree based E2E suite) the full name of the compliance workspaces.
 const TABS = [
-  { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" />, color: '#2f7a52' }, // sale / money in
-  { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#b8862c' }, // reversal
-  { path: '/incentives', label: 'Incentives', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // bonus rules
-  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" />, color: '#1565c0' }, // clinical
-  { path: '/sales-invoices', label: 'ZATCA Sale', icon: <ReceiptLongIcon fontSize="small" />, color: '#283593' }, // tax / compliance
-  { path: '/controlled-register', label: 'Controlled', icon: <FactCheckOutlinedIcon fontSize="small" />, color: '#b3261e' }, // restricted
-  { path: '/rsd-reporting', label: 'RSD', icon: <VerifiedUserIcon fontSize="small" />, color: '#00695c' }, // regulator
+  { path: '/', label: 'Sell', ariaLabel: 'Sell', icon: <PointOfSaleIcon fontSize="small" />, color: '#1f5e40' }, // sale / money in
+  { path: '/returns', label: 'Returns', ariaLabel: 'Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#7d5714' }, // reversal
+  { path: '/incentives', label: 'Incentives', ariaLabel: 'Incentives', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // bonus rules
+  { path: '/prescriptions', label: 'Prescriptions', ariaLabel: 'Prescriptions', icon: <MedicationIcon fontSize="small" />, color: '#1565c0' }, // clinical
+  { path: '/sales-invoices', label: 'ZATCA Sale', ariaLabel: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" />, color: '#283593' }, // tax / compliance
+  { path: '/controlled-register', label: 'Controlled', ariaLabel: 'Controlled', icon: <FactCheckOutlinedIcon fontSize="small" />, color: '#b3261e' }, // restricted
+  { path: '/rsd-reporting', label: 'RSD', ariaLabel: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" />, color: '#00695c' }, // regulator
 ];
 
 export default function SalesHubPage() {
@@ -68,6 +70,7 @@ export default function SalesHubPage() {
             icon={entry.icon}
             iconPosition="start"
             label={entry.label}
+            aria-label={entry.ariaLabel}
             sx={coloredTabSx(entry.color)}
           />
         ))}

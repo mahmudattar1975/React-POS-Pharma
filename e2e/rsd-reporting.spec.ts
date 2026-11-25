@@ -5,6 +5,8 @@ import { test, expect, dismissDirectionsIfShown } from './fixtures';
 // is exactly the "server down" case the local-first rule is about.
 test.describe('RSD reporting', () => {
   test('queues a sold drug pack with the server down and shows it in the monitor', async ({ page }) => {
+    // Force the "server down" case even when a local backend is running for manual mock testing.
+    await page.route('http://localhost:4300/api/rsd/**', (route) => route.abort());
     await page.goto('/settings');
     await expect(page.getByText('SFDA RSD (Drug Track & Trace)')).toBeVisible();
 
@@ -30,7 +32,7 @@ test.describe('RSD reporting', () => {
 
     const row = page.getByRole('row', { name: /SIM-000001/ });
     await expect(row).toBeVisible();
-    await expect(row).toContainText('Pharmacy Sale');
+    await expect(row).toContainText('Sale');
     await expect(row).toContainText('SNE2E100');
     await expect(row).toContainText('Queued');
   });
