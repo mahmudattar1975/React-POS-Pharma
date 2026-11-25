@@ -15,6 +15,7 @@ const vendor: Vendor = {
   nameEn: 'Al-Hayat Drug Distribution Co.',
   phone: '0114445566',
   vatNumber: '310555123400003',
+  glnNo: '6281000010001',
   isActive: true,
 };
 
@@ -26,6 +27,7 @@ const customer: Vendor = {
   nameEn: 'Al-Noor Medical Center',
   phone: '0114567890',
   vatNumber: '311234567800003',
+  glnNo: '6281000020002',
   isActive: true,
 };
 
@@ -33,7 +35,7 @@ describe('party table', () => {
   it('puts vendors and business customers in one table with their type_flag', () => {
     const table = buildPartyTable([vendor, customer]);
     expect(table).toHaveLength(2);
-    expect(table[0]).toMatchObject({ id: 'ven-1', typeFlag: PARTY_TYPE_FLAG.vendor, no: 'VEN-000001' });
+    expect(table[0]).toMatchObject({ id: 'ven-1', typeFlag: PARTY_TYPE_FLAG.vendor, no: 'VEN-000001', glnNo: '6281000010001' });
     expect(table[1]).toMatchObject({ id: 'pcu-1', typeFlag: PARTY_TYPE_FLAG.customer, no: 'CUS-000001' });
   });
 
@@ -43,6 +45,7 @@ describe('party table', () => {
       nameEn: 'Al-Noor Medical Center',
       phone: '0114567890',
       vatNumber: '311234567800003',
+      glnNo: '6281000020002',
       isActive: true,
     });
   });

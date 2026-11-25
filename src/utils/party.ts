@@ -1,7 +1,7 @@
 // The legacy FCODCSVN party master keeps suppliers and customers in ONE table, distinguished by
 // type_flag (1 = vendor, 2 = customer). The purchasing store is that table: vendor rows and
 // business-customer rows live in the same array, share the vendor-file fields (number, names,
-// phone, VAT, credit terms) and are only separated by the flag. POS patients are a different
+// phone, VAT, GLN, credit terms) and are only separated by the flag. POS patients are a different
 // master (customerStore) and are deliberately never part of this table.
 import type { Vendor } from '../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../types/party';
@@ -15,6 +15,7 @@ export interface PartyRow {
   nameEn: string;
   phone: string;
   vatNumber?: string;
+  glnNo?: string;
   isActive: boolean;
 }
 
@@ -29,6 +30,7 @@ export function buildPartyTable(parties: Vendor[]): PartyRow[] {
     nameEn: p.nameEn,
     phone: p.phone,
     vatNumber: p.vatNumber,
+    glnNo: p.glnNo,
     isActive: p.isActive !== false,
   }));
 }

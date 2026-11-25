@@ -367,7 +367,7 @@ export default function ReturnPurchaseInvoicePage() {
                   const query = state.inputValue.trim().toLowerCase();
                   if (!query) return options;
                   return options.filter((p) =>
-                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.phone]
+                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.glnNo, p.phone]
                       .some((value) => (value ?? '').toLowerCase().includes(query))
                   );
                 }}
@@ -379,6 +379,7 @@ export default function ReturnPurchaseInvoicePage() {
                         {p.nameAr}
                         {p.phone ? ` · ${p.phone}` : ''}
                         {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
+                        {p.glnNo ? ` · GLN ${p.glnNo}` : ''}
                       </Typography>
                     </Box>
                   </li>
@@ -388,7 +389,7 @@ export default function ReturnPurchaseInvoicePage() {
                   <TextField
                     {...params}
                     label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
-                    placeholder="Name, no, VAT or phone"
+                    placeholder="Name, no, VAT, GLN or phone"
                   />
                 )}
               />

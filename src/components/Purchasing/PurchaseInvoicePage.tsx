@@ -74,6 +74,7 @@ export default function PurchaseInvoicePage() {
   const [newPartyNameAr, setNewPartyNameAr] = useState('');
   const [newPartyPhone, setNewPartyPhone] = useState('');
   const [newPartyVat, setNewPartyVat] = useState('');
+  const [newPartyGln, setNewPartyGln] = useState('');
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
@@ -115,8 +116,8 @@ export default function PurchaseInvoicePage() {
   // from the current vendor/item master, so a later rename cannot rewrite history.
   const [printing, setPrinting] = useState<PurchaseInvoice | null>(null);
   // Posted-invoice search: the internal PUR-xxxxxx sequence, the party's own document number,
-  // the party number, name, VAT or phone number. The owner can type "PUR-000001" and jump straight
-  // to the edit action on that row.
+  // the party number, name, VAT, GLN or phone number. The owner can type "PUR-000001" and jump
+  // straight to the edit action on that row.
   const [historyFilter, setHistoryFilter] = useState('');
   const printingParty = printing
     ? vendors.find(
@@ -159,6 +160,7 @@ export default function PurchaseInvoicePage() {
         partyRow?.nameEn,
         partyRow?.nameAr,
         partyRow?.vatNumber,
+        partyRow?.glnNo,
         partyRow?.phone,
       ].some((value) => (value ?? '').toLowerCase().includes(query));
     });
@@ -345,6 +347,8 @@ export default function PurchaseInvoicePage() {
       // Null when left blank (non-registered party) rather than an empty string, so callers can
       // tell "no VAT number" apart from "number not fetched yet" if that distinction matters later.
       vatNumber: newPartyVat || undefined,
+      // GS1 location number from the legacy gln_no field; optional, 13 digits when present.
+      glnNo: newPartyGln || undefined,
     };
     const saved = partyType === PARTY_TYPE_FLAG.customer ? addCustomer(input) : addVendor(input);
     setNewPartyOpen(false);
@@ -352,10 +356,12 @@ export default function PurchaseInvoicePage() {
     setNewPartyNameAr('');
     setNewPartyPhone('');
     setNewPartyVat('');
+    setNewPartyGln('');
     setPartyId(saved.id);
   }
 
-  const newPartyValid = !!newPartyNameEn.trim() && isVatNumberEmptyOrComplete(newPartyVat);
+  const newPartyGlnValid = newPartyGln === '' || /^\d{13}$/.test(newPartyGln);
+  const newPartyValid = !!newPartyNameEn.trim() && isVatNumberEmptyOrComplete(newPartyVat) && newPartyGlnValid;
 
   function post() {
     if (!invoiceHeaderValid || !party) return;
@@ -490,7 +496,7 @@ export default function PurchaseInvoicePage() {
                   const query = state.inputValue.trim().toLowerCase();
                   if (!query) return options;
                   return options.filter((p) =>
-                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.phone]
+                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.glnNo, p.phone]
                       .some((value) => (value ?? '').toLowerCase().includes(query))
                   );
                 }}
@@ -502,6 +508,7 @@ export default function PurchaseInvoicePage() {
                         {p.nameAr}
                         {p.phone ? ` · ${p.phone}` : ''}
                         {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
+                        {p.glnNo ? ` · GLN ${p.glnNo}` : ''}
                         {!p.isActive ? ' · inactive' : ''}
                       </Typography>
                     </Box>
@@ -513,7 +520,7 @@ export default function PurchaseInvoicePage() {
                   <TextField
                     {...params}
                     label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
-                    placeholder="Name, no, VAT or phone"
+                    placeholder="Name, no, VAT, GLN or phone"
                     size="small"
                   />
                 )}
@@ -582,6 +589,24 @@ export default function PurchaseInvoicePage() {
                     slotProps={{ htmlInput: { maxLength: 15, inputMode: 'numeric' } }}
                     fullWidth
                   />
+                  {/* Legacy gln_no: the party's GS1 location number. Optional, but a typed value
+                      must be 13 digits - the same rule the full Vendor master form enforces. */}
+                  <TextField
+                    label="GLN (optional)"
+                    value={newPartyGln}
+                    onChange={(e) => setNewPartyGln(e.target.value.replace(/\D/g, '').slice(0, 13))}
+                    size="small"
+                    error={!newPartyGlnValid}
+                    helperText={
+                      !newPartyGlnValid
+                        ? `GLN has 13 digits — ${newPartyGln.length}/13 entered.`
+                        : newPartyGln === ''
+                          ? '13-digit GS1 location number, if the party has one.'
+                          : 'From the legacy party file - also searchable on invoices.'
+                    }
+                    slotProps={{ htmlInput: { maxLength: 13, inputMode: 'numeric' } }}
+                    fullWidth
+                  />
                   <Button variant="contained" size="small" disabled={!newPartyValid} onClick={saveParty} sx={{ alignSelf: 'flex-start' }}>
                     {partyType === PARTY_TYPE_FLAG.customer ? 'Save customer' : 'Save vendor'}
                   </Button>
@@ -592,11 +617,13 @@ export default function PurchaseInvoicePage() {
             {party && partyType === PARTY_TYPE_FLAG.vendor && !newPartyOpen && (
               <Typography variant="caption" color="text.secondary">
                 {party.vendorNo} · {party.nameAr} · Phone {party.phone} · VAT {party.vatNumber || '—'}
+                {party.glnNo ? ` · GLN ${party.glnNo}` : ''}
               </Typography>
             )}
             {party && partyType === PARTY_TYPE_FLAG.customer && (
               <Typography variant="caption" color="text.secondary">
                 Customer account · {party.vendorNo} · {party.nameAr} · Phone {party.phone} · VAT {party.vatNumber || '—'}
+                {party.glnNo ? ` · GLN ${party.glnNo}` : ''}
                 {party.category ? ` · ${party.category}` : ''}
               </Typography>
             )}
