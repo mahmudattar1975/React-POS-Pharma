@@ -165,6 +165,9 @@ export default function PurchaseInvoicePage() {
       ].some((value) => (value ?? '').toLowerCase().includes(query));
     });
   }, [purchaseInvoices, vendors, historyFilter]);
+  // The history table stays usable as the ledger grows: show only the newest 15 matches (the
+  // source array is oldest-first), while search still runs across every posted invoice.
+  const visibleInvoices = useMemo(() => [...filteredInvoices].reverse().slice(0, 15), [filteredInvoices]);
 
   const entryTiers = [discountPercent1, discountPercent2, discountPercent3].map(discountInputToFraction);
   // The per-RECEIVED-unit cost (paid + bonus) after the tier cascade - exactly what gets written to
@@ -1117,6 +1120,12 @@ export default function PurchaseInvoicePage() {
               sx={{ width: 320 }}
             />
           </Stack>
+          {filteredInvoices.length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Showing latest {visibleInvoices.length} of {filteredInvoices.length} posted invoices
+              {historyFilter.trim() ? ` matching “${historyFilter.trim()}”` : ''}.
+            </Typography>
+          )}
           {/* Returns are posted documents too, but they are not purchases: editing or deleting one
               through this form would move stock in the wrong direction. They live on the Purchase
               Returns tab and are filtered out here. */}
@@ -1145,7 +1154,7 @@ export default function PurchaseInvoicePage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {[...filteredInvoices].reverse().map((inv) => (
+                  {visibleInvoices.map((inv) => (
                     <TableRow key={inv.id}>
                       <TableCell>{inv.vendorInvoiceNo}</TableCell>
                       <TableCell>
