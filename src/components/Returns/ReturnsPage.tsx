@@ -49,7 +49,7 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 
 export default function ReturnsPage() {
   const { invoiceByNo, recordReturn, returns, invoices, updateReturnZatca } = useSalesStore();
-  const { incrementBatch } = useCatalogStore();
+  const { items: catalogItems, incrementBatch } = useCatalogStore();
   const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
   const pharmacist = useSettingsStore((s) => s.settings.cashierName);
   const customers = useCustomerStore((s) => s.customers);
@@ -236,6 +236,8 @@ export default function ReturnsPage() {
         if (clawback <= 0) return null;
         return {
           itemId: l.itemId,
+          barcode: catalogItems.find((i) => i.id === l.itemId)?.barcode,
+          posItemId: l.posItemId,
           itemNameEn: l.itemNameEn,
           qty: returnQty,
           saleAmount: round2((returnQty / l.qty) * l.netExclVat),
@@ -263,6 +265,7 @@ export default function ReturnsPage() {
       incentiveApi
         .recordIncentive({
           saleId: invoice.id,
+          posSaleId: invoice.posSaleId,
           invoiceNo: ret.returnNo,
           invoiceDate: ret.date,
           cashierName: pharmacist,

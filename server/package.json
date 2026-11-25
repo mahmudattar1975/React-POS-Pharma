@@ -8,7 +8,8 @@
     "build": "tsc -b",
     "start": "node dist/index.js",
     "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate && prisma generate --schema prisma/dotnet-pos-schema.prisma",
+    "db:generate:dotnet-pos": "prisma generate --schema prisma/dotnet-pos-schema.prisma",
     "db:seed": "prisma db seed",
     "rsd:trial": "tsx src/rsd/trial.ts"
   },

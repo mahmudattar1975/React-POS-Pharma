@@ -97,12 +97,19 @@ export async function deleteIncentiveItem(id: string): Promise<void> {
 
 export interface IncentiveRecordPayload {
   saleId: string;
+  // dotnet_pos.pos.Id of the original sale. Returns reuse it so the negative clawback updates the
+  // original pos_item.CommissionAmount instead of posting a separate negative ledger row.
+  posSaleId?: number;
   invoiceNo: string;
   invoiceDate: string;
   cashierName: string;
   branchNo?: number;
   lines: Array<{
     itemId: string;
+    // dotnet_pos keys items by barcode (item.Code). Sent alongside the local catalog id so the
+    // server can write commission onto the right pos_item row.
+    barcode?: string;
+    posItemId?: number;
     itemNameEn: string;
     qty: number;
     saleAmount: number;

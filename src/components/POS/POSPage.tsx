@@ -355,15 +355,15 @@ export default function POSPage() {
       // the sale date; undefined when no rule applies. Editing the incentive list later never rewrites
       // an issued invoice.
       incentiveType: (() => {
-        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        const rule = useIncentiveStore.getState().activeRuleFor(itemById(l.itemId)?.barcode ?? l.itemId, date.slice(0, 10));
         return rule?.incentiveType;
       })(),
       incentiveRate: (() => {
-        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        const rule = useIncentiveStore.getState().activeRuleFor(itemById(l.itemId)?.barcode ?? l.itemId, date.slice(0, 10));
         return rule?.rate;
       })(),
       incentiveAmount: (() => {
-        const rule = useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10));
+        const rule = useIncentiveStore.getState().activeRuleFor(itemById(l.itemId)?.barcode ?? l.itemId, date.slice(0, 10));
         return computeLineIncentive({ incentiveItem: rule, qty: l.qty, netExclVat: l.netExclVat, today: date.slice(0, 10) });
       })(),
     }));
@@ -536,18 +536,21 @@ export default function POSPage() {
       .filter((l) => (l.incentiveAmount ?? 0) > 0)
       .map((l) => ({
         itemId: l.itemId,
+        barcode: itemById(l.itemId)?.barcode,
+        posItemId: l.posItemId,
         itemNameEn: l.itemNameEn,
         qty: l.qty,
         saleAmount: l.netExclVat,
         incentiveType: l.incentiveType ?? 'percent',
         rate: l.incentiveRate ?? 0,
         incentiveAmount: l.incentiveAmount ?? 0,
-        incentiveItemId: useIncentiveStore.getState().activeRuleFor(l.itemId, date.slice(0, 10))?.id,
+        incentiveItemId: useIncentiveStore.getState().activeRuleFor(itemById(l.itemId)?.barcode ?? l.itemId, date.slice(0, 10))?.id,
       }));
     if (incentiveLines.length > 0) {
       incentiveApi
         .recordIncentive({
           saleId: invoice.id,
+          posSaleId,
           invoiceNo,
           invoiceDate: date,
           cashierName: settings.cashierName,
@@ -1094,7 +1097,7 @@ export default function POSPage() {
             ))}
             {(() => {
               const totalIncentive = round2(lines.reduce((s, l) => {
-                const rule = useIncentiveStore.getState().activeRuleFor(l.itemId);
+                const rule = useIncentiveStore.getState().activeRuleFor(itemById(l.itemId)?.barcode ?? l.itemId);
                 return s + computeLineIncentive({ incentiveItem: rule, qty: l.qty, netExclVat: l.netExclVat });
               }, 0));
               return totalIncentive > 0 ? (

@@ -1,7 +1,16 @@
 // HTTP surface for the incentive / profit-bonus feature (Phase A/B).
-// Mounted at /api/incentives. Mirrors src/types/incentive.ts.
+// Mounted at /api/incentives. The browser contract still mirrors src/types/incentive.ts, but the
+// data now lives in the separate dotnet_pos database: commission_item holds the curated item list
+// and pos/pos_item hold the commission ledger (see prisma/dotnet-pos-schema.prisma).
 import { Router, type Request, type Response } from 'express';
-import { prisma } from '../db/prisma.js';
+import {
+  Prisma,
+  type CommissionItem,
+  type Item,
+  type Pos,
+  type PosItem,
+} from '../../node_modules/.prisma/dotnet-pos-client/index.js';
+import { dotnetPos } from '../db/dotnetPosPrisma.js';
 
 export const incentivesRouter = Router();
 
@@ -17,38 +26,98 @@ function q(req: Request, key: string): string | undefined {
 
 function toNum(v: unknown): number {
   if (v === null || v === undefined) return 0;
-  return typeof v === 'number' ? v : Number(v);
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-// ---- Items (curated incentive list) -------------------------------------------
+function day(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function parsePositiveId(v: string): number | null {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// dotnet-pos's CommissionType is a legacy code: 1 = percentage of net sales, any other value =
+// fixed amount per unit (see .mdfile/pb-profit-analysis.md).
+function commissionTypeOf(type: string): number {
+  return type === 'percent' ? 1 : 2;
+}
+
+function incentiveTypeOf(type: number): 'percent' | 'amount' {
+  return type === 1 ? 'percent' : 'amount';
+}
+
+type CommissionItemWithItem = CommissionItem & { item: Item };
+type PosItemWithRelations = PosItem & { pos: Pos; item: Item };
+
+interface IncentiveRecordView {
+  id: string;
+  saleId: string;
+  invoiceNo: string;
+  invoiceDate: string;
+  itemId: string; // barcode - the stable key shared by the POS catalog and dotnet_pos.item.Code
+  itemNameEn: string;
+  qty: number;
+  saleAmount: number;
+  incentiveType: 'percent' | 'amount';
+  rate: number;
+  incentiveAmount: number;
+  cashierName: string;
+  createdAt: string;
+}
+
+// Frontend catalog ids are strings like 'itm-1'; dotnet_pos keys items by int Id and by barcode in
+// Code. The incentive UI stores the barcode as itemId so the two databases agree without a mapping
+// table, but accept a numeric id too for older/manual callers.
+async function findDotnetItem(key: string): Promise<Item | null> {
+  const numeric = parsePositiveId(key);
+  return dotnetPos.item.findFirst({
+    where: numeric !== null ? { OR: [{ code: key }, { id: numeric }] } : { code: key },
+  });
+}
+
+function mapCommissionItem(r: CommissionItemWithItem) {
+  return {
+    id: String(r.id),
+    itemId: r.item.code,
+    itemNameEn: r.item.name,
+    itemNameAr: r.item.name, // dotnet_pos has one display name, not separate AR/EN columns
+    incentiveType: incentiveTypeOf(r.commissionType),
+    rate: toNum(r.commissionValue),
+    activeFrom: day(r.activeFrom),
+    activeTo: day(r.activeTo),
+    branchNo: null,
+    active: r.isActive,
+    createdAt: r.activeFrom.toISOString(),
+    updatedAt: r.activeFrom.toISOString(),
+  };
+}
+
+// ---- Items (curated incentive list -> dotnet_pos.commission_item) ------------------
 
 incentivesRouter.get('/items', async (req, res) => {
   try {
     const active = q(req, 'active');
     const itemId = q(req, 'itemId');
-    const where: Record<string, unknown> = {};
-    if (active === 'true') where.active = true;
-    if (active === 'false') where.active = false;
-    if (itemId) where.itemId = itemId;
-    const rows = await prisma.incentiveItem.findMany({
+    const where: Prisma.CommissionItemWhereInput = {};
+    if (active === 'true') where.isActive = true;
+    if (active === 'false') where.isActive = false;
+    if (itemId) {
+      const item = await findDotnetItem(itemId);
+      if (!item) {
+        res.json([]);
+        return;
+      }
+      where.itemId = item.id;
+    }
+    const rows = await dotnetPos.commissionItem.findMany({
       where,
-      include: { item: { select: { nameEn: true, nameAr: true } } },
-      orderBy: { createdAt: 'desc' },
+      include: { item: true },
+      orderBy: { id: 'desc' },
     });
-    res.json(rows.map((r) => ({
-      id: r.id,
-      itemId: r.itemId,
-      itemNameEn: r.item?.nameEn ?? null,
-      itemNameAr: r.item?.nameAr ?? null,
-      incentiveType: r.incentiveType,
-      rate: toNum(r.rate),
-      activeFrom: r.activeFrom.toISOString().slice(0, 10),
-      activeTo: r.activeTo.toISOString().slice(0, 10),
-      branchNo: r.branchNo,
-      active: r.active,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    })));
+    res.json(rows.map(mapCommissionItem));
   } catch (err) {
     fail(res, err);
   }
@@ -56,24 +125,18 @@ incentivesRouter.get('/items', async (req, res) => {
 
 incentivesRouter.get('/active', async (req, res) => {
   try {
-    const dateStr = q(req, 'date') ?? new Date().toISOString().slice(0, 10);
-    const d = new Date(dateStr);
-    const rows = await prisma.incentiveItem.findMany({
-      where: { active: true, activeFrom: { lte: d }, activeTo: { gte: d } },
-      include: { item: { select: { nameEn: true, nameAr: true } } },
+    const dateStr = q(req, 'date') ?? day(new Date());
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) {
+      res.status(400).json({ error: 'date must be an ISO date (YYYY-MM-DD).' });
+      return;
+    }
+    const rows = await dotnetPos.commissionItem.findMany({
+      where: { isActive: true, activeFrom: { lte: d }, activeTo: { gte: d } },
+      include: { item: true },
+      orderBy: { id: 'desc' },
     });
-    res.json(rows.map((r) => ({
-      id: r.id,
-      itemId: r.itemId,
-      itemNameEn: r.item?.nameEn ?? null,
-      itemNameAr: r.item?.nameAr ?? null,
-      incentiveType: r.incentiveType,
-      rate: toNum(r.rate),
-      activeFrom: r.activeFrom.toISOString().slice(0, 10),
-      activeTo: r.activeTo.toISOString().slice(0, 10),
-      branchNo: r.branchNo,
-      active: r.active,
-    })));
+    res.json(rows.map(mapCommissionItem));
   } catch (err) {
     fail(res, err);
   }
@@ -82,12 +145,12 @@ incentivesRouter.get('/active', async (req, res) => {
 incentivesRouter.post('/items', async (req, res) => {
   try {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const itemId = String(b.itemId ?? '').trim();
+    const itemKey = String(b.itemId ?? '').trim();
     const incentiveType = String(b.incentiveType ?? '').trim();
     const rate = Number(b.rate);
     const activeFrom = String(b.activeFrom ?? '').trim();
     const activeTo = String(b.activeTo ?? '').trim();
-    if (!itemId || !['percent', 'amount'].includes(incentiveType) || !Number.isFinite(rate) || rate < 0) {
+    if (!itemKey || !['percent', 'amount'].includes(incentiveType) || !Number.isFinite(rate) || rate < 0) {
       res.status(400).json({ error: 'itemId, incentiveType (percent|amount), rate (>=0) are required.' });
       return;
     }
@@ -95,30 +158,23 @@ incentivesRouter.post('/items', async (req, res) => {
       res.status(400).json({ error: 'activeFrom and activeTo (ISO dates) are required.' });
       return;
     }
-    const row = await prisma.incentiveItem.create({
+    const item = await findDotnetItem(itemKey);
+    if (!item) {
+      res.status(400).json({ error: `Unknown dotnet_pos item: ${itemKey}. Use the item's barcode.` });
+      return;
+    }
+    const row = await dotnetPos.commissionItem.create({
       data: {
-        itemId,
-        incentiveType,
-        rate,
-        activeFrom: new Date(activeFrom),
-        activeTo: new Date(activeTo),
-        branchNo: b.branchNo === undefined || b.branchNo === null ? null : Number(b.branchNo),
-        active: b.active === undefined ? true : Boolean(b.active),
+        itemId: item.id,
+        commissionType: commissionTypeOf(incentiveType),
+        commissionValue: rate,
+        activeFrom: new Date(`${activeFrom}T00:00:00Z`),
+        activeTo: new Date(`${activeTo}T23:59:59Z`),
+        isActive: b.active === undefined ? true : Boolean(b.active),
       },
-      include: { item: { select: { nameEn: true, nameAr: true } } },
+      include: { item: true },
     });
-    res.status(201).json({
-      id: row.id,
-      itemId: row.itemId,
-      itemNameEn: row.item?.nameEn ?? null,
-      itemNameAr: row.item?.nameAr ?? null,
-      incentiveType: row.incentiveType,
-      rate: toNum(row.rate),
-      activeFrom: row.activeFrom.toISOString().slice(0, 10),
-      activeTo: row.activeTo.toISOString().slice(0, 10),
-      branchNo: row.branchNo,
-      active: row.active,
-    });
+    res.status(201).json(mapCommissionItem(row));
   } catch (err) {
     fail(res, err);
   }
@@ -126,41 +182,51 @@ incentivesRouter.post('/items', async (req, res) => {
 
 incentivesRouter.put('/items/:id', async (req, res) => {
   try {
+    const id = parsePositiveId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid incentive item id.' });
+      return;
+    }
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const data: Record<string, unknown> = {};
+    const existing = await dotnetPos.commissionItem.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ error: 'Incentive item not found.' });
+      return;
+    }
+    const data: Prisma.CommissionItemUpdateInput = {};
+    if (b.itemId !== undefined) {
+      const item = await findDotnetItem(String(b.itemId).trim());
+      if (!item) {
+        res.status(400).json({ error: `Unknown dotnet_pos item: ${String(b.itemId)}.` });
+        return;
+      }
+      data.item = { connect: { id: item.id } };
+    }
     if (b.incentiveType !== undefined) {
-      if (!['percent', 'amount'].includes(String(b.incentiveType))) {
+      const type = String(b.incentiveType);
+      if (!['percent', 'amount'].includes(type)) {
         res.status(400).json({ error: 'incentiveType must be percent or amount.' });
         return;
       }
-      data.incentiveType = String(b.incentiveType);
+      data.commissionType = commissionTypeOf(type);
     }
     if (b.rate !== undefined) {
-      const r = Number(b.rate);
-      if (!Number.isFinite(r) || r < 0) { res.status(400).json({ error: 'rate must be >= 0.' }); return; }
-      data.rate = r;
+      const rate = Number(b.rate);
+      if (!Number.isFinite(rate) || rate < 0) {
+        res.status(400).json({ error: 'rate must be >= 0.' });
+        return;
+      }
+      data.commissionValue = rate;
     }
-    if (b.activeFrom !== undefined) data.activeFrom = new Date(String(b.activeFrom));
-    if (b.activeTo !== undefined) data.activeTo = new Date(String(b.activeTo));
-    if (b.branchNo !== undefined) data.branchNo = b.branchNo === null ? null : Number(b.branchNo);
-    if (b.active !== undefined) data.active = Boolean(b.active);
-    const row = await prisma.incentiveItem.update({
-      where: { id: req.params.id },
+    if (b.activeFrom !== undefined) data.activeFrom = new Date(`${String(b.activeFrom).slice(0, 10)}T00:00:00Z`);
+    if (b.activeTo !== undefined) data.activeTo = new Date(`${String(b.activeTo).slice(0, 10)}T23:59:59Z`);
+    if (b.active !== undefined) data.isActive = Boolean(b.active);
+    const row = await dotnetPos.commissionItem.update({
+      where: { id },
       data,
-      include: { item: { select: { nameEn: true, nameAr: true } } },
+      include: { item: true },
     });
-    res.json({
-      id: row.id,
-      itemId: row.itemId,
-      itemNameEn: row.item?.nameEn ?? null,
-      itemNameAr: row.item?.nameAr ?? null,
-      incentiveType: row.incentiveType,
-      rate: toNum(row.rate),
-      activeFrom: row.activeFrom.toISOString().slice(0, 10),
-      activeTo: row.activeTo.toISOString().slice(0, 10),
-      branchNo: row.branchNo,
-      active: row.active,
-    });
+    res.json(mapCommissionItem(row));
   } catch (err) {
     fail(res, err);
   }
@@ -168,96 +234,203 @@ incentivesRouter.put('/items/:id', async (req, res) => {
 
 incentivesRouter.delete('/items/:id', async (req, res) => {
   try {
-    await prisma.incentiveItem.delete({ where: { id: req.params.id } });
+    const id = parsePositiveId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid incentive item id.' });
+      return;
+    }
+    await dotnetPos.commissionItem.delete({ where: { id } });
     res.json({ ok: true });
   } catch (err) {
     fail(res, err);
   }
 });
 
-// ---- Records (batch record of sale incentives) --------------------------------
+// ---- Records (batch write into dotnet_pos.pos_item.CommissionAmount) ---------------
+
+interface RecordLine {
+  itemId: string;
+  barcode?: string;
+  itemNameEn?: string;
+  qty?: number;
+  saleAmount?: number;
+  incentiveAmount?: number;
+  posItemId?: number;
+  incentiveItemId?: string;
+}
+
+async function findOrCreatePos(
+  invoiceNo: string,
+  invoiceDate: Date,
+  cashierName: string,
+  total: number,
+  posSaleId?: number,
+): Promise<Pos> {
+  // On a return, callers pass the original dotnet-pos sale id so the clawback lands on that sale's
+  // pos_item row. Otherwise prefer the mirror row created at checkout, keyed by invoice number.
+  if (posSaleId !== undefined) {
+    const original = await dotnetPos.pos.findUnique({ where: { id: posSaleId } });
+    if (original) return original;
+  }
+  const existing = await dotnetPos.pos.findFirst({ where: { invoiceNo }, orderBy: { id: 'desc' } });
+  if (existing) return existing;
+  const cashier = cashierName
+    ? await dotnetPos.cashier.findFirst({ where: { OR: [{ fullName: cashierName }, { username: cashierName }] } })
+    : null;
+  // The dotnet-pos mirror normally creates this row first. This fallback keeps an incentive from
+  // being lost when that mirror failed but the local sale still completed.
+  return dotnetPos.pos.create({
+    data: {
+      invoiceNo,
+      saleDate: invoiceDate,
+      cashierId: cashier?.id ?? 0,
+      cashierName: cashierName || null,
+      subTotal: total,
+      discountAmount: 0,
+      vatAmount: 0,
+      totalAmount: total,
+      paymentMethod: 1,
+      status: 1,
+      createdOn: invoiceDate,
+      shiftId: 0,
+    },
+  });
+}
+
+async function applyCommission(posId: number, item: Item | null, line: RecordLine): Promise<void> {
+  const amount = toNum(line.incentiveAmount);
+  const qty = toNum(line.qty);
+  const saleAmount = toNum(line.saleAmount);
+  const specifiedId = parsePositiveId(String(line.posItemId ?? ''));
+  // posItemId comes from the original sale line, so trust it directly: a return's payload carries a
+  // different invoice number and must still find that same row to decrement its commission.
+  let posItem = specifiedId !== null
+    ? await dotnetPos.posItem.findUnique({ where: { id: specifiedId } })
+    : null;
+  if (!posItem && item) posItem = await dotnetPos.posItem.findFirst({ where: { posId, itemId: item.id } });
+
+  if (posItem) {
+    await dotnetPos.posItem.update({
+      where: { id: posItem.id },
+      // Positive is a fresh grant (set, so replays don't double-count); negative is a return
+      // clawback, which must accumulate against the original grant.
+      data: { commissionAmount: amount >= 0 ? amount : { increment: amount } },
+    });
+    return;
+  }
+  if (!item) return; // no way to create a pos_item without a valid ItemId
+  await dotnetPos.posItem.create({
+    data: {
+      posId,
+      itemId: item.id,
+      itemName: String(line.itemNameEn ?? item.name),
+      qty,
+      unitPrice: qty > 0 ? saleAmount / qty : 0,
+      vatRate: 0,
+      lineTotal: saleAmount,
+      returnedQty: 0,
+      commissionAmount: amount,
+    },
+  });
+}
 
 incentivesRouter.post('/records', async (req, res) => {
   try {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const saleId = String(b.saleId ?? '').trim();
     const invoiceNo = String(b.invoiceNo ?? '').trim();
-    const invoiceDate = String(b.invoiceDate ?? '').trim();
+    const invoiceDate = new Date(String(b.invoiceDate ?? '').trim());
     const cashierName = String(b.cashierName ?? '').trim();
-    const lines = Array.isArray(b.lines) ? (b.lines as Record<string, unknown>[]) : [];
-    if (!saleId || !invoiceNo || !invoiceDate) {
-      res.status(400).json({ error: 'saleId, invoiceNo, invoiceDate are required.' });
+    const lines = (Array.isArray(b.lines) ? b.lines : []) as RecordLine[];
+    if (!invoiceNo || Number.isNaN(invoiceDate.getTime())) {
+      res.status(400).json({ error: 'invoiceNo and a valid invoiceDate are required.' });
       return;
     }
-    const created = await prisma.$transaction(
-      lines
-        .filter((l) => Number(l.incentiveAmount ?? 0) > 0)
-        .map((l) =>
-          prisma.incentiveRecord.create({
-            data: {
-              saleId,
-              invoiceNo,
-              invoiceDate: new Date(invoiceDate),
-              itemId: String(l.itemId ?? ''),
-              itemNameEn: String(l.itemNameEn ?? ''),
-              qty: Number(l.qty ?? 0),
-              saleAmount: Number(l.saleAmount ?? 0),
-              incentiveType: String(l.incentiveType ?? 'percent'),
-              rate: Number(l.rate ?? 0),
-              incentiveAmount: Number(l.incentiveAmount ?? 0),
-              cashierName,
-              branchNo: l.branchNo === undefined || l.branchNo === null ? null : Number(l.branchNo),
-              incentiveItemId: l.incentiveItemId ? String(l.incentiveItemId) : null,
-            },
-          }),
-        ),
-    );
-    res.status(201).json({ ok: true, count: created.length });
+    const applicable = lines.filter((l) => toNum(l.incentiveAmount) !== 0);
+    if (applicable.length === 0) {
+      res.status(201).json({ ok: true, count: 0 });
+      return;
+    }
+    const total = applicable.reduce((s, l) => s + Math.abs(toNum(l.saleAmount)), 0);
+    const posSaleId = parsePositiveId(String(b.posSaleId ?? ''));
+    const pos = await findOrCreatePos(invoiceNo, invoiceDate, cashierName, total, posSaleId ?? undefined);
+    for (const line of applicable) {
+      const item = await findDotnetItem(String(line.barcode ?? line.itemId ?? '').trim());
+      await applyCommission(pos.id, item, line);
+    }
+    res.status(201).json({ ok: true, count: applicable.length });
   } catch (err) {
     fail(res, err);
   }
 });
 
-// ---- Report --------------------------------------------------------------------
+// ---- Report (dotnet_pos.pos_item.CommissionAmount) ---------------------------------
+
+async function queryRecords(req: Request): Promise<IncentiveRecordView[]> {
+  const from = q(req, 'from');
+  const to = q(req, 'to');
+  const cashier = q(req, 'cashier');
+  const itemId = q(req, 'itemId');
+
+  const posFilter: Prisma.PosWhereInput = {};
+  if (from || to) {
+    const saleDate: Prisma.DateTimeFilter = {};
+    if (from) saleDate.gte = new Date(`${from}T00:00:00Z`);
+    if (to) {
+      const t = new Date(`${to}T00:00:00Z`);
+      t.setUTCDate(t.getUTCDate() + 1);
+      saleDate.lt = t;
+    }
+    posFilter.saleDate = saleDate;
+  }
+  if (cashier) posFilter.cashierName = cashier;
+
+  const where: Prisma.PosItemWhereInput = { commissionAmount: { not: 0 } };
+  if (Object.keys(posFilter).length > 0) where.pos = posFilter;
+  if (itemId) {
+    const item = await findDotnetItem(itemId);
+    where.itemId = item?.id ?? -1;
+  }
+
+  const rows = await dotnetPos.posItem.findMany({ where, include: { pos: true, item: true } });
+  rows.sort((a, b) => b.pos.saleDate.getTime() - a.pos.saleDate.getTime());
+
+  const itemIds = [...new Set(rows.map((r) => r.itemId))];
+  const rules = itemIds.length
+    ? await dotnetPos.commissionItem.findMany({ where: { itemId: { in: itemIds } } })
+    : [];
+  const ruleByItemId = new Map<number, (typeof rules)[number]>();
+  for (const r of rules) if (!ruleByItemId.has(r.itemId)) ruleByItemId.set(r.itemId, r);
+
+  return rows.map((r: PosItemWithRelations) => {
+    const rule = ruleByItemId.get(r.itemId);
+    const saleAmount = toNum(r.lineTotal);
+    const commission = toNum(r.commissionAmount);
+    // A rule may have been deleted after the sale; recover the effective percent from the ledger
+    // so the report still shows 16.67% instead of a misleading 0%.
+    const rate = rule
+      ? toNum(rule.commissionValue)
+      : saleAmount !== 0 ? Math.abs(commission / saleAmount) : 0;
+    return {
+      id: String(r.id),
+      saleId: String(r.posId),
+      invoiceNo: r.pos.invoiceNo,
+      invoiceDate: r.pos.saleDate.toISOString(),
+      itemId: r.item.code,
+      itemNameEn: r.itemName || r.item.name,
+      qty: toNum(r.qty),
+      saleAmount,
+      incentiveType: rule ? incentiveTypeOf(rule.commissionType) : 'percent',
+      rate,
+      incentiveAmount: commission,
+      cashierName: r.pos.cashierName ?? '',
+      createdAt: r.pos.createdOn.toISOString(),
+    };
+  });
+}
 
 incentivesRouter.get('/report', async (req, res) => {
   try {
-    const from = q(req, 'from');
-    const to = q(req, 'to');
-    const cashier = q(req, 'cashier');
-    const itemId = q(req, 'itemId');
-    const where: Record<string, unknown> = {};
-    if (from || to) {
-      const dateFilter: Record<string, Date> = {};
-      if (from) dateFilter.gte = new Date(from);
-      if (to) {
-        const t = new Date(to);
-        t.setDate(t.getDate() + 1);
-        dateFilter.lt = t;
-      }
-      where.invoiceDate = dateFilter;
-    }
-    if (cashier) where.cashierName = cashier;
-    if (itemId) where.itemId = itemId;
-    const rows = await prisma.incentiveRecord.findMany({
-      where,
-      orderBy: { invoiceDate: 'desc' },
-    });
-    res.json(rows.map((r) => ({
-      id: r.id,
-      saleId: r.saleId,
-      invoiceNo: r.invoiceNo,
-      invoiceDate: r.invoiceDate.toISOString(),
-      itemId: r.itemId,
-      itemNameEn: r.itemNameEn,
-      qty: r.qty,
-      saleAmount: toNum(r.saleAmount),
-      incentiveType: r.incentiveType,
-      rate: toNum(r.rate),
-      incentiveAmount: toNum(r.incentiveAmount),
-      cashierName: r.cashierName,
-      createdAt: r.createdAt.toISOString(),
-    })));
+    res.json(await queryRecords(req));
   } catch (err) {
     fail(res, err);
   }
@@ -265,31 +438,19 @@ incentivesRouter.get('/report', async (req, res) => {
 
 incentivesRouter.get('/report/summary', async (req, res) => {
   try {
-    const from = q(req, 'from');
-    const to = q(req, 'to');
-    const where: Record<string, unknown> = {};
-    if (from || to) {
-      const dateFilter: Record<string, Date> = {};
-      if (from) dateFilter.gte = new Date(from);
-      if (to) {
-        const t = new Date(to);
-        t.setDate(t.getDate() + 1);
-        dateFilter.lt = t;
-      }
-      where.invoiceDate = dateFilter;
-    }
-    const rows = await prisma.incentiveRecord.findMany({ where });
-    // daily buckets
+    const rows = await queryRecords(req);
     const buckets = new Map<string, { date: string; invoiceCount: number; totalSaleAmount: number; totalIncentive: number; invoices: Set<string> }>();
     for (const r of rows) {
-      const day = r.invoiceDate.toISOString().slice(0, 10);
-      if (!buckets.has(day)) buckets.set(day, { date: day, invoiceCount: 0, totalSaleAmount: 0, totalIncentive: 0, invoices: new Set() });
-      const b = buckets.get(day)!;
+      const bucketDate = r.invoiceDate.slice(0, 10);
+      if (!buckets.has(bucketDate)) {
+        buckets.set(bucketDate, { date: bucketDate, invoiceCount: 0, totalSaleAmount: 0, totalIncentive: 0, invoices: new Set() });
+      }
+      const b = buckets.get(bucketDate)!;
       b.invoices.add(r.invoiceNo);
-      b.totalSaleAmount += toNum(r.saleAmount);
-      b.totalIncentive += toNum(r.incentiveAmount);
+      b.totalSaleAmount += r.saleAmount;
+      b.totalIncentive += r.incentiveAmount;
     }
-    const summary = [...buckets.values()]
+    const days = [...buckets.values()]
       .map((b) => ({
         date: b.date,
         invoiceCount: b.invoices.size,
@@ -297,12 +458,14 @@ incentivesRouter.get('/report/summary', async (req, res) => {
         totalIncentive: Math.round(b.totalIncentive * 100) / 100,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
-    const totals = {
-      invoiceCount: new Set(rows.map((r) => r.invoiceNo)).size,
-      totalSaleAmount: Math.round(rows.reduce((s, r) => s + toNum(r.saleAmount), 0) * 100) / 100,
-      totalIncentive: Math.round(rows.reduce((s, r) => s + toNum(r.incentiveAmount), 0) * 100) / 100,
-    };
-    res.json({ days: summary, totals });
+    res.json({
+      days,
+      totals: {
+        invoiceCount: new Set(rows.map((r) => r.invoiceNo)).size,
+        totalSaleAmount: Math.round(rows.reduce((s, r) => s + r.saleAmount, 0) * 100) / 100,
+        totalIncentive: Math.round(rows.reduce((s, r) => s + r.incentiveAmount, 0) * 100) / 100,
+      },
+    });
   } catch (err) {
     fail(res, err);
   }

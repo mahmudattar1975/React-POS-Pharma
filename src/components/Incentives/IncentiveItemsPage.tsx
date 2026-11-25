@@ -11,6 +11,8 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useIncentiveStore } from '../../store/incentiveStore';
 import type { IncentiveItem, IncentiveType } from '../../types/incentive';
 import { formatMoney } from '../../utils/format';
+import { discountInputToFraction, formatDiscountInput, formatDiscountPercent } from '../../utils/purchasing';
+import DiscountInput from '../common/DiscountInput';
 
 export default function IncentiveItemsPage() {
   const { items: catalogItems } = useCatalogStore();
@@ -19,6 +21,9 @@ export default function IncentiveItemsPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Percent is typed as whole points ("16.67") with the same masked field as POS discounts and
+  // stored as a fraction (0.1667); a fixed amount is entered directly in SAR.
+  const [percentInput, setPercentInput] = useState(formatDiscountInput(0.1));
   const [form, setForm] = useState({
     itemId: '',
     incentiveType: 'percent' as IncentiveType,
@@ -30,18 +35,19 @@ export default function IncentiveItemsPage() {
 
   useEffect(() => {
     if (dialog.open) {
-      if (dialog.item) {
-        setForm({
-          itemId: dialog.item.itemId,
-          incentiveType: dialog.item.incentiveType,
-          rate: dialog.item.rate,
-          activeFrom: dialog.item.activeFrom,
-          activeTo: dialog.item.activeTo,
-          active: dialog.item.active,
-        });
-      } else {
-        setForm({ itemId: '', incentiveType: 'percent', rate: 0.1, activeFrom: new Date().toISOString().slice(0, 10), activeTo: '2026-12-31', active: true });
-      }
+      const item = dialog.item;
+      setForm(item ? {
+        itemId: item.itemId,
+        incentiveType: item.incentiveType,
+        rate: item.rate,
+        activeFrom: item.activeFrom,
+        activeTo: item.activeTo,
+        active: item.active,
+      } : {
+        itemId: '', incentiveType: 'percent', rate: 0.1,
+        activeFrom: new Date().toISOString().slice(0, 10), activeTo: '2026-12-31', active: true,
+      });
+      setPercentInput(formatDiscountInput(item?.incentiveType === 'percent' ? item.rate : 0.1));
     }
   }, [dialog.open, dialog.item]);
 
@@ -49,7 +55,7 @@ export default function IncentiveItemsPage() {
     const payload = {
       itemId: form.itemId,
       incentiveType: form.incentiveType,
-      rate: form.rate,
+      rate: form.incentiveType === 'percent' ? discountInputToFraction(percentInput) : form.rate,
       activeFrom: form.activeFrom,
       activeTo: form.activeTo,
       active: form.active,
@@ -67,7 +73,9 @@ export default function IncentiveItemsPage() {
     return { label: 'Active', color: 'success' as const };
   }
 
-  const itemName = (id: string) => catalogItems.find((i) => i.id === id)?.nameEn ?? id;
+  // The dotnet_pos commission_item list is keyed by barcode (item.Code), so the dropdown stores
+  // the barcode as the item id and resolves names from either the barcode or the local catalog id.
+  const itemName = (id: string) => catalogItems.find((i) => i.barcode === id || i.id === id)?.nameEn ?? id;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -110,7 +118,7 @@ export default function IncentiveItemsPage() {
                 <TableRow key={it.id} hover>
                   <TableCell>{itemName(it.itemId)}</TableCell>
                   <TableCell>{it.incentiveType}</TableCell>
-                  <TableCell>{it.incentiveType === 'percent' ? `${(it.rate * 100).toFixed(2)}%` : formatMoney(it.rate)}</TableCell>
+                  <TableCell>{it.incentiveType === 'percent' ? formatDiscountPercent(it.rate) : formatMoney(it.rate)}</TableCell>
                   <TableCell>{it.activeFrom}</TableCell>
                   <TableCell>{it.activeTo}</TableCell>
                   <TableCell><Chip size="small" color={st.color} label={st.label} /></TableCell>
@@ -137,7 +145,7 @@ export default function IncentiveItemsPage() {
               <InputLabel>Item</InputLabel>
               <Select value={form.itemId} label="Item" onChange={(e) => setForm({ ...form, itemId: e.target.value })}>
                 {catalogItems.map((it) => (
-                  <MenuItem key={it.id} value={it.id}>{it.nameEn} ({it.nameAr})</MenuItem>
+                  <MenuItem key={it.id} value={it.barcode}>{it.nameEn} ({it.nameAr})</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -148,14 +156,24 @@ export default function IncentiveItemsPage() {
                 <MenuItem value="amount">Fixed amount per unit</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              label={form.incentiveType === 'percent' ? 'Rate (0.10 = 10%)' : 'Amount (SAR per unit)'}
-              type="number"
-              value={form.rate}
-              onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })}
-              size="small"
-              fullWidth
-            />
+            {form.incentiveType === 'percent' ? (
+              <DiscountInput
+                label="Rate"
+                value={percentInput}
+                onChange={setPercentInput}
+                size="small"
+                fullWidth
+              />
+            ) : (
+              <TextField
+                label="Amount (SAR per unit)"
+                type="number"
+                value={form.rate}
+                onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })}
+                size="small"
+                fullWidth
+              />
+            )}
             <TextField label="Active From" type="date" value={form.activeFrom} onChange={(e) => setForm({ ...form, activeFrom: e.target.value })} size="small" fullWidth />
             <TextField label="Active To" type="date" value={form.activeTo} onChange={(e) => setForm({ ...form, activeTo: e.target.value })} size="small" fullWidth />
             <FormControlLabel control={<Checkbox checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />} label="Active" />

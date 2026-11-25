@@ -1,0 +1,86 @@
+// Read/write client for the separate dotnet-pos database. The main schema.prisma still points at
+// this app's own PharmaDB; this schema exists only for the Incentive/Profit feature, whose curated
+// item list lives in dotnet_pos.dbo.commission_item and whose ledger lives in pos / pos_item.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/dotnet-pos-client"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DOTNET_POS_DATABASE_URL")
+}
+
+model Cashier {
+  id       Int     @id @map("Id")
+  username String  @map("Username")
+  fullName String? @map("FullName")
+  isActive Boolean @map("IsActive")
+  isAdmin  Boolean @map("IsAdmin")
+
+  @@map("cashier")
+}
+
+model Item {
+  id       Int     @id @map("Id")
+  code     String  @map("Code")
+  name     String  @map("Name")
+  salePrice Decimal @map("SalePrice") @db.Decimal(18, 4)
+  vatRate  Decimal @map("VatRate") @db.Decimal(5, 4)
+  isActive Boolean @map("IsActive")
+
+  commissionItems CommissionItem[]
+  posItems        PosItem[]
+
+  @@map("item")
+}
+
+model CommissionItem {
+  id             Int      @id @default(autoincrement()) @map("Id")
+  itemId         Int      @map("ItemId")
+  commissionType Int      @map("CommissionType")
+  commissionValue Decimal @map("CommissionValue") @db.Decimal(10, 4)
+  activeFrom     DateTime @map("ActiveFrom")
+  activeTo       DateTime @map("ActiveTo")
+  isActive       Boolean  @map("IsActive")
+  item           Item     @relation(fields: [itemId], references: [id])
+
+  @@map("commission_item")
+}
+
+model Pos {
+  id            Int       @id @default(autoincrement()) @map("Id")
+  invoiceNo     String    @map("InvoiceNo")
+  saleDate      DateTime  @map("SaleDate")
+  cashierId     Int       @map("CashierId")
+  cashierName   String?   @map("CashierName")
+  customerName  String?   @map("CustomerName")
+  subTotal      Decimal   @map("SubTotal") @db.Decimal(18, 2)
+  discountAmount Decimal  @map("DiscountAmount") @db.Decimal(18, 2)
+  vatAmount     Decimal   @map("VatAmount") @db.Decimal(18, 2)
+  totalAmount   Decimal   @map("TotalAmount") @db.Decimal(18, 2)
+  paymentMethod Int       @map("PaymentMethod")
+  status        Int       @map("Status")
+  createdOn     DateTime  @map("CreatedOn")
+  shiftId       Int       @map("ShiftId")
+  items         PosItem[]
+
+  @@map("pos")
+}
+
+model PosItem {
+  id              Int     @id @default(autoincrement()) @map("Id")
+  posId           Int     @map("PosId")
+  pos             Pos     @relation(fields: [posId], references: [id], onDelete: Cascade)
+  itemId          Int     @map("ItemId")
+  item            Item    @relation(fields: [itemId], references: [id])
+  itemName        String  @map("ItemName")
+  qty             Decimal @map("Qty") @db.Decimal(18, 3)
+  unitPrice       Decimal @map("UnitPrice") @db.Decimal(18, 4)
+  vatRate         Decimal @map("VatRate") @db.Decimal(5, 2)
+  lineTotal       Decimal @map("LineTotal") @db.Decimal(18, 2)
+  returnedQty     Decimal @map("ReturnedQty") @db.Decimal(18, 3)
+  commissionAmount Decimal @map("CommissionAmount") @db.Decimal(18, 4)
+
+  @@map("pos_item")
+}

@@ -7,6 +7,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { fetchIncentiveReport, fetchIncentiveSummary } from '../../api/incentiveApi';
 import type { IncentiveRecord, IncentiveSummary } from '../../types/incentive';
 import { formatMoney } from '../../utils/format';
+import { formatDiscountPercent } from '../../utils/purchasing';
 
 export default function IncentiveReportPage() {
   const { items: catalogItems } = useCatalogStore();
@@ -59,7 +60,8 @@ export default function IncentiveReportPage() {
     URL.revokeObjectURL(url);
   }
 
-  const itemName = (id: string) => catalogItems.find((i) => i.id === id)?.nameEn ?? id;
+  // Report rows carry the dotnet_pos barcode as itemId; older rows may still carry a catalog id.
+  const itemName = (id: string) => catalogItems.find((i) => i.barcode === id || i.id === id)?.nameEn ?? id;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -73,7 +75,7 @@ export default function IncentiveReportPage() {
           <TextField label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} size="small" />
           <TextField label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} size="small" />
           <TextField label="Cashier" value={cashier} onChange={(e) => setCashier(e.target.value)} size="small" />
-          <TextField label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} size="small" placeholder="item id" />
+          <TextField label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} size="small" placeholder="barcode" />
           <Button variant="contained" onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Apply'}</Button>
         </Stack>
       </Paper>
@@ -134,7 +136,7 @@ export default function IncentiveReportPage() {
                 <TableCell>{r.qty}</TableCell>
                 <TableCell>{formatMoney(r.saleAmount)}</TableCell>
                 <TableCell>{r.incentiveType}</TableCell>
-                <TableCell>{r.incentiveType === 'percent' ? `${(r.rate * 100).toFixed(2)}%` : formatMoney(r.rate)}</TableCell>
+                <TableCell>{r.incentiveType === 'percent' ? formatDiscountPercent(r.rate) : formatMoney(r.rate)}</TableCell>
                 <TableCell>{formatMoney(r.incentiveAmount)}</TableCell>
                 <TableCell>{r.cashierName}</TableCell>
               </TableRow>
