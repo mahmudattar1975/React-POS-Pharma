@@ -12,6 +12,7 @@
 // would eat selling space. The tab strip alone tells you which side of the counter you're on.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -27,14 +28,15 @@ import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 import RsdMonitorPage from '../Rsd/RsdMonitorPage';
 import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
+// Each tab gets a semantic colour so the cashier can recognise the workspace at a glance.
 const TABS = [
-  { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
-  { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
-  { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" /> },
-  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" /> },
-  { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
-  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
-  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" /> },
+  { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" />, color: '#2f7a52' }, // sale / money in
+  { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#b8862c' }, // reversal
+  { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // bonus rules
+  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" />, color: '#1565c0' }, // clinical
+  { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" />, color: '#283593' }, // tax / compliance
+  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" />, color: '#b3261e' }, // restricted
+  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" />, color: '#00695c' }, // regulator
 ];
 
 export default function SalesHubPage() {
@@ -51,10 +53,34 @@ export default function SalesHubPage() {
       <Tabs
         value={activeTab}
         onChange={(_, value: number) => navigate(TABS[value].path)}
-        sx={{ flex: 'none', px: 2, pt: 1, borderBottom: 1, borderColor: 'divider' }}
+        sx={{
+          flex: 'none',
+          px: 2,
+          pt: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+          '& .MuiTabs-indicator': { backgroundColor: TABS[activeTab].color },
+        }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={{ minHeight: 44 }} />
+          <Tab
+            key={entry.path}
+            icon={entry.icon}
+            iconPosition="start"
+            label={entry.label}
+            sx={{
+              minHeight: 44,
+              color: entry.color,
+              '& .MuiTab-iconWrapper': { color: entry.color },
+              '&:hover': { color: entry.color, backgroundColor: alpha(entry.color, 0.05) },
+              '&.Mui-selected': {
+                color: entry.color,
+                fontWeight: 700,
+                backgroundColor: alpha(entry.color, 0.09),
+              },
+              '&.Mui-selected:hover': { backgroundColor: alpha(entry.color, 0.12) },
+            }}
+          />
         ))}
       </Tabs>
       {/* POSPage sizes itself to 100% height, so the content slot must be a bounded flex child
