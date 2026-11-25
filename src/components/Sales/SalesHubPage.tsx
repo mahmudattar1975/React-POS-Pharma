@@ -32,11 +32,11 @@ import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" />, color: '#2f7a52' }, // sale / money in
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#b8862c' }, // reversal
-  { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // bonus rules
+  { path: '/incentives', label: 'Incentives', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // bonus rules
   { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" />, color: '#1565c0' }, // clinical
   { path: '/sales-invoices', label: 'ZATCA Sale', icon: <ReceiptLongIcon fontSize="small" />, color: '#283593' }, // tax / compliance
-  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" />, color: '#b3261e' }, // restricted
-  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" />, color: '#00695c' }, // regulator
+  { path: '/controlled-register', label: 'Controlled', icon: <FactCheckOutlinedIcon fontSize="small" />, color: '#b3261e' }, // restricted
+  { path: '/rsd-reporting', label: 'RSD', icon: <VerifiedUserIcon fontSize="small" />, color: '#00695c' }, // regulator
 ];
 
 export default function SalesHubPage() {
