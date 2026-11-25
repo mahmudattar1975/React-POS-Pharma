@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../db/prisma.js';
+import { terminalBranch } from '../branch.js';
 
 // Persists what src/store/salesStore.ts already holds in the browser's local storage - this is a
 // best-effort backup/sync target, not the primary record. The frontend always saves locally first
@@ -75,11 +76,28 @@ interface SaleInput {
 salesRouter.post('/', async (req, res) => {
   const body = req.body as SaleInput;
   try {
+    // Batch IDs are generated in the browser and are only unique within a terminal (ERP ids are
+    // deterministic per item+batchNo). Resolve them by branch + item + batchNo instead, so two
+    // branches holding the same batch can never decrement each other's stock.
+    const batchIds = await Promise.all(
+      body.lines.map(async (l) => {
+        const batch = await prisma.batch.findFirst({
+          where: { branchId: terminalBranch.id, itemId: l.itemId, batchNo: l.batchNo },
+          select: { id: true },
+        });
+        return batch?.id;
+      })
+    );
+    const batchDeductions = body.lines.flatMap((l, i) =>
+      batchIds[i] ? [prisma.batch.update({ where: { id: batchIds[i] }, data: { qtyOnHand: { decrement: l.qty } } })] : []
+    );
+
     await prisma.$transaction([
       prisma.sale.create({
         data: {
         id: body.id,
         invoiceNo: body.invoiceNo,
+        branchId: terminalBranch.id,
         invoiceType: body.invoiceType,
         date: new Date(body.date),
         customerId: body.customerId,
@@ -140,13 +158,9 @@ salesRouter.post('/', async (req, res) => {
         },
       }),
       // The frontend already decremented its own local copy (catalogStore.decrementBatch) before
-      // calling this - this mirrors that same deduction onto this DB's batches table, which
-      // otherwise only ever reflected receiving, never sales. updateMany (not update) so a batchId
-      // this DB has never heard of (e.g. seeded only in the browser, not here) just matches zero
-      // rows instead of failing the whole backup.
-      ...body.lines.map((l) =>
-        prisma.batch.updateMany({ where: { id: l.batchId }, data: { qtyOnHand: { decrement: l.qty } } })
-      ),
+      // calling this - mirror that same deduction onto this branch's batches. A batch this DB has
+      // never heard of (seeded only in the browser) is simply skipped, never a backup failure.
+      ...batchDeductions,
     ]);
     res.status(201).json({ ok: true });
   } catch (err) {
@@ -190,16 +204,36 @@ salesRouter.post('/returns', async (req, res) => {
     // so each one's batch can be restocked (catalogStore.incrementBatch's server-side mirror),
     // same reasoning as the batch decrement on the sale backup above.
     const originalLines = await prisma.saleLine.findMany({
-      where: { id: { in: body.lines.map((l) => l.saleLineId) } },
-      select: { id: true, batchId: true },
+      where: {
+        id: { in: body.lines.map((l) => l.saleLineId) },
+        // A terminal must not restock another branch's batch, even if an id somehow collides.
+        sale: { branchId: terminalBranch.id },
+      },
+      select: { id: true, itemId: true, batchNo: true },
     });
-    const batchIdByLineId = new Map(originalLines.map((l) => [l.id, l.batchId]));
+    const originalByLineId = new Map(originalLines.map((l) => [l.id, l]));
+
+    const restockIds = await Promise.all(
+      body.lines.map(async (l) => {
+        const original = originalByLineId.get(l.saleLineId);
+        if (!original) return undefined;
+        const batch = await prisma.batch.findFirst({
+          where: { branchId: terminalBranch.id, itemId: original.itemId, batchNo: original.batchNo },
+          select: { id: true },
+        });
+        return batch?.id;
+      })
+    );
+    const batchIncrements = body.lines.flatMap((l, i) =>
+      restockIds[i] ? [prisma.batch.update({ where: { id: restockIds[i] }, data: { qtyOnHand: { increment: l.qty } } })] : []
+    );
 
     await prisma.$transaction([
       prisma.returnRecord.create({
         data: {
           id: body.id,
           returnNo: body.returnNo,
+          branchId: terminalBranch.id,
           date: new Date(body.date),
           originalInvoiceId: body.originalInvoiceId,
           originalInvoiceNo: body.originalInvoiceNo,
@@ -227,10 +261,7 @@ salesRouter.post('/returns', async (req, res) => {
       ...body.updatedLineReturnedQtys.map((l) =>
         prisma.saleLine.update({ where: { id: l.lineId }, data: { returnedQty: l.returnedQty } })
       ),
-      ...body.lines
-        .map((l) => ({ batchId: batchIdByLineId.get(l.saleLineId), qty: l.qty }))
-        .filter((l): l is { batchId: string; qty: number } => !!l.batchId)
-        .map((l) => prisma.batch.updateMany({ where: { id: l.batchId }, data: { qtyOnHand: { increment: l.qty } } })),
+      ...batchIncrements,
     ]);
     res.status(201).json({ ok: true });
   } catch (err) {

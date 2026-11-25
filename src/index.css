@@ -6,3 +6,10 @@ body {
   width: 100%;
   height: 100vh;
 }
+
+/* Only explicitly marked glyphs are mirrored: back/forward arrows and chevrons carry direction,
+   medication/logo icons must stay as they are. MUI mirrors its own directional icons via the
+   `direction` field on the theme; this rule covers the few custom arrows we render. */
+[dir='rtl'] .flip-rtl {
+  transform: scaleX(-1);
+}

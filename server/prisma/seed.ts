@@ -5,6 +5,7 @@
 import { prisma } from '../src/db/prisma.js';
 import { searchItems, getSellableBatches, type ErpItem } from '../src/erp/items.js';
 import { seedItems, seedBatches, seedOffers } from '../../src/utils/seedData.js';
+import { DEFAULT_BRANCHES } from '../src/branches.js';
 
 // A test batch, not "everything" - the real catalog is large (a generic search term alone matched
 // 3000+ rows live, per erp/README.md), and this is for exercising the app realistically, not
@@ -146,7 +147,27 @@ async function importRealItemsFromXph(targetCount: number) {
   console.log(`Upserted ${itemCount} real items and ${batchCount} real batches from XPH.`);
 }
 
+async function seedBranches() {
+  for (const branch of DEFAULT_BRANCHES) {
+    const data = {
+      code: branch.code,
+      nameEn: branch.nameEn,
+      nameAr: branch.nameAr,
+      address: null,
+      phone: null,
+      vatNumber: null,
+      crNumber: null,
+      glnNo: null,
+      costCenterId: branch.costCenterId ?? null,
+      isActive: true,
+    };
+    await prisma.branch.upsert({ where: { id: branch.id }, create: { id: branch.id, ...data }, update: data });
+  }
+  console.log(`Upserted ${DEFAULT_BRANCHES.length} branches.`);
+}
+
 async function main() {
+  await seedBranches();
   await seedFictionalCatalog();
   await importRealItemsFromXph(REAL_ITEM_TARGET);
 }

@@ -19,6 +19,7 @@ import {
   zatcaPatchFromSubmission, zatcaStatusLabel,
 } from '../../utils/zatcaInvoice';
 
+import { T, useT } from '../../i18n';
 // Loyalty points earned/redeemed on a sale are proportional to money, so a return claws back /
 // refunds the same proportion. Uses the CUMULATIVE returned share of the invoice (not just this
 // return's own lines) so a series of partial returns against the same invoice never re-applies
@@ -48,6 +49,7 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 }
 
 export default function ReturnsPage() {
+  const tr = useT();
   const { invoiceByNo, recordReturn, returns, invoices, updateReturnZatca } = useSalesStore();
   const { items: catalogItems, incrementBatch } = useCatalogStore();
   const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
@@ -313,42 +315,42 @@ export default function ReturnsPage() {
     <Box sx={{ p: 3, maxWidth: 860 }}>
       <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
         <TextField
-          label="Invoice No. / phone / customer"
+          label={tr('Invoice No. / phone / customer')}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             setResults(null);
           }}
           onKeyDown={(e) => e.key === 'Enter' && find()}
-          helperText="Search by invoice number, customer phone, name, or “Walk-in Customer”."
+          helperText={tr('Search by invoice number, customer phone, name, or “Walk-in Customer”.')}
           sx={{ flex: 1 }}
         />
-        <Button variant="contained" onClick={find} sx={{ alignSelf: 'flex-start', height: 56 }}>Find</Button>
+        <Button variant="contained" onClick={find} sx={{ alignSelf: 'flex-start', height: 56 }}><T>Find</T></Button>
       </Stack>
 
       {results !== null && results.length === 0 && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          No invoice found for that number, phone or customer.
+          <T>No invoice found for that number, phone or customer.</T>
         </Alert>
       )}
 
       {results !== null && results.length > 0 && (
         <Paper variant="outlined" sx={{ mb: 2 }}>
           <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5 }}>
-            {results.length} matching invoices — choose the one to refund
+            {results.length} <T>matching invoices — choose the one to refund</T>
           </Typography>
           <List dense>
             {results.map((inv) => {
               const phone = (inv.customerId ? phoneById.get(inv.customerId) : '') ?? '';
-              const name = inv.customerNameEn || inv.customerNameAr || 'Walk-in Customer';
+              const name = inv.customerNameEn || inv.customerNameAr || tr("Walk-in Customer");
               return (
                 <ListItemButton key={inv.id} onClick={() => pick(inv)}>
                   <ListItemText
                     primary={`${inv.invoiceNo} · ${name}`}
                     secondary={`${new Date(inv.date).toLocaleString()}${phone ? ` · ${phone}` : ''} · SAR ${formatMoney(inv.totalInclVat)}`}
                   />
-                  {inv.status === 'returned' && <Chip size="small" label="Returned" />}
-                  {inv.status === 'partially_returned' && <Chip size="small" color="warning" label="Part returned" />}
+                  {inv.status === 'returned' && <Chip size="small" label={tr('Returned')} />}
+                  {inv.status === 'partially_returned' && <Chip size="small" color="warning" label={tr('Part returned')} />}
                 </ListItemButton>
               );
             })}
@@ -361,23 +363,23 @@ export default function ReturnsPage() {
           <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography variant="subtitle2">
               {invoice.invoiceNo} · {new Date(invoice.date).toLocaleString()} ·{' '}
-              {invoice.customerNameEn || invoice.customerNameAr || 'Walk-in Customer'}
+              {invoice.customerNameEn || invoice.customerNameAr || tr("Walk-in Customer")}
             </Typography>
             {(invoice.customerId ? phoneById.get(invoice.customerId) : '') && (
               <Typography variant="caption" color="text.secondary">
                 {phoneById.get(invoice.customerId!)}
               </Typography>
             )}
-            {invoice.status === 'returned' && <Chip size="small" label="Returned" />}
-            {invoice.status === 'partially_returned' && <Chip size="small" color="warning" label="Part returned" />}
+            {invoice.status === 'returned' && <Chip size="small" label={tr('Returned')} />}
+            {invoice.status === 'partially_returned' && <Chip size="small" color="warning" label={tr('Part returned')} />}
           </Stack>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Item</TableCell>
-                <TableCell align="right">Sold</TableCell>
-                <TableCell align="right">Already Returned</TableCell>
-                <TableCell align="right">Return Qty</TableCell>
+                <TableCell><T>Item</T></TableCell>
+                <TableCell align="right"><T>Sold</T></TableCell>
+                <TableCell align="right"><T>Already Returned</T></TableCell>
+                <TableCell align="right"><T>Return Qty</T></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -388,7 +390,7 @@ export default function ReturnsPage() {
                     <TableCell>
                       {l.itemNameEn}
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        batch {l.batchNo}
+                        <T>batch</T> {l.batchNo}
                         {l.unit ? ` · ${l.unit}` : ''}
                       </Typography>
                     </TableCell>
@@ -409,27 +411,27 @@ export default function ReturnsPage() {
               })}
             </TableBody>
           </Table>
-          <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth sx={{ mt: 2 }} />
-          <Button variant="contained" sx={{ mt: 2 }} onClick={submitReturn}>Process Return</Button>
+          <TextField label={tr('Reason')} value={reason} onChange={(e) => setReason(e.target.value)} fullWidth sx={{ mt: 2 }} />
+          <Button variant="contained" sx={{ mt: 2 }} onClick={submitReturn}><T>Process Return</T></Button>
           {message && <Alert severity={messageSeverity} sx={{ mt: 2 }}>{message}</Alert>}
 
           {invoice && returnRows.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                ZATCA credit notes for this invoice
+                <T>ZATCA credit notes for this invoice</T>
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                A refund is reported as a credit note referencing the original tax invoice. If the
+                <T>A refund is reported as a credit note referencing the original tax invoice. If the
                 signing server was unavailable, the refund is still valid — retry the note here once
-                it is back.
+                it is back.</T>
               </Typography>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Credit note</TableCell>
-                    <TableCell align="right">Refund</TableCell>
-                    <TableCell>ZATCA</TableCell>
-                    <TableCell align="right">Action</TableCell>
+                    <TableCell><T>Credit note</T></TableCell>
+                    <TableCell align="right"><T>Refund</T></TableCell>
+                    <TableCell><T>ZATCA</T></TableCell>
+                    <TableCell align="right"><T>Action</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -458,7 +460,7 @@ export default function ReturnsPage() {
                             disabled={busyReturnId !== null || !needsResubmission(ret)}
                             onClick={() => void submitCreditNote(ret, invoice)}
                           >
-                            {busyReturnId === ret.id ? 'Sending…' : 'Retry credit note'}
+                            {busyReturnId === ret.id ? tr("Sending…") : tr("Retry credit note")}
                           </Button>
                         </TableCell>
                       </TableRow>

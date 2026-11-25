@@ -26,7 +26,9 @@ import { useAuthStore } from '../../store/authStore';
 import { round2 } from '../../utils/vat';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export default function CategoryMapPage() {
+  const tr = useT();
   const items = useCatalogStore((s) => s.items);
   const sales = useSalesStore((s) => s.invoices);
   const centers = useCostCenterStore((s) => s.centers);
@@ -94,33 +96,33 @@ export default function CategoryMapPage() {
         {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
         {saved && (
           <Alert severity="success" onClose={() => setSaved(null)}>
-            Saved: {saved}. New sales in this category will carry the mapped center on each line.
+            <T>Saved:</T> {saved}<T>. New sales in this category will carry the mapped center on each line.</T>
           </Alert>
         )}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Item categories ({observed.length} in the catalog · {mappedCount} mapped)
+            <T>Item categories (</T>{observed.length} <T>in the catalog ·</T> {mappedCount} <T>mapped)</T>
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            The list comes from the item master itself, so only categories that actually have items
+            <T>The list comes from the item master itself, so only categories that actually have items
             can be mapped. Sales lines keep the center they were stamped with, even if the rule
-            changes later.
+            changes later.</T>
           </Typography>
 
           {observed.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              No categorised items in the catalog.
+              <T>No categorised items in the catalog.</T>
             </Typography>
           ) : (
             <TableContainer sx={{ mt: 1.5 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Category</TableCell>
-                    <TableCell align="right">Items</TableCell>
-                    <TableCell>Sample items</TableCell>
-                    <TableCell sx={{ minWidth: 280 }}>Maps to</TableCell>
+                    <TableCell><T>Category</T></TableCell>
+                    <TableCell align="right"><T>Items</T></TableCell>
+                    <TableCell><T>Sample items</T></TableCell>
+                    <TableCell sx={{ minWidth: 280 }}><T>Maps to</T></TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -134,7 +136,7 @@ export default function CategoryMapPage() {
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.label}</Typography>
                           <Typography variant="caption" color="text.secondary">
-                            key: {o.key}
+                            <T>key:</T> {o.key}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">{o.itemCount}</TableCell>
@@ -155,7 +157,7 @@ export default function CategoryMapPage() {
                             error={stale}
                           >
                             <MenuItem value="">
-                              <em>(no rule - falls back to the store center)</em>
+                              <em><T>(no rule - falls back to the store center)</T></em>
                             </MenuItem>
                             {targetCenters.map((c) => (
                               <MenuItem
@@ -164,21 +166,21 @@ export default function CategoryMapPage() {
                                 disabled={!c.isActive || !c.IsPostingAllowed}
                               >
                                 {c.code} — {c.nameEn}
-                                {!c.isActive ? ' (inactive)' : ''}
-                                {!c.IsPostingAllowed ? ' (no posting)' : ''}
+                                {!c.isActive ? tr("(inactive)") : ''}
+                                {!c.IsPostingAllowed ? tr("(no posting)") : ''}
                               </MenuItem>
                             ))}
                           </Select>
                           {stale && (
                             <Typography variant="caption" color="error">
-                              Rule target is not open for posting - sales fall back to the store center.
+                              <T>Rule target is not open for posting - sales fall back to the store center.</T>
                             </Typography>
                           )}
                         </TableCell>
                         <TableCell align="right">
                           {rule && (
                             <Button size="small" color="inherit" onClick={() => remove(o.key, o.label)}>
-                              Remove
+                              <T>Remove</T>
                             </Button>
                           )}
                         </TableCell>
@@ -193,41 +195,41 @@ export default function CategoryMapPage() {
 
         {/* ---- exceptions: what is still unclassified, and what it costs */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Assignment exceptions</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}><T>Assignment exceptions</T></Typography>
           <Typography variant="caption" color="text.secondary">
-            Revenue at risk counts issued sale lines (ex VAT, after discount) whose category has no
-            usable rule - those lines stay on the store's branch center.
+            <T>Revenue at risk counts issued sale lines (ex VAT, after discount) whose category has no
+            usable rule - those lines stay on the store's branch center.</T>
           </Typography>
           <Stack spacing={0.5} sx={{ mt: 1.5 }}>
             <Typography variant="body2" color={byKind.unmapped.length ? 'error' : 'text.secondary'}>
-              Categories with no rule: {byKind.unmapped.length}
+              <T>Categories with no rule:</T> {byKind.unmapped.length}
               {byKind.unmapped.length > 0 && ` (${byKind.unmapped.map((e) => e.categoryLabel).join(', ')})`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Sales value still on the branch default: SAR {formatMoney(round2(atRisk.revenue))} across{' '}
-              {atRisk.lineCount} sale line{atRisk.lineCount === 1 ? '' : 's'}
+              <T>Sales value still on the branch default: SAR</T> {formatMoney(round2(atRisk.revenue))} <T>across</T>{' '}
+              {atRisk.lineCount} <T>sale line</T>{atRisk.lineCount === 1 ? '' : 's'}
             </Typography>
             <Typography variant="body2" color={byKind.stale.length ? 'error' : 'text.secondary'}>
-              Rules pointing at a centre that is not open: {byKind.stale.length}
+              <T>Rules pointing at a centre that is not open:</T> {byKind.stale.length}
             </Typography>
           </Stack>
 
           {byKind.unused.length > 0 && (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2 }}>
-                Rules matching no item ({byKind.unused.length})
+                <T>Rules matching no item (</T>{byKind.unused.length})
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Usually a typo. They do nothing today but would start applying the moment an item
-                with that category is imported.
+                <T>Usually a typo. They do nothing today but would start applying the moment an item
+                with that category is imported.</T>
               </Typography>
               <TableContainer sx={{ mt: 1 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Rule category</TableCell>
-                      <TableCell>Key</TableCell>
-                      <TableCell>Maps to</TableCell>
+                      <TableCell><T>Rule category</T></TableCell>
+                      <TableCell><T>Key</T></TableCell>
+                      <TableCell><T>Maps to</T></TableCell>
                       <TableCell />
                     </TableRow>
                   </TableHead>
@@ -237,11 +239,11 @@ export default function CategoryMapPage() {
                         <TableCell>{e.categoryLabel}</TableCell>
                         <TableCell><code>{e.categoryKey}</code></TableCell>
                         <TableCell>
-                          {centers.find((c) => c.id === e.costCenterId)?.nameEn ?? '(missing centre)'}
+                          {centers.find((c) => c.id === e.costCenterId)?.nameEn ?? tr("(missing centre)")}
                         </TableCell>
                         <TableCell align="right">
                           <Button size="small" color="inherit" onClick={() => remove(e.categoryKey, e.categoryLabel)}>
-                            Remove
+                            <T>Remove</T>
                           </Button>
                         </TableCell>
                       </TableRow>

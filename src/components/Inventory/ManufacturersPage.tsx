@@ -23,9 +23,11 @@ import type { Manufacturer } from '../../types/manufacturer';
 import { maxCompanyNumber, nextCompanyNumber } from '../../utils/manufacturers';
 import ManufacturerFormDialog from './ManufacturerFormDialog';
 
+import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function ManufacturersPage() {
+  const tr = useT();
   const manufacturers = useManufacturerStore((s) => s.manufacturers);
   const addManufacturer = useManufacturerStore((s) => s.addManufacturer);
   const updateManufacturer = useManufacturerStore((s) => s.updateManufacturer);
@@ -129,19 +131,19 @@ export default function ManufacturersPage() {
           <Chip size="small" variant="outlined" color="primary" label={`Next number ${nextNumber}`} />
         </Stack>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
-          Add Company
+          <T>Add Company</T>
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        بيانات الشركات الصانعة — company number, Arabic/English name and detailed data
+        <T>بيانات الشركات الصانعة — company number, Arabic/English name and detailed data</T>
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
         <TextField
           fullWidth
           size="small"
-          label="Search company no / Arabic name / English name / details"
+          label={tr('Search company no / Arabic name / English name / details')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           slotProps={{
@@ -157,9 +159,9 @@ export default function ManufacturersPage() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
         >
-          <MenuItem value="all">All companies</MenuItem>
-          <MenuItem value="active">Active only</MenuItem>
-          <MenuItem value="inactive">Inactive only</MenuItem>
+          <MenuItem value="all"><T>All companies</T></MenuItem>
+          <MenuItem value="active"><T>Active only</T></MenuItem>
+          <MenuItem value="inactive"><T>Inactive only</T></MenuItem>
         </Select>
       </Stack>
 
@@ -167,12 +169,12 @@ export default function ManufacturersPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 90 }}>Company No</TableCell>
-              <TableCell>Company name</TableCell>
-              <TableCell>Detailed data</TableCell>
-              <TableCell align="center">Items</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Updated</TableCell>
+              <TableCell sx={{ width: 90 }}><T>Company No</T></TableCell>
+              <TableCell><T>Company name</T></TableCell>
+              <TableCell><T>Detailed data</T></TableCell>
+              <TableCell align="center"><T>Items</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell><T>Updated</T></TableCell>
               <TableCell align="right" />
             </TableRow>
           </TableHead>
@@ -181,7 +183,7 @@ export default function ManufacturersPage() {
               <TableRow>
                 <TableCell colSpan={7}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No companies match this search. Add a company to start building the manufacturer file.
+                    <T>No companies match this search. Add a company to start building the manufacturer file.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -230,9 +232,9 @@ export default function ManufacturersPage() {
                   </TableCell>
                   <TableCell>
                     {company.isActive === false ? (
-                      <Chip size="small" color="default" label="Inactive" />
+                      <Chip size="small" color="default" label={tr('Inactive')} />
                     ) : (
-                      <Chip size="small" color="success" variant="outlined" label="Active" />
+                      <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
                     )}
                   </TableCell>
                   <TableCell>
@@ -243,14 +245,14 @@ export default function ManufacturersPage() {
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton
                       size="small"
-                      title="Edit company"
+                      title={tr('Edit company')}
                       onClick={(e) => { e.stopPropagation(); openEdit(company); }}
                     >
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
-                      title="Delete company"
+                      title={tr('Delete company')}
                       onClick={(e) => {
                         e.stopPropagation();
                         setDeleteError(null);
@@ -270,7 +272,7 @@ export default function ManufacturersPage() {
       {dialog.open && (
         <ManufacturerFormDialog
           // Remount per row so the form initialises from that company (no setState-in-effect reset).
-          key={dialog.manufacturer?.id ?? 'new-company'}
+          key={dialog.manufacturer?.id ?? tr("new-company")}
           open
           manufacturer={dialog.manufacturer}
           manufacturers={manufacturers}
@@ -281,23 +283,23 @@ export default function ManufacturersPage() {
       )}
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete company?</DialogTitle>
+        <DialogTitle><T>Delete company?</T></DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
             <DialogContentText>
-              This permanently removes <strong>{deleteTarget?.nameEn}</strong>{' '}
-              ({deleteTarget ? `no ${deleteTarget.companyNo}` : ''}) from the company master.
+              <T>This permanently removes</T> <strong>{deleteTarget?.nameEn}</strong>{' '}
+              ({deleteTarget ? `no ${deleteTarget.companyNo}` : ''}<T>) from the company master.</T>
             </DialogContentText>
             <DialogContentText>
-              A company still linked to items cannot be deleted - mark it inactive instead so those
-              items keep their manufacturer reference.
+              <T>A company still linked to items cannot be deleted - mark it inactive instead so those
+              items keep their manufacturer reference.</T>
             </DialogContentText>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmDelete}>Delete Company</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete Company</T></Button>
         </DialogActions>
       </Dialog>
     </Box>

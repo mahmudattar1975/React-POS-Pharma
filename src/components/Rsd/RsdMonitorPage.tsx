@@ -21,6 +21,7 @@ import { getRsdStatus } from '../../api/rsdApi';
 import { useRsdOutboxStore } from '../../store/rsdOutboxStore';
 import { rsdQueueSummary, type RsdOutboxItem, type RsdOutboxStatus } from '../../utils/rsdOutbox';
 
+import { T, useT } from '../../i18n';
 type Filter = 'all' | RsdOutboxStatus;
 
 const STATUS_LABEL: Record<RsdOutboxStatus, { label: string; color: ChipProps['color']; help: string }> = {
@@ -43,10 +44,11 @@ const STATUS_LABEL: Record<RsdOutboxStatus, { label: string; color: ChipProps['c
 };
 
 function StatusChip({ status }: { status: RsdOutboxStatus }) {
+  const tr = useT();
   const entry = STATUS_LABEL[status];
   return (
     <Tooltip title={entry.help}>
-      <Chip size="small" color={entry.color} label={entry.label} variant="outlined" />
+      <Chip size="small" color={entry.color} label={tr(entry.label)} variant="outlined" />
     </Tooltip>
   );
 }
@@ -67,6 +69,7 @@ function blockedCancel(queue: RsdOutboxItem[], item: RsdOutboxItem): boolean {
 }
 
 export default function RsdMonitorPage() {
+  const tr = useT();
   const queue = useRsdOutboxStore((s) => s.queue);
   const isFlushing = useRsdOutboxStore((s) => s.isFlushing);
   const flush = useRsdOutboxStore((s) => s.flush);
@@ -142,7 +145,7 @@ export default function RsdMonitorPage() {
     <Box sx={{ p: 3, maxWidth: 1400 }}>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
         <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
-          RSD / SFDA reporting
+          <T>RSD / SFDA reporting</T>
         </Typography>
         <Chip
           size="small"
@@ -155,12 +158,12 @@ export default function RsdMonitorPage() {
             size="small"
             variant="outlined"
             color={status.credentialsConfigured ? 'success' : 'error'}
-            label={status.credentialsConfigured ? 'credentials configured' : 'credentials missing'}
+            label={status.credentialsConfigured ? tr("credentials configured") : tr("credentials missing")}
           />
         )}
         <Box sx={{ flex: 1 }} />
         <Button size="small" startIcon={<RefreshIcon />} onClick={() => void refreshStatus()}>
-          Refresh
+          <T>Refresh</T>
         </Button>
         <Button
           size="small"
@@ -169,27 +172,27 @@ export default function RsdMonitorPage() {
           disabled={isFlushing || summary.pending === 0}
           onClick={() => void flush()}
         >
-          {isFlushing ? 'Sending…' : 'Send now'}
+          {isFlushing ? tr("Sending…") : tr("Send now")}
         </Button>
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Every serialised drug pack sold at the till is reported to SFDA here, and a full return
+        <T>Every serialised drug pack sold at the till is reported to SFDA here, and a full return
         cancels it. Supplies and items without Batch / expiry tracking in Item Master are never
-        queued. A sale is saved locally first, so nothing here can block the POS.
+        queued. A sale is saved locally first, so nothing here can block the POS.</T>
       </Typography>
 
       {statusError && (
         <Alert severity="warning" sx={{ mb: 1.5 }}>
-          RSD server not reachable: {statusError} Queued reports stay in the outbox and are retried
-          every 60 seconds.
+          <T>RSD server not reachable:</T> {statusError} <T>Queued reports stay in the outbox and are retried
+          every 60 seconds.</T>
         </Alert>
       )}
 
       {status?.mode === 'mock' && (
         <Alert severity="info" sx={{ mb: 1.5 }}>
-          RSD is in mock mode, so nothing is sent to SFDA. The whole queue is exercised against the
-          local simulated service.
+          <T>RSD is in mock mode, so nothing is sent to SFDA. The whole queue is exercised against the
+          local simulated service.</T>
         </Alert>
       )}
 
@@ -221,7 +224,7 @@ export default function RsdMonitorPage() {
         <Stack direction="row" spacing={2} sx={{ mb: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
             size="small"
-            label="Search invoice / GTIN / serial / RC"
+            label={tr('Search invoice / GTIN / serial / RC')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ minWidth: 300 }}
@@ -233,14 +236,14 @@ export default function RsdMonitorPage() {
             onChange={(e) => setFilter(e.target.value as Filter)}
             sx={{ minWidth: 190 }}
           >
-            <MenuItem value="all">All units</MenuItem>
-            <MenuItem value="pending">Queued</MenuItem>
-            <MenuItem value="sent">Sent</MenuItem>
-            <MenuItem value="rejected">Rejected</MenuItem>
-            <MenuItem value="blocked">Blocked</MenuItem>
+            <MenuItem value="all"><T>All units</T></MenuItem>
+            <MenuItem value="pending"><T>Queued</T></MenuItem>
+            <MenuItem value="sent"><T>Sent</T></MenuItem>
+            <MenuItem value="rejected"><T>Rejected</T></MenuItem>
+            <MenuItem value="blocked"><T>Blocked</T></MenuItem>
           </Select>
           <Typography variant="caption" color="text.secondary">
-            {rows.length} shown
+            {rows.length} <T>shown</T>
           </Typography>
         </Stack>
 
@@ -248,17 +251,17 @@ export default function RsdMonitorPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Queued</TableCell>
-                <TableCell>Invoice</TableCell>
-                <TableCell>Movement</TableCell>
-                <TableCell>GTIN</TableCell>
-                <TableCell>Serial</TableCell>
-                <TableCell>Batch</TableCell>
-                <TableCell>Expiry</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>RC / reason</TableCell>
-                <TableCell align="right">Tries</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell><T>Queued</T></TableCell>
+                <TableCell><T>Invoice</T></TableCell>
+                <TableCell><T>Movement</T></TableCell>
+                <TableCell><T>GTIN</T></TableCell>
+                <TableCell><T>Serial</T></TableCell>
+                <TableCell><T>Batch</T></TableCell>
+                <TableCell><T>Expiry</T></TableCell>
+                <TableCell><T>Status</T></TableCell>
+                <TableCell><T>RC / reason</T></TableCell>
+                <TableCell align="right"><T>Tries</T></TableCell>
+                <TableCell align="right"><T>Actions</T></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -267,8 +270,8 @@ export default function RsdMonitorPage() {
                   <TableCell colSpan={11}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                       {summary.total === 0
-                        ? 'Nothing queued yet. Sell a batch-tracked drug with a scanned DataMatrix to see it here.'
-                        : 'No units match this filter.'}
+                        ? tr("Nothing queued yet. Sell a batch-tracked drug with a scanned DataMatrix to see it here.")
+                        : tr("No units match this filter.")}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -280,7 +283,7 @@ export default function RsdMonitorPage() {
                   <TableRow key={item.id} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.createdAt.slice(0, 16).replace('T', ' ')}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{item.invoiceNo}</TableCell>
-                    <TableCell>{item.kind === 'sale' ? 'Sale' : 'Cancel'}</TableCell>
+                    <TableCell>{item.kind === 'sale' ? tr("Sale") : tr("Cancel")}</TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{item.unit.gtin}</TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{item.unit.serialNo}</TableCell>
                     <TableCell>{item.unit.batchNo}</TableCell>
@@ -301,14 +304,14 @@ export default function RsdMonitorPage() {
                       )}
                       {item.notificationId && (
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          notification {item.notificationId}
+                          <T>notification</T> {item.notificationId}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">{item.attempts}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       {canRetry && (
-                        <Tooltip title="Reopen this rejection on the server and send the same payload again">
+                        <Tooltip title={tr('Reopen this rejection on the server and send the same payload again')}>
                           <span>
                             <Button
                               size="small"
@@ -317,21 +320,21 @@ export default function RsdMonitorPage() {
                               disabled={busyId !== null}
                               onClick={() => void retryItem(item)}
                             >
-                              {busyId === item.id ? 'Sending…' : 'Retry'}
+                              {busyId === item.id ? tr("Sending…") : tr("Retry")}
                             </Button>
                           </span>
                         </Tooltip>
                       )}
                       {item.status === 'pending' && (
                         <Button size="small" disabled={isFlushing} onClick={() => void flush()}>
-                          Send now
+                          <T>Send now</T>
                         </Button>
                       )}
                       {blocked && !canRetry && (
-                        <Tooltip title="Retry the rejected sale for this unit first; a cancellation can only follow an accepted sale.">
+                        <Tooltip title={tr('Retry the rejected sale for this unit first; a cancellation can only follow an accepted sale.')}>
                           <span>
                             <Button size="small" disabled>
-                              Blocked
+                              <T>Blocked</T>
                             </Button>
                           </span>
                         </Tooltip>
@@ -348,12 +351,12 @@ export default function RsdMonitorPage() {
       {status && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Sale service: {status.saleUrl || '—'} · Cancel service: {status.cancelUrl || '—'} · Direct
-            to-GLN: {status.directToGln}
+            <T>Sale service:</T> {status.saleUrl || '—'} <T>· Cancel service:</T> {status.cancelUrl || '—'} <T>· Direct
+            to-GLN:</T> {status.directToGln}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Server ledger: {status.ledger.records} records · {status.ledger.salesSent} sales sent ·{' '}
-            {status.ledger.cancelsSent} cancels sent · {status.ledger.pendingOrFailed} not accepted
+            <T>Server ledger:</T> {status.ledger.records} <T>records ·</T> {status.ledger.salesSent} <T>sales sent ·</T>{' '}
+            {status.ledger.cancelsSent} <T>cancels sent ·</T> {status.ledger.pendingOrFailed} <T>not accepted</T>
           </Typography>
         </Box>
       )}

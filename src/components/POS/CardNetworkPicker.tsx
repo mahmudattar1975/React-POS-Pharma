@@ -1,6 +1,7 @@
 import { Box, ButtonBase, Tooltip } from '@mui/material';
 import type { CardNetwork } from '../../types/sales';
 
+import { T, useT } from '../../i18n';
 // Small, self-drawn badges rather than official logo assets - close enough to be instantly
 // recognizable (the same purpose real POS terminals' network stickers serve) without pulling in
 // trademarked brand artwork. Visa/Amex's own marks are essentially their wordmark typography, so a
@@ -34,13 +35,13 @@ function NetworkBadge({ network }: { network: CardNetwork }) {
     case 'mada':
       return (
         <Box sx={{ width: '100%', height: '100%', bgcolor: '#1B7B4B', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: 0.5 }}>mada</Box>
+          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: 0.5 }}><T>mada</T></Box>
         </Box>
       );
     case 'visa':
       return (
         <Box sx={{ width: '100%', height: '100%', bgcolor: '#fff', border: '1px solid #d0d0d0', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box component="span" sx={{ color: '#1A1F71', fontWeight: 900, fontStyle: 'italic', fontSize: 13, letterSpacing: 0.5 }}>VISA</Box>
+          <Box component="span" sx={{ color: '#1A1F71', fontWeight: 900, fontStyle: 'italic', fontSize: 13, letterSpacing: 0.5 }}><T>VISA</T></Box>
         </Box>
       );
     case 'mastercard':
@@ -55,14 +56,14 @@ function NetworkBadge({ network }: { network: CardNetwork }) {
     case 'amex':
       return (
         <Box sx={{ width: '100%', height: '100%', bgcolor: '#006FCF', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}>AMEX</Box>
+          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}><T>AMEX</T></Box>
         </Box>
       );
     case 'other':
       // Deliberately plain - it IS the "no brand matched" outcome, so no logo styling.
       return (
         <Box sx={{ width: '100%', height: '100%', bgcolor: '#546E7A', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}>OTHER</Box>
+          <Box component="span" sx={{ color: '#fff', fontWeight: 800, fontSize: 10, letterSpacing: 0.3 }}><T>OTHER</T></Box>
         </Box>
       );
   }
@@ -74,12 +75,13 @@ interface Props {
 }
 
 export default function CardNetworkPicker({ value, onChange }: Props) {
+  const tr = useT();
   return (
     <Box sx={{ display: 'flex', gap: 1 }}>
       {NETWORKS.map((n) => (
         <Tooltip key={n.id} title={n.label}>
           <ButtonBase
-            aria-label={n.label}
+            aria-label={tr(n.label)}
             aria-pressed={value === n.id}
             onClick={() => onChange(n.id)}
             sx={{

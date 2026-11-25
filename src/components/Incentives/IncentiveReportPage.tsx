@@ -9,7 +9,9 @@ import type { IncentiveRecord, IncentiveSummary } from '../../types/incentive';
 import { formatMoney } from '../../utils/format';
 import { formatDiscountPercent } from '../../utils/purchasing';
 
+import { T, useT } from '../../i18n';
 export default function IncentiveReportPage() {
+  const tr = useT();
   const { items: catalogItems } = useCatalogStore();
   const [from, setFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10));
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
@@ -38,7 +40,7 @@ export default function IncentiveReportPage() {
   useEffect(() => { load(); }, []);
 
   function exportCsv() {
-    const header = ['Date', 'Invoice', 'Item', 'Qty', 'Sale Amount', 'Type', 'Rate', 'Incentive', 'Cashier'];
+    const header = [tr('Date'), tr('Invoice'), tr('Item'), tr('Qty'), tr('Sale Amount'), tr('Type'), tr('Rate'), tr('Incentive'), tr('Cashier')];
     const rows = records.map((r) => [
       r.invoiceDate.slice(0, 10),
       r.invoiceNo,
@@ -66,17 +68,17 @@ export default function IncentiveReportPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Incentive Report (حافز)</Typography>
-        <Button variant="outlined" onClick={exportCsv} disabled={records.length === 0}>Export CSV</Button>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Incentive Report (حافز)</T></Typography>
+        <Button variant="outlined" onClick={exportCsv} disabled={records.length === 0}><T>Export CSV</T></Button>
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-          <TextField label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} size="small" />
-          <TextField label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} size="small" />
-          <TextField label="Cashier" value={cashier} onChange={(e) => setCashier(e.target.value)} size="small" />
-          <TextField label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} size="small" placeholder="barcode" />
-          <Button variant="contained" onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Apply'}</Button>
+          <TextField label={tr('From')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} size="small" />
+          <TextField label={tr('To')} type="date" value={to} onChange={(e) => setTo(e.target.value)} size="small" />
+          <TextField label={tr('Cashier')} value={cashier} onChange={(e) => setCashier(e.target.value)} size="small" />
+          <TextField label={tr('Item')} value={itemId} onChange={(e) => setItemId(e.target.value)} size="small" placeholder={tr('barcode')} />
+          <Button variant="contained" onClick={load} disabled={loading}>{loading ? tr("Loading…") : tr("Apply")}</Button>
         </Stack>
       </Paper>
 
@@ -84,19 +86,19 @@ export default function IncentiveReportPage() {
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <Card sx={{ minWidth: 160 }}>
             <CardContent>
-              <Typography variant="caption" color="text.secondary">Invoices</Typography>
+              <Typography variant="caption" color="text.secondary"><T>Invoices</T></Typography>
               <Typography variant="h6">{summary.totals.invoiceCount}</Typography>
             </CardContent>
           </Card>
           <Card sx={{ minWidth: 160 }}>
             <CardContent>
-              <Typography variant="caption" color="text.secondary">Total Sales</Typography>
+              <Typography variant="caption" color="text.secondary"><T>Total Sales</T></Typography>
               <Typography variant="h6">{formatMoney(summary.totals.totalSaleAmount)}</Typography>
             </CardContent>
           </Card>
           <Card sx={{ minWidth: 160 }}>
             <CardContent>
-              <Typography variant="caption" color="text.secondary">Total Incentive</Typography>
+              <Typography variant="caption" color="text.secondary"><T>Total Incentive</T></Typography>
               <Typography variant="h6" color="success.main">{formatMoney(summary.totals.totalIncentive)}</Typography>
             </CardContent>
           </Card>
@@ -107,15 +109,15 @@ export default function IncentiveReportPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Invoice</TableCell>
-              <TableCell>Item</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Sale Amount</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Rate</TableCell>
-              <TableCell>Incentive</TableCell>
-              <TableCell>Cashier</TableCell>
+              <TableCell><T>Date</T></TableCell>
+              <TableCell><T>Invoice</T></TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Qty</T></TableCell>
+              <TableCell><T>Sale Amount</T></TableCell>
+              <TableCell><T>Type</T></TableCell>
+              <TableCell><T>Rate</T></TableCell>
+              <TableCell><T>Incentive</T></TableCell>
+              <TableCell><T>Cashier</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -123,7 +125,7 @@ export default function IncentiveReportPage() {
               <TableRow>
                 <TableCell colSpan={9}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No incentive records for this range.
+                    <T>No incentive records for this range.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -147,15 +149,15 @@ export default function IncentiveReportPage() {
 
       {summary && summary.days.length > 0 && (
         <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Daily summary</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}><T>Daily summary</T></Typography>
           <Paper variant="outlined">
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Invoices</TableCell>
-                  <TableCell>Sale Amount</TableCell>
-                  <TableCell>Incentive</TableCell>
+                  <TableCell><T>Date</T></TableCell>
+                  <TableCell><T>Invoices</T></TableCell>
+                  <TableCell><T>Sale Amount</T></TableCell>
+                  <TableCell><T>Incentive</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

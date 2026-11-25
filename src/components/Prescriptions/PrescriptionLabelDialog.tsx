@@ -13,6 +13,7 @@ import {
 import PrintIcon from '@mui/icons-material/Print';
 import type { PrescriptionLabel } from '../../utils/prescriptionLabel';
 
+import { T, useT } from '../../i18n';
 // Same die-cut size as DosagePrintView; change both constants together if the counter's roll changes.
 const LABEL_WIDTH_MM = 50;
 
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function PrescriptionLabelDialog({ open, labels, onClose, autoPrint = false, batchKey }: Props) {
+  const tr = useT();
   const printAreaRef = useRef<HTMLDivElement>(null);
   const pageSizeStyleRef = useRef<HTMLStyleElement>(null);
   const autoPrintedForRef = useRef<string | null>(null);
@@ -69,13 +71,12 @@ export default function PrescriptionLabelDialog({ open, labels, onClose, autoPri
             background: #fff;
             color: #000;
           }
-        }
-      `}</style>
+        }`}</style>
       <style ref={pageSizeStyleRef} />
       <DialogTitle>
-        Prescription label
+        <T>Prescription label</T>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {LABEL_WIDTH_MM}mm label · {labels[0].prescriptionNo} · {labels.length} item(s)
+          {LABEL_WIDTH_MM}<T>mm label ·</T> {labels[0].prescriptionNo} · {labels.length} <T>item(s)</T>
         </Typography>
       </DialogTitle>
       <DialogContent sx={{ px: 2, py: 2, bgcolor: 'grey.100' }}>
@@ -115,7 +116,7 @@ export default function PrescriptionLabelDialog({ open, labels, onClose, autoPri
               <Divider sx={{ my: '1mm', borderColor: 'grey.500' }} />
 
               <Typography sx={{ fontSize: 7.5, lineHeight: 1.25 }}>
-                {label.patientName || 'Patient'} · {label.patientId}
+                {label.patientName || tr("Patient")} · {label.patientId}
               </Typography>
               <Typography sx={{ fontSize: 6.5, lineHeight: 1.25 }}>
                 {label.prescriptionNo} · {label.sourceEn}
@@ -160,7 +161,7 @@ export default function PrescriptionLabelDialog({ open, labels, onClose, autoPri
 
               <Divider sx={{ my: '1mm', borderColor: 'grey.400' }} />
               <Typography sx={{ fontSize: 6.5, lineHeight: 1.3 }}>
-                {[label.batchNo ? `Batch ${label.batchNo}` : null, label.expiryDate ? `Exp ${label.expiryDate}` : null]
+                {[label.batchNo ? `${tr("Batch ")}${label.batchNo}` : null, label.expiryDate ? `${tr("Exp ")}${label.expiryDate}` : null]
                   .filter(Boolean)
                   .join(' · ')}
               </Typography>
@@ -173,10 +174,10 @@ export default function PrescriptionLabelDialog({ open, labels, onClose, autoPri
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ whiteSpace: 'nowrap' }}>
-          Print label
+          <T>Print label</T>
         </Button>
         <Button variant="contained" onClick={onClose} sx={{ flex: 1, minWidth: 120 }}>
-          Done
+          <T>Done</T>
         </Button>
       </DialogActions>
     </Dialog>

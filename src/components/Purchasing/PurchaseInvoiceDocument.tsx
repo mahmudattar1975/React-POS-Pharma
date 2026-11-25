@@ -18,6 +18,7 @@ import { formatDiscountPercent } from '../../utils/purchasing';
 import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import { useSettingsStore } from '../../store/settingsStore';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   invoice: PurchaseInvoice | null;
@@ -38,6 +39,7 @@ function lineUnitCost(l: PurchaseLine): number {
 }
 
 export default function PurchaseInvoiceDocument({ open, invoice, party, costCenterLabel, onClose }: Props) {
+  const tr = useT();
   const settings = useSettingsStore((s) => s.settings);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -69,12 +71,12 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
           <Box>
             <Typography sx={{ fontSize: 9, fontWeight: 700, color: '#555', letterSpacing: 0.5 }}>
-              Buyer / المشتري
+              <T>Buyer / المشتري</T>
             </Typography>
             <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{settings.storeNameAr}</Typography>
             <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{settings.storeNameEn}</Typography>
-            <Typography sx={{ fontSize: 10.5 }}>الرقم الضريبي / VAT No: {settings.vatRegistrationNo || '—'}</Typography>
-            <Typography sx={{ fontSize: 10.5 }}>السجل التجاري / CR No: {settings.crNumber || '—'}</Typography>
+            <Typography sx={{ fontSize: 10.5 }}><T>الرقم الضريبي / VAT No:</T> {settings.vatRegistrationNo || '—'}</Typography>
+            <Typography sx={{ fontSize: 10.5 }}><T>السجل التجاري / CR No:</T> {settings.crNumber || '—'}</Typography>
             <Typography sx={{ fontSize: 10.5 }}>{settings.address}</Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
@@ -82,10 +84,10 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
               {invoice.isReturn ? 'فاتورة مرتجع مشتريات' : 'فاتورة مشتريات'}
             </Typography>
             <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
-              {invoice.isReturn ? 'Purchase Return' : 'Purchase Invoice'}
+              {invoice.isReturn ? tr("Purchase Return") : tr("Purchase Invoice")}
             </Typography>
             <Typography sx={{ fontSize: 10 }}>
-              {invoice.isReturn ? 'مرتجع بضاعة / Goods returned record' : 'سجل استلام بضاعة / Goods received record'}
+              {invoice.isReturn ? tr("مرتجع بضاعة / Goods returned record") : tr("سجل استلام بضاعة / Goods received record")}
             </Typography>
             <Box
               sx={{
@@ -93,7 +95,7 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                 borderRadius: 0.5, fontSize: 10, fontWeight: 700,
               }}
             >
-              {invoice.isReturn ? 'RETURNED' : 'RECEIVED'} · {invoice.invoiceNo}
+              {invoice.isReturn ? tr("RETURNED") : tr("RECEIVED")} · {invoice.invoiceNo}
             </Box>
           </Box>
         </Stack>
@@ -104,15 +106,15 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         <Box sx={{ py: 1 }}>
           <Box sx={{ border: '1px solid #bbb', borderRadius: 0.5, p: 1 }}>
             <Typography sx={{ fontSize: 10, fontWeight: 700 }}>
-              {partyIsCustomer ? 'Customer / العميل' : 'Supplier / المورد'}
+              {partyIsCustomer ? tr("Customer / العميل") : tr("Supplier / المورد")}
             </Typography>
             <Typography sx={{ fontSize: 11, fontWeight: 600 }}>{invoice.vendorNameEn}</Typography>
             <Typography sx={{ fontSize: 10 }} dir="rtl" style={{ textAlign: 'left' }}>{invoice.vendorNameAr}</Typography>
             <Typography sx={{ fontSize: 10 }}>
-              {partyIsCustomer ? 'Customer account' : 'Vendor'} No {invoice.vendorNo ?? party?.vendorNo ?? '—'}
+              {partyIsCustomer ? tr("Customer account") : tr("Vendor")} <T>No</T> {invoice.vendorNo ?? party?.vendorNo ?? '—'}
               {party?.vatNumber
-                ? ` · VAT ${party.vatNumber}`
-                : ' · VAT not on file'}
+                ? `${tr(" · VAT ")}${party.vatNumber}`
+                : tr("· VAT not on file")}
               {party?.phone ? ` · ${party.phone}` : ''}
             </Typography>
           </Box>
@@ -122,28 +124,28 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 3, py: 1, fontSize: 10.5 }}>
           <Box>
             <Typography sx={{ fontSize: 10, fontWeight: 700 }}>
-              {partyIsCustomer ? 'Customer document / مستند العميل' : 'Supplier invoice / فاتورة المورد'}
+              {partyIsCustomer ? tr("Customer document / مستند العميل") : tr("Supplier invoice / فاتورة المورد")}
             </Typography>
             <Typography sx={{ fontSize: 11 }}>{invoice.vendorInvoiceNo}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Purchase No / رقم الشراء</Typography>
-            <Typography sx={{ fontSize: 11 }}>{invoice.invoiceNo}</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700 }}><T>Purchase No / رقم الشراء</T></Typography>
+            <Typography sx={{ fontSize: 11, direction: 'ltr', unicodeBidi: 'isolate' }}>{invoice.invoiceNo}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Invoice date / تاريخ الفاتورة</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700 }}><T>Invoice date / تاريخ الفاتورة</T></Typography>
             <Typography sx={{ fontSize: 11 }}>{invoice.date}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Received / تاريخ الاستلام</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700 }}><T>Received / تاريخ الاستلام</T></Typography>
             <Typography sx={{ fontSize: 11 }}>{invoice.receivedAt.slice(0, 16).replace('T', ' ')}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Received by / المستلم</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700 }}><T>Received by / المستلم</T></Typography>
             <Typography sx={{ fontSize: 11 }}>{invoice.receivedBy}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Branch / الفرع</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700 }}><T>Branch / الفرع</T></Typography>
             <Typography sx={{ fontSize: 11 }}>{costCenterLabel ?? '—'}</Typography>
           </Box>
         </Stack>
@@ -153,17 +155,17 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
           <TableHead>
             <TableRow>
               <TableCell sx={TH}>#</TableCell>
-              <TableCell sx={TH}>Item / الصنف</TableCell>
-              <TableCell sx={TH} align="right">Qty / الكمية</TableCell>
-              <TableCell sx={TH}>Batch / expiry</TableCell>
-              <TableCell sx={TH} align="right">Unit price</TableCell>
-              <TableCell sx={TH} align="right">Unit cost</TableCell>
-              <TableCell sx={TH} align="right">Disc. 1</TableCell>
-              <TableCell sx={TH} align="right">Disc. 2</TableCell>
-              <TableCell sx={TH} align="right">Disc. 3</TableCell>
-              <TableCell sx={TH} align="right">Net (excl. VAT)</TableCell>
-              <TableCell sx={TH} align="right">VAT</TableCell>
-              <TableCell sx={TH} align="right">Total</TableCell>
+              <TableCell sx={TH}><T>Item / الصنف</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Qty / الكمية</T></TableCell>
+              <TableCell sx={TH}><T>Batch / expiry</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Unit price</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Unit cost</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Disc. 1</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Disc. 2</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Disc. 3</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Net (excl. VAT)</T></TableCell>
+              <TableCell sx={TH} align="right"><T>VAT</T></TableCell>
+              <TableCell sx={TH} align="right"><T>Total</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -180,7 +182,7 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                 <TableCell sx={TD} align="right">
                   {formatQty(l.qty)}
                   {l.bonusQty > 0 && (
-                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>+{formatQty(l.bonusQty)} bonus</Typography>
+                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>+{formatQty(l.bonusQty)} <T>bonus</T></Typography>
                   )}
                 </TableCell>
                 <TableCell sx={TD}>
@@ -191,7 +193,7 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
                 <TableCell sx={TD} align="right">
                   {formatUnitPrice(lineUnitCost(l))}
                   {l.bonusQty > 0 && (
-                    <Typography sx={{ fontSize: 9.5, color: '#444' }}>paid {formatUnitPrice(l.unitCostPrice)}</Typography>
+                    <Typography sx={{ fontSize: 9.5, color: '#444' }}><T>paid</T> {formatUnitPrice(l.unitCostPrice)}</Typography>
                   )}
                 </TableCell>
                 <TableCell sx={TD} align="right">
@@ -217,50 +219,50 @@ export default function PurchaseInvoiceDocument({ open, invoice, party, costCent
         {/* ---- totals ---- */}
         <Stack direction="row" sx={{ justifyContent: 'flex-end', mt: 1.5 }}>
           <Box sx={{ minWidth: 260 }}>
-            <TotalRow label="Subtotal (excl. VAT)" value={formatMoney(invoice.subtotalExclVat)} />
+            <TotalRow label={tr('Subtotal (excl. VAT)')} value={formatMoney(invoice.subtotalExclVat)} />
             {invoice.totalDiscount > 0 && (
-              <TotalRow label="Purchase discounts" value={`-${formatMoney(invoice.totalDiscount)}`} />
+              <TotalRow label={tr('Purchase discounts')} value={`-${formatMoney(invoice.totalDiscount)}`} />
             )}
             {invoice.totalBonusValue > 0 && (
               <TotalRow
-                label="Bonus goods (free - not charged or taxed)"
+                label={tr('Bonus goods (free - not charged or taxed)')}
                 value={formatMoney(invoice.totalBonusValue)}
               />
             )}
             {invoice.vatByRate.map((b) => (
               <TotalRow
                 key={b.rate}
-                label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
+                label={`${tr('Input VAT ')}${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr('(zero-rated)')}`}
                 value={formatMoney(b.vatAmount)}
               />
             ))}
             <Divider sx={{ my: 0.5 }} />
-            <TotalRow label="Total incl. VAT (SAR)" value={formatMoney(invoice.totalInclVat)} bold />
+            <TotalRow label={tr('Total incl. VAT (SAR)')} value={formatMoney(invoice.totalInclVat)} bold />
           </Box>
         </Stack>
 
         {invoice.notes && (
           <Typography sx={{ fontSize: 10, mt: 1.5 }}>
-            <strong>Notes / ملاحظات:</strong> {invoice.notes}
+            <strong><T>Notes / ملاحظات:</T></strong> {invoice.notes}
           </Typography>
         )}
 
         <Divider sx={{ mt: 2 }} />
         <Typography sx={{ fontSize: 9.5, color: '#444', mt: 0.75 }}>
-          This is the buyer&apos;s goods-received record for{' '}
-          {partyIsCustomer ? 'customer document' : 'supplier invoice'} {invoice.vendorInvoiceNo}.
-          It is not a ZATCA tax invoice -{' '}
+          <T>This is the buyer&apos;s goods-received record for</T>{' '}
+          {partyIsCustomer ? tr("customer document") : tr("supplier invoice")} {invoice.vendorInvoiceNo}<T>.
+          It is not a ZATCA tax invoice -</T>{' '}
           {partyIsCustomer
-            ? 'the customer\u2019s own document remains the legal record for this buy-back.'
-            : 'the supplier\u2019s own tax invoice remains the legal document for the input VAT shown here.'}
+            ? tr("the customer’s own document remains the legal record for this buy-back.")
+            : tr("the supplier’s own tax invoice remains the legal document for the input VAT shown here.")}
         </Typography>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-          Print A4
+          <T>Print A4</T>
         </Button>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}><T>Close</T></Button>
       </DialogActions>
     </Dialog>
   );

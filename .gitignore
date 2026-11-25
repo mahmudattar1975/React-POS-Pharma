@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Per-terminal branch selection (each PC declares its own branch; never commit)
+server/config/branch.json
+
 # Playwright
 /test-results/
 /playwright-report/

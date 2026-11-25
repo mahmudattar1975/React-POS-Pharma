@@ -12,6 +12,7 @@ import OfferFormDialog from './OfferFormDialog';
 import { formatDiscountPercent } from '../../utils/purchasing';
 import { formatMoney, formatQty } from '../../utils/format';
 
+import { T } from '../../i18n';
 function offerDetails(offer: Offer): string {
   if (offer.type === 'percent') return `${formatDiscountPercent(offer.percent ?? 0)} off`;
   if (offer.type === 'value') return `SAR ${formatMoney(offer.value ?? 0)} off per unit`;
@@ -40,9 +41,9 @@ export default function OffersPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Offers &amp; Promotions</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Offers &amp; Promotions</T></Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialog({ open: true, offer: null })}>
-          Add Offer
+          <T>Add Offer</T>
         </Button>
       </Stack>
 
@@ -50,13 +51,13 @@ export default function OffersPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Offer</TableCell>
-              <TableCell>Label</TableCell>
-              <TableCell>Active From</TableCell>
-              <TableCell>Active To</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Offer</T></TableCell>
+              <TableCell><T>Label</T></TableCell>
+              <TableCell><T>Active From</T></TableCell>
+              <TableCell><T>Active To</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell align="right"><T>Actions</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -64,7 +65,7 @@ export default function OffersPage() {
               <TableRow>
                 <TableCell colSpan={7}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No offers yet — add one to start promoting an item at checkout.
+                    <T>No offers yet — add one to start promoting an item at checkout.</T>
                   </Typography>
                 </TableCell>
               </TableRow>

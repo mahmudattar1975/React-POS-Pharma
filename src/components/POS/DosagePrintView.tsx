@@ -17,6 +17,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import type { SaleHeader } from '../../types/sales';
 import { groupDosageLines, buildDosageLabel } from '../../utils/dosages';
 
+import { T } from '../../i18n';
 // Physical label width. 50mm is a common small pharmacy label; if the counter uses a different
 // die-cut size, change this one constant (the preview, @page width and measurement all follow it).
 const LABEL_WIDTH_MM = 50;
@@ -81,13 +82,12 @@ export default function DosagePrintView({ open, invoice, autoPrint = false, onCl
             background: #fff;
             color: #000;
           }
-        }
-      `}</style>
+        }`}</style>
       <style ref={pageSizeStyleRef} />
       <DialogTitle>
-        Directions label
+        <T>Directions label</T>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {LABEL_WIDTH_MM}mm label · invoice {invoice.invoiceNo}
+          {LABEL_WIDTH_MM}<T>mm label · invoice</T> {invoice.invoiceNo}
         </Typography>
       </DialogTitle>
       <DialogContent sx={{ px: 2, py: 2, bgcolor: 'grey.100' }}>
@@ -109,7 +109,7 @@ export default function DosagePrintView({ open, invoice, autoPrint = false, onCl
         >
           {groups.length === 0 && (
             <Typography sx={{ fontSize: 8, lineHeight: 1.3 }}>
-              No written directions recorded for this invoice.
+              <T>No written directions recorded for this invoice.</T>
             </Typography>
           )}
           {groups.map((group, index) => {
@@ -135,10 +135,10 @@ export default function DosagePrintView({ open, invoice, autoPrint = false, onCl
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ whiteSpace: 'nowrap' }}>
-          Print label
+          <T>Print label</T>
         </Button>
         <Button variant="contained" onClick={onClose} sx={{ flex: 1, minWidth: 120 }}>
-          Done
+          <T>Done</T>
         </Button>
       </DialogActions>
     </Dialog>

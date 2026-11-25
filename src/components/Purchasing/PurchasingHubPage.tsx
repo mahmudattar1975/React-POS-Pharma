@@ -16,6 +16,7 @@ import VendorsPage from './VendorsPage';
 import ReceivingPage from '../Receiving/ReceivingPage';
 import HeadOfficeReceivingPage from '../Receiving/HeadOfficeReceivingPage';
 
+import { T, useT } from '../../i18n';
 const TABS = [
   { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" />, color: '#1f5e40' }, // stock in
   { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#7d5714' }, // reversal
@@ -25,6 +26,7 @@ const TABS = [
 ];
 
 export default function PurchasingHubPage() {
+  const tr = useT();
   const location = useLocation();
   const navigate = useNavigate();
   // Resolved from the path (not remembered in state) so a refresh or a pasted link always opens
@@ -33,9 +35,9 @@ export default function PurchasingHubPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Purchasing Invoice</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Purchasing Invoice</T></Typography>
       <Typography variant="caption" color="text.secondary">
-        Vendor invoices, purchase returns, the party master, direct stock receiving and head-office transfers
+        <T>Vendor invoices, purchase returns, the party master, direct stock receiving and head-office transfers</T>
       </Typography>
       <Tabs
         value={tabIndex}
@@ -45,7 +47,7 @@ export default function PurchasingHubPage() {
         sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tabIndex].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={tr(entry.label)} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tabIndex === 0 && <PurchaseInvoicePage />}

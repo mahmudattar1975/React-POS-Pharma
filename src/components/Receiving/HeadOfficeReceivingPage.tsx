@@ -11,6 +11,7 @@ import type { PackLevel } from '../../types/catalog';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsPerUnit } from '../../utils/packUnits';
 import { formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 // A transfer-in from head office/another branch is NOT a vendor purchase - there's no supplier
 // negotiating a discount off a box price, so this deliberately does NOT reuse Stock Receiving's
 // Purchase Price + Discount % fields (see ReceivingPage.tsx). It still calls the same
@@ -18,6 +19,7 @@ import { formatQty } from '../../utils/format';
 // applies here) since a received batch's shape in the catalog is identical either way; only how a
 // cashier fills the form differs.
 function ManualEntryForm() {
+  const tr = useT();
   const { items, receiveStock, itemById } = useCatalogStore();
   const [itemId, setItemId] = useState('');
   const [batchNo, setBatchNo] = useState('');
@@ -53,11 +55,11 @@ function ManualEntryForm() {
 
   return (
     <Paper variant="outlined" sx={{ p: 3, maxWidth: 480 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Enter a Single Item Manually</Typography>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Enter a Single Item Manually</T></Typography>
       <Stack spacing={2}>
         <FormControl fullWidth>
-          <InputLabel id="ho-item-label">Item</InputLabel>
-          <Select labelId="ho-item-label" label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+          <InputLabel id="ho-item-label"><T>Item</T></InputLabel>
+          <Select labelId="ho-item-label" label={tr('Item')} value={itemId} onChange={(e) => setItemId(e.target.value)}>
             {items.map((i) => (
               <MenuItem key={i.id} value={i.id}>{i.nameEn}</MenuItem>
             ))}
@@ -65,10 +67,10 @@ function ManualEntryForm() {
         </FormControl>
         {item?.pack && (
           <FormControl fullWidth>
-            <InputLabel id="ho-unit-label">Received as</InputLabel>
+            <InputLabel id="ho-unit-label"><T>Received as</T></InputLabel>
             <Select
               labelId="ho-unit-label"
-              label="Received as"
+              label={tr('Received as')}
               value={receiveUnit}
               onChange={(e) => setReceiveUnit(e.target.value as PackLevel)}
             >
@@ -78,9 +80,9 @@ function ManualEntryForm() {
             </Select>
           </FormControl>
         )}
-        <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
+        <TextField label={tr('Batch / Lot No.')} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
         <TextField
-          label="Expiry Date"
+          label={tr('Expiry Date')}
           type="date"
           value={expiryDate}
           onChange={(e) => setExpiryDate(e.target.value)}
@@ -96,16 +98,16 @@ function ManualEntryForm() {
           fullWidth
         />
         <TextField
-          label="Cost per Unit (optional)"
+          label={tr('Cost per Unit (optional)')}
           type="number"
           value={costPerUnit}
           onChange={(e) => setCostPerUnit(e.target.value)}
-          helperText="Leave blank if head office didn't pass down a cost for this transfer."
+          helperText={tr('Leave blank if head office didn\'t pass down a cost for this transfer.')}
           slotProps={{ htmlInput: { step: '0.001' } }}
           fullWidth
         />
-        {done && <Alert severity="success">Stock received from head office into inventory.</Alert>}
-        <Button variant="contained" disabled={!valid} onClick={submit}>Receive Stock</Button>
+        {done && <Alert severity="success"><T>Stock received from head office into inventory.</T></Alert>}
+        <Button variant="contained" disabled={!valid} onClick={submit}><T>Receive Stock</T></Button>
       </Stack>
     </Paper>
   );
@@ -149,6 +151,7 @@ function findColumn(headers: string[], field: keyof typeof HEADER_ALIASES): stri
 }
 
 export default function HeadOfficeReceivingPage() {
+  const tr = useT();
   const { findItemByBarcode, receiveStock, isTransferImported, recordTransferImported } = useCatalogStore();
   const [storeNo, setStoreNo] = useState<number | null>(null);
   const [storeNoError, setStoreNoError] = useState<string | null>(null);
@@ -291,21 +294,21 @@ export default function HeadOfficeReceivingPage() {
   return (
     <Box sx={{ maxWidth: 1000 }}>
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Import a Transfer File</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}><T>Import a Transfer File</T></Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Expects an Excel file with columns: Transfer Code (e.g. TRANSOUT12345601 - the last 2
+          <T>Expects an Excel file with columns: Transfer Code (e.g. TRANSOUT12345601 - the last 2
           digits must match this pharmacy's own store number), Barcode, Batch No, Expiry Date,
           Quantity, and optionally Cost Per Unit. One file can safely cover several transfers and
           several branches - rows for a different pharmacy are rejected automatically, never
-          imported here.
+          imported here.</T>
         </Typography>
 
-        {storeNoError && <Alert severity="warning" sx={{ mb: 2 }}>Could not reach the server to confirm this pharmacy's store number: {storeNoError}. Upload is disabled until this is reachable.</Alert>}
+        {storeNoError && <Alert severity="warning" sx={{ mb: 2 }}><T>Could not reach the server to confirm this pharmacy's store number:</T> {storeNoError}<T>. Upload is disabled until this is reachable.</T></Alert>}
         {storeNotConfigured && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            This pharmacy's store number isn't configured yet (ERP_STORE_NO is still the placeholder
+            <T>This pharmacy's store number isn't configured yet (ERP_STORE_NO is still the placeholder
             value). Every row would have to be rejected, since there's no way to confirm which ones
-            are really yours - set a real store number in server/.env before importing a transfer file.
+            are really yours - set a real store number in server/.env before importing a transfer file.</T>
           </Alert>
         )}
 
@@ -315,7 +318,7 @@ export default function HeadOfficeReceivingPage() {
           startIcon={<UploadFileIcon />}
           disabled={storeNo == null || storeNotConfigured}
         >
-          {fileName || 'Choose Excel File'}
+          {fileName || tr("Choose Excel File")}
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -335,7 +338,7 @@ export default function HeadOfficeReceivingPage() {
           <Box sx={{ mt: 3 }}>
             <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
               <Chip color="success" label={`${readyRows.length} ready`} />
-              {duplicateRows.length > 0 && <Chip color="warning" label={`${duplicateRows.length} already imported`} />}
+              {duplicateRows.length > 0 && <Chip color="warning" label={`${duplicateRows.length}${tr(" already imported")}`} />}
               {rejectedRows.length > 0 && <Chip color="error" label={`${rejectedRows.length} rejected`} />}
             </Stack>
 
@@ -343,20 +346,20 @@ export default function HeadOfficeReceivingPage() {
               <FormControlLabel
                 sx={{ mb: 1 }}
                 control={<Checkbox checked={confirmDuplicates} onChange={(e) => setConfirmDuplicates(e.target.checked)} />}
-                label={`I understand these ${duplicateRows.length} row(s) belong to a transfer already imported before, and want to import them again anyway.`}
+                label={`${tr("I understand these ")}${duplicateRows.length}${tr(" row(s) belong to a transfer already imported before, and want to import them again anyway.")}`}
               />
             )}
 
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Row</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Transfer</TableCell>
-                  <TableCell>Item</TableCell>
-                  <TableCell>Batch</TableCell>
-                  <TableCell>Expiry</TableCell>
-                  <TableCell align="right">Qty</TableCell>
+                  <TableCell><T>Row</T></TableCell>
+                  <TableCell><T>Status</T></TableCell>
+                  <TableCell><T>Transfer</T></TableCell>
+                  <TableCell><T>Item</T></TableCell>
+                  <TableCell><T>Batch</T></TableCell>
+                  <TableCell><T>Expiry</T></TableCell>
+                  <TableCell align="right"><T>Qty</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -380,7 +383,7 @@ export default function HeadOfficeReceivingPage() {
               disabled={importable.length === 0}
               onClick={runImport}
             >
-              Import {importable.length} Row(s)
+              <T>Import</T> {importable.length} <T>Row(s)</T>
             </Button>
           </Box>
         )}

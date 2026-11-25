@@ -20,6 +20,7 @@ import { useDosageStore } from '../../store/dosageStore';
 import { buildDosageText } from '../../utils/dosages';
 import DosageFormDialog from './DosageFormDialog';
 
+import { T, useT } from '../../i18n';
 interface Props {
   dosageIds: string[];
   defaultDosageId: string;
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange }: Props) {
+  const tr = useT();
   const dosages = useDosageStore((s) => s.dosages);
   const addDosage = useDosageStore((s) => s.addDosage);
   const [createOpen, setCreateOpen] = useState(false);
@@ -75,7 +77,7 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
         >
           <MedicationOutlinedIcon sx={{ color: 'text.disabled', fontSize: 28 }} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            No directions linked yet. The POS will simply offer none for this item — linking is optional.
+            <T>No directions linked yet. The POS will simply offer none for this item — linking is optional.</T>
           </Typography>
         </Paper>
       ) : (
@@ -103,7 +105,7 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
                         label={dosage.code}
                         sx={{ fontFamily: 'monospace', height: 22 }}
                       />
-                      {dosage.isActive === false && <Chip size="small" label="Inactive" />}
+                      {dosage.isActive === false && <Chip size="small" label={tr('Inactive')} />}
                     </Stack>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {text.textEn}
@@ -125,7 +127,7 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
                     />
                     <IconButton
                       size="small"
-                      title="Remove from this item"
+                      title={tr('Remove from this item')}
                       aria-label={`Remove ${dosage.code} from this item`}
                       onClick={() => remove(dosage.id)}
                     >
@@ -138,8 +140,8 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
           })}
           {missingCount > 0 && (
             <Alert severity="warning">
-              {missingCount} linked direction{missingCount === 1 ? ' has' : 's have'} been removed from
-              the library. Remove the leftover link{missingCount === 1 ? '' : 's'} before saving.
+              {missingCount} <T>linked direction</T>{missingCount === 1 ? ' has' : tr("s have")} <T>been removed from
+              the library. Remove the leftover link</T>{missingCount === 1 ? '' : 's'} <T>before saving.</T>
             </Alert>
           )}
         </Stack>
@@ -149,16 +151,16 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
         <FormControl size="small" sx={{ flex: 1 }}>
           {/* Shrunk explicitly: the select is always empty after a pick (displayEmpty), so MUI
               would otherwise leave the label sitting on top of the "Choose…" placeholder. */}
-          <InputLabel id="dosage-link-select-label" shrink>Add a saved instruction</InputLabel>
+          <InputLabel id="dosage-link-select-label" shrink><T>Add a saved instruction</T></InputLabel>
           <Select
             labelId="dosage-link-select-label"
-            label="Add a saved instruction"
+            label={tr('Add a saved instruction')}
             value=""
             onChange={(e) => addExisting(e.target.value)}
             displayEmpty
           >
             <MenuItem value="" disabled>
-              {available.length === 0 ? 'Every active instruction is already linked' : 'Choose…'}
+              {available.length === 0 ? tr("Every active instruction is already linked") : tr("Choose…")}
             </MenuItem>
             {available.map((dosage) => (
               <MenuItem key={dosage.id} value={dosage.id} sx={{ whiteSpace: 'normal', py: 1 }}>
@@ -178,13 +180,13 @@ export default function DosageLinkEditor({ dosageIds, defaultDosageId, onChange 
           onClick={() => setCreateOpen(true)}
           sx={{ flexShrink: 0, borderStyle: 'dashed' }}
         >
-          New instruction
+          <T>New instruction</T>
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        One reusable library row shared by every product. The pharmacist still chooses per sale line,
-        and written directions are always optional.
+        <T>One reusable library row shared by every product. The pharmacist still chooses per sale line,
+        and written directions are always optional.</T>
       </Typography>
 
       {createOpen && (

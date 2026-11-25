@@ -33,6 +33,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useRsdOutboxStore } from '../../store/rsdOutboxStore';
 import { rsdQueueSummary } from '../../utils/rsdOutbox';
 
+import { T, useT } from '../../i18n';
 interface FormState {
   mode: RsdMode;
   environment: RsdEnvironment;
@@ -72,6 +73,7 @@ function formFrom(view: RsdSettingsView): FormState {
 }
 
 export default function RsdSettingsPanel() {
+  const tr = useT();
   const navigate = useNavigate();
   const enabled = useSettingsStore((s) => s.settings.rsdEnabled === true);
   const updateSettings = useSettingsStore((s) => s.update);
@@ -169,21 +171,21 @@ export default function RsdSettingsPanel() {
           <TrackChangesIcon color="primary" />
           <Box sx={{ flex: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              SFDA RSD - Pharmacy Sale / Sale Cancel
+              <T>SFDA RSD - Pharmacy Sale / Sale Cancel</T>
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Unit-level drug track &amp; trace. Only sold packs and full returns are reported.
+              <T>Unit-level drug track &amp; trace. Only sold packs and full returns are reported.</T>
             </Typography>
           </Box>
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => void load()} disabled={loading}>
-            {loading ? 'Loading…' : 'Reload'}
+            {loading ? tr("Loading…") : tr("Reload")}
           </Button>
         </Stack>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          RSD is a national reporting side-channel, never a checkout dependency. With it off, sales
+          <T>RSD is a national reporting side-channel, never a checkout dependency. With it off, sales
           are recorded locally and nothing is queued. With it on, every serialised pack whose item
-          has <strong>Batch / expiry tracking</strong> enabled is queued and sent in the background.
+          has</T> <strong><T>Batch / expiry tracking</T></strong> <T>enabled is queued and sent in the background.</T>
         </Alert>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -209,7 +211,7 @@ export default function RsdSettingsPanel() {
               {sourceChip && <Chip variant="outlined" label={sourceChip} />}
             </>
           )}
-          {!view && <Chip size="small" variant="outlined" label="server settings unknown" />}
+          {!view && <Chip size="small" variant="outlined" label={tr('server settings unknown')} />}
         </Stack>
 
         <Alert
@@ -221,13 +223,13 @@ export default function RsdSettingsPanel() {
               color="inherit"
               onClick={() => updateSettings({ rsdEnabled: !enabled })}
             >
-              {enabled ? 'Disable' : 'Enable'}
+              {enabled ? tr("Disable") : tr("Enable")}
             </Button>
           }
         >
           {enabled
-            ? 'Sales on this register are queued for RSD. Turning this off stops NEW units; already queued units still finish, because abandoning a movement mid-report is worse.'
-            : 'RSD reporting is disabled by default. Enable it only after the pharmacy GLN and credentials below are confirmed.'}
+            ? tr("Sales on this register are queued for RSD. Turning this off stops NEW units; already queued units still finish, because abandoning a movement mid-report is worse.")
+            : tr("RSD reporting is disabled by default. Enable it only after the pharmacy GLN and credentials below are confirmed.")}
         </Alert>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -236,75 +238,75 @@ export default function RsdSettingsPanel() {
         {loading && !view ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">Loading RSD settings…</Typography>
+            <Typography variant="body2" color="text.secondary"><T>Loading RSD settings…</T></Typography>
           </Box>
         ) : (
           <Stack spacing={2}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField select label="Mode" size="small" sx={{ minWidth: 220 }} {...field('mode')}>
-                <MenuItem value="mock">mock - local simulator (safe)</MenuItem>
-                <MenuItem value="live">live - real SOAP calls</MenuItem>
+              <TextField select label={tr('Mode')} size="small" sx={{ minWidth: 220 }} {...field('mode')}>
+                <MenuItem value="mock"><T>mock - local simulator (safe)</T></MenuItem>
+                <MenuItem value="live"><T>live - real SOAP calls</T></MenuItem>
               </TextField>
-              <TextField select label="Environment" size="small" sx={{ minWidth: 220 }} {...field('environment')}>
-                <MenuItem value="test">test</MenuItem>
-                <MenuItem value="production">production</MenuItem>
+              <TextField select label={tr('Environment')} size="small" sx={{ minWidth: 220 }} {...field('environment')}>
+                <MenuItem value="test"><T>test</T></MenuItem>
+                <MenuItem value="production"><T>production</T></MenuItem>
               </TextField>
               <TextField
-                label="Pharmacy GLN"
+                label={tr('Pharmacy GLN')}
                 size="small"
                 sx={{ minWidth: 220 }}
                 {...field('gln')}
-                helperText="13 digits; identifies this pharmacy's RSD location."
+                helperText={tr('13 digits; identifies this pharmacy\'s RSD location.')}
                 slotProps={{ htmlInput: { maxLength: 13, inputMode: 'numeric' } }}
               />
             </Stack>
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField label="RSD username" size="small" fullWidth {...field('username')} />
+              <TextField label={tr('RSD username')} size="small" fullWidth {...field('username')} />
               <TextField
-                label="RSD password"
+                label={tr('RSD password')}
                 size="small"
                 type="password"
                 fullWidth
                 value={form.password}
                 onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
                 placeholder={view?.hasPassword ? 'Stored - leave blank to keep' : 'Not set'}
-                helperText="Write-only: the browser never reads it back. Stored on the server."
+                helperText={tr('Write-only: the browser never reads it back. Stored on the server.')}
                 autoComplete="new-password"
               />
             </Stack>
 
             <Divider />
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Endpoints (leave blank on test to disable live reporting)
+              <T>Endpoints (leave blank on test to disable live reporting)</T>
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField label="Sale service URL" size="small" fullWidth {...field('saleUrl')} />
-              <TextField label="Cancel service URL" size="small" fullWidth {...field('cancelUrl')} />
+              <TextField label={tr('Sale service URL')} size="small" fullWidth {...field('saleUrl')} />
+              <TextField label={tr('Cancel service URL')} size="small" fullWidth {...field('cancelUrl')} />
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
-                label="Direct Sale to-GLN"
+                label={tr('Direct Sale to-GLN')}
                 size="small"
                 fullWidth
                 {...field('directToGln')}
-                helperText="The all-zero GLN means 'patient at the counter' (Direct Sale)."
+                helperText={tr('The all-zero GLN means \'patient at the counter\' (Direct Sale).')}
               />
               <TextField
-                label="Direct Sale prescription ID"
+                label={tr('Direct Sale prescription ID')}
                 size="small"
                 fullWidth
                 {...field('directPrescriptionId')}
-                helperText="Placeholder PRESCRIPTIONID for OTC/direct sales until SFDA confirms the ISD value."
+                helperText={tr('Placeholder PRESCRIPTIONID for OTC/direct sales until SFDA confirms the ISD value.')}
               />
             </Stack>
 
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <Button variant="contained" startIcon={<SaveIcon />} onClick={() => void save()} disabled={saving}>
-                {saving ? 'Saving…' : 'Save RSD settings'}
+                {saving ? tr("Saving…") : tr("Save RSD settings")}
               </Button>
               <Button variant="outlined" startIcon={<NetworkCheckIcon />} onClick={() => void test()} disabled={testing}>
-                {testing ? 'Testing…' : 'Test connection'}
+                {testing ? tr("Testing…") : tr("Test connection")}
               </Button>
               <Button
                 variant="text"
@@ -312,14 +314,14 @@ export default function RsdSettingsPanel() {
                 disabled={isFlushing || summary.pending === 0}
                 onClick={() => void flush()}
               >
-                {isFlushing ? 'Sending…' : 'Send queue now'}
+                {isFlushing ? tr("Sending…") : tr("Send queue now")}
               </Button>
               <Button
                 variant="text"
                 startIcon={<FactCheckOutlinedIcon />}
                 onClick={() => navigate('/rsd-reporting')}
               >
-                Open RSD monitor
+                <T>Open RSD monitor</T>
               </Button>
             </Stack>
             {testResult && (
@@ -344,7 +346,7 @@ export default function RsdSettingsPanel() {
                           {check.message}
                           {check.operations && check.operations.length > 0 && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              Operations: {check.operations.join(', ')}
+                              <T>Operations:</T> {check.operations.join(', ')}
                             </Typography>
                           )}
                         </TableCell>
@@ -353,8 +355,8 @@ export default function RsdSettingsPanel() {
                   </TableBody>
                 </Table>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  The probe only fetches the WSDL; it never submits a sale or a cancel, so testing
-                  cannot create a movement.
+                  <T>The probe only fetches the WSDL; it never submits a sale or a cancel, so testing
+                  cannot create a movement.</T>
                 </Typography>
               </Paper>
             )}
@@ -364,41 +366,41 @@ export default function RsdSettingsPanel() {
 
       {status && (
         <Paper variant="outlined" sx={{ p: 2.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Server ledger &amp; browser queue</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}><T>Server ledger &amp; browser queue</T></Typography>
           <Table size="small">
             <TableBody>
               <TableRow>
-                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Pharmacy GLN</TableCell>
+                <TableCell sx={{ width: 220, color: 'text.secondary' }}><T>Pharmacy GLN</T></TableCell>
                 <TableCell>{status.gln ?? '—'}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ color: 'text.secondary' }}>Sale service</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}><T>Sale service</T></TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{status.saleUrl || '—'}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ color: 'text.secondary' }}>Cancel service</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}><T>Cancel service</T></TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{status.cancelUrl || '—'}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ color: 'text.secondary' }}>Direct sale to-GLN / prescription id</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}><T>Direct sale to-GLN / prescription id</T></TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                   {status.directToGln} / {status.directPrescriptionId ?? '—'}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ color: 'text.secondary' }}>Server ledger</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}><T>Server ledger</T></TableCell>
                 <TableCell>
-                  {status.ledger.records} records · {status.ledger.salesSent} sales sent ·{' '}
-                  {status.ledger.cancelsSent} cancels sent · {status.ledger.pendingOrFailed} not accepted
+                  {status.ledger.records} <T>records ·</T> {status.ledger.salesSent} <T>sales sent ·</T>{' '}
+                  {status.ledger.cancelsSent} <T>cancels sent ·</T> {status.ledger.pendingOrFailed} <T>not accepted</T>
                 </TableCell>
               </TableRow>
             </TableBody>
           </Table>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-            Credentials, endpoints and mode live on the server (server/.env seeds server/data/rsd-settings.json)
+            <T>Credentials, endpoints and mode live on the server (server/.env seeds server/data/rsd-settings.json)
             and never reach the browser. RSD reports drugs only: a line is queued when Item Master had
             “Batch / expiry tracking” enabled and the pack carried a serial and expiry. The POS never
-            waits on SFDA — failures stay in the outbox and retry every 60 seconds.
+            waits on SFDA — failures stay in the outbox and retry every 60 seconds.</T>
           </Typography>
         </Paper>
       )}

@@ -137,8 +137,8 @@ export const theme = createTheme({
     MuiListItemButton: {
       styleOverrides: {
         root: ({ theme }) => ({
-          transition: `background-color ${EASE} 150ms, color ${EASE} 150ms, padding-left ${EASE} 150ms`,
-          '&:hover': { paddingLeft: 14, backgroundColor: alpha(theme.palette.primary.main, 0.06) },
+          transition: `background-color ${EASE} 150ms, color ${EASE} 150ms, padding-inline-start ${EASE} 150ms`,
+          '&:hover': { paddingInlineStart: 14, backgroundColor: alpha(theme.palette.primary.main, 0.06) },
           '&.Mui-selected': {
             backgroundColor: alpha(theme.palette.primary.main, 0.1),
             color: theme.palette.primary.main,
@@ -162,3 +162,21 @@ export const theme = createTheme({
     },
   },
 });
+
+export type ThemeDirection = 'ltr' | 'rtl';
+
+// The base design tokens above are direction-neutral. Only a handful of rules are physical, so the
+// RTL theme is built by layering those few overrides on top instead of duplicating the whole theme.
+// MUI reads `direction` to mirror component internals (menus, dialog actions, steppers, spacing).
+export function createAppTheme(direction: ThemeDirection = 'ltr') {
+  return createTheme(theme, {
+    direction,
+    typography: {
+      // Roboto has no Arabic glyphs; Windows/macOS/Linux fallbacks cover Arabic without shipping
+      // another font file, and the Latin text keeps the designed Roboto face.
+      fontFamily: direction === 'rtl'
+        ? '"Roboto", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif'
+        : '"Roboto", "Segoe UI", sans-serif',
+    },
+  });
+}

@@ -29,6 +29,7 @@ import {
 } from '../../utils/dosages';
 import DosageFormDialog from './DosageFormDialog';
 
+import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 function scheduleSummary(dosage: DosageInstruction): string {
@@ -43,6 +44,7 @@ function scheduleSummary(dosage: DosageInstruction): string {
 }
 
 export default function DosagesPage() {
+  const tr = useT();
   const dosages = useDosageStore((s) => s.dosages);
   const addDosage = useDosageStore((s) => s.addDosage);
   const updateDosage = useDosageStore((s) => s.updateDosage);
@@ -133,20 +135,20 @@ export default function DosagesPage() {
           <Chip size="small" variant="outlined" color="primary" label={`Next ${nextCode}`} />
         </Stack>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
-          Add Instruction
+          <T>Add Instruction</T>
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        Dosage instructions (إرشادات الاستخدام) — one reusable bilingual direction, linked to any
-        number of items. The POS still lets the pharmacist choose per sale line.
+        <T>Dosage instructions (إرشادات الاستخدام) — one reusable bilingual direction, linked to any
+        number of items. The POS still lets the pharmacist choose per sale line.</T>
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
         <TextField
           fullWidth
           size="small"
-          label="Search code / English / Arabic / route / frequency"
+          label={tr('Search code / English / Arabic / route / frequency')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           slotProps={{
@@ -162,9 +164,9 @@ export default function DosagesPage() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
         >
-          <MenuItem value="all">All instructions</MenuItem>
-          <MenuItem value="active">Active only</MenuItem>
-          <MenuItem value="inactive">Inactive only</MenuItem>
+          <MenuItem value="all"><T>All instructions</T></MenuItem>
+          <MenuItem value="active"><T>Active only</T></MenuItem>
+          <MenuItem value="inactive"><T>Inactive only</T></MenuItem>
         </Select>
       </Stack>
 
@@ -172,12 +174,12 @@ export default function DosagesPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 110 }}>Code</TableCell>
-              <TableCell>Directions</TableCell>
-              <TableCell sx={{ minWidth: 230 }}>Schedule</TableCell>
-              <TableCell align="center">Items</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Updated</TableCell>
+              <TableCell sx={{ width: 110 }}><T>Code</T></TableCell>
+              <TableCell><T>Directions</T></TableCell>
+              <TableCell sx={{ minWidth: 230 }}><T>Schedule</T></TableCell>
+              <TableCell align="center"><T>Items</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell><T>Updated</T></TableCell>
               <TableCell align="right" />
             </TableRow>
           </TableHead>
@@ -186,7 +188,7 @@ export default function DosagesPage() {
               <TableRow>
                 <TableCell colSpan={7}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No dosage instructions match this search. Add one to start building the library.
+                    <T>No dosage instructions match this search. Add one to start building the library.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -219,9 +221,9 @@ export default function DosagesPage() {
                   </TableCell>
                   <TableCell>
                     {dosage.isActive === false ? (
-                      <Chip size="small" color="default" label="Inactive" />
+                      <Chip size="small" color="default" label={tr('Inactive')} />
                     ) : (
-                      <Chip size="small" color="success" variant="outlined" label="Active" />
+                      <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
                     )}
                   </TableCell>
                   <TableCell>
@@ -232,14 +234,14 @@ export default function DosagesPage() {
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton
                       size="small"
-                      title="Edit instruction"
+                      title={tr('Edit instruction')}
                       onClick={(e) => { e.stopPropagation(); openEdit(dosage); }}
                     >
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
-                      title="Delete instruction"
+                      title={tr('Delete instruction')}
                       onClick={(e) => { e.stopPropagation(); setDeleteTarget(dosage); }}
                     >
                       <DeleteOutlineIcon fontSize="small" />
@@ -255,7 +257,7 @@ export default function DosagesPage() {
       {dialog.open && (
         <DosageFormDialog
           // Remount per row so the form initialises from that instruction (no setState-in-effect).
-          key={dialog.dosage?.id ?? 'new-dosage'}
+          key={dialog.dosage?.id ?? tr("new-dosage")}
           open
           dosage={dialog.dosage}
           onSave={save}
@@ -264,35 +266,35 @@ export default function DosagesPage() {
       )}
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete dosage instruction?</DialogTitle>
+        <DialogTitle><T>Delete dosage instruction?</T></DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             <DialogContentText>
-              This permanently removes <strong>{deleteTarget?.code}</strong> — "
-              {deleteTarget ? buildDosageText(deleteTarget).textEn : ''}" — from the shared library.
+              <T>This permanently removes</T> <strong>{deleteTarget?.code}</strong> — "
+              {deleteTarget ? buildDosageText(deleteTarget).textEn : ''}<T>" — from the shared library.</T>
             </DialogContentText>
             {linkedToTarget.length > 0 ? (
               <>
                 <Alert severity="warning">
-                  It is currently linked to {linkedToTarget.length} item
+                  <T>It is currently linked to</T> {linkedToTarget.length} <T>item</T>
                   {linkedToTarget.length === 1 ? '' : 's'}: {linkedToTarget.slice(0, 5).join(', ')}
-                  {linkedToTarget.length > 5 ? ` and ${linkedToTarget.length - 5} more` : ''}.
-                  Those links will be removed too.
+                  {linkedToTarget.length > 5 ? ` and ${linkedToTarget.length - 5} more` : ''}<T>.
+                  Those links will be removed too.</T>
                 </Alert>
                 <DialogContentText>
-                  Already-issued invoices keep the directions they were dispensed with, so historical
-                  reprints do not change.
+                  <T>Already-issued invoices keep the directions they were dispensed with, so historical
+                  reprints do not change.</T>
                 </DialogContentText>
               </>
             ) : (
-              <DialogContentText>No item currently links to this instruction.</DialogContentText>
+              <DialogContentText><T>No item currently links to this instruction.</T></DialogContentText>
             )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
           <Button color="error" variant="contained" onClick={confirmDelete}>
-            {linkedToTarget.length > 0 ? 'Delete & Unlink' : 'Delete Instruction'}
+            {linkedToTarget.length > 0 ? tr("Delete & Unlink") : tr("Delete Instruction")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -14,6 +14,7 @@ import { useCostCenterStore } from '../../store/costCenterStore';
 import { expenseTotals, orderedCenters, todayISO } from '../../utils/costCenters';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 const KIND_LABEL: Record<CostCenterKind, string> = {
   branch: 'Branch',
   activity: 'Activity',
@@ -36,6 +37,7 @@ function CenterNode({ center, depth, totals, centers, onAddChild, onEditDrivers 
   onAddChild: (parentId: string) => void;
   onEditDrivers: (center: CostCenter) => void;
 }) {
+  const tr = useT();
   const t = totals.get(center.id);
   const children = centers.filter((c) => c.parentId === center.id);
   return (
@@ -55,29 +57,29 @@ function CenterNode({ center, depth, totals, centers, onAddChild, onEditDrivers 
           <Typography variant="caption" color="text.secondary" dir="rtl">{center.nameAr}</Typography>
         </Box>
         <Chip size="small" variant="outlined" label={center.code} sx={{ fontFamily: 'monospace' }} />
-        <Chip size="small" color={KIND_COLOR[center.kind]} label={KIND_LABEL[center.kind]} />
-        {!center.isActive && <Chip size="small" color="default" label="Inactive" />}
-        {!center.IsPostingAllowed && <Chip size="small" variant="outlined" label="No posting" />}
+        <Chip size="small" color={KIND_COLOR[center.kind]} label={tr(KIND_LABEL[center.kind])} />
+        {!center.isActive && <Chip size="small" color="default" label={tr('Inactive')} />}
+        {!center.IsPostingAllowed && <Chip size="small" variant="outlined" label={tr('No posting')} />}
         <Box sx={{ flex: 1, minWidth: 180, textAlign: 'right' }}>
           <Typography variant="body2">
-            own SAR {formatMoney(t?.direct ?? 0)}
-            {' · rolled-up SAR '}
+            <T>own SAR</T> {formatMoney(t?.direct ?? 0)}
+            {tr("· rolled-up SAR")}
             <strong>{formatMoney(t?.subtree ?? 0)}</strong>
           </Typography>
           {(t?.allocatable ?? 0) > 0 && (
             <Typography variant="caption" color="text.secondary">
-              of which allocatable SAR {formatMoney(t?.allocatable ?? 0)}
+              <T>of which allocatable SAR</T> {formatMoney(t?.allocatable ?? 0)}
             </Typography>
           )}
         </Box>
         <Button size="small" variant="text" onClick={() => onAddChild(center.id)}>
-          Add child
+          <T>Add child</T>
         </Button>
         {/* Drivers exist only on centres that RECEIVE allocations (§10.4) - an overhead pool is a
             source, so asking it for floor area or headcount would invite meaningless numbers. */}
         {center.kind !== 'overhead' && (
           <Button size="small" variant="text" onClick={() => onEditDrivers(center)}>
-            Drivers
+            <T>Drivers</T>
           </Button>
         )}
         {center.kind !== 'overhead' && (center.spaceSqm !== undefined || center.headcount !== undefined) && (
@@ -104,6 +106,7 @@ function CenterNode({ center, depth, totals, centers, onAddChild, onEditDrivers 
 }
 
 export default function CostCentersPage() {
+  const tr = useT();
   const { centers, expenses, addCenter } = useCostCenterStore();
   // Drivers are saved through the store (which validates) rather than with addCenter, because
   // they are editable on existing centres - Phase A deliberately keeps structural edits out.
@@ -169,7 +172,7 @@ export default function CostCentersPage() {
         {/* ---- tree */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-            Center tree ({centers.length} centers · {centers.filter((c) => c.isActive).length} active)
+            <T>Center tree (</T>{centers.length} <T>centers ·</T> {centers.filter((c) => c.isActive).length} <T>active)</T>
           </Typography>
           <Stack spacing={0}>
             {centers
@@ -195,22 +198,22 @@ export default function CostCentersPage() {
         {/* ---- create form */}
         {open ? (
           <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Add Cost Center</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Add Cost Center</T></Typography>
             <Stack spacing={2}>
               {formError && <Alert severity="error" onClose={() => setFormError(null)}>{formError}</Alert>}
               {created && (
                 <Alert severity="success" onClose={() => setCreated(null)}>
-                  {created.code} — {created.nameEn} saved as a child of{' '}
-                  {created.parentId ? centers.find((c) => c.id === created.parentId)?.nameEn : '(root)'}.
+                  {created.code} — {created.nameEn} <T>saved as a child of</T>{' '}
+                  {created.parentId ? centers.find((c) => c.id === created.parentId)?.nameEn : tr("(root)")}.
                 </Alert>
               )}
               <Stack direction="row" spacing={1.5}>
                 <TextField
-                  label="Code"
+                  label={tr('Code')}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   size="small"
-                  helperText="Short accountant-facing code (BR004-OPS style) - not the hierarchy key."
+                  helperText={tr('Short accountant-facing code (BR004-OPS style) - not the hierarchy key.')}
                   fullWidth
                 />
                 <Select
@@ -222,7 +225,7 @@ export default function CostCentersPage() {
                   sx={{ maxWidth: 320 }}
                 >
                   <MenuItem value="">
-                    <em>(root - no parent)</em>
+                    <em><T>(root - no parent)</T></em>
                   </MenuItem>
                   {orderedCenters(centers).map((c) => (
                     <MenuItem key={c.id} value={c.id}>
@@ -232,8 +235,8 @@ export default function CostCentersPage() {
                 </Select>
               </Stack>
               <Stack direction="row" spacing={1.5}>
-                <TextField label="Name (English)" value={nameEn} onChange={(e) => setNameEn(e.target.value)} size="small" fullWidth />
-                <TextField label="Name (Arabic - عربي, optional)" value={nameAr} onChange={(e) => setNameAr(e.target.value)} size="small" dir="rtl" fullWidth />
+                <TextField label={tr('Name (English)')} value={nameEn} onChange={(e) => setNameEn(e.target.value)} size="small" fullWidth />
+                <TextField label={tr('Name (Arabic - عربي, optional)')} value={nameAr} onChange={(e) => setNameAr(e.target.value)} size="small" dir="rtl" fullWidth />
               </Stack>
               <Stack direction="row" spacing={1.5}>
                 <Select
@@ -243,12 +246,12 @@ export default function CostCentersPage() {
                   size="small"
                   sx={{ maxWidth: 240 }}
                 >
-                  <MenuItem value="branch">Branch (earns revenue)</MenuItem>
-                  <MenuItem value="activity">Activity / service desk</MenuItem>
-                  <MenuItem value="overhead">Overhead / shared pool</MenuItem>
+                  <MenuItem value="branch"><T>Branch (earns revenue)</T></MenuItem>
+                  <MenuItem value="activity"><T>Activity / service desk</T></MenuItem>
+                  <MenuItem value="overhead"><T>Overhead / shared pool</T></MenuItem>
                 </Select>
                 <TextField
-                  label="Effective from"
+                  label={tr('Effective from')}
                   type="date"
                   value={effectiveFrom}
                   onChange={(e) => setEffectiveFrom(e.target.value)}
@@ -257,7 +260,7 @@ export default function CostCentersPage() {
                   fullWidth
                 />
                 <TextField
-                  label="Effective to (optional)"
+                  label={tr('Effective to (optional)')}
                   type="date"
                   value={effectiveTo}
                   onChange={(e) => setEffectiveTo(e.target.value)}
@@ -268,16 +271,16 @@ export default function CostCentersPage() {
               </Stack>
               <FormControlLabel
                 control={<Checkbox checked={IsPostingAllowed} onChange={(e) => setIsPostingAllowed(e.target.checked)} />}
-                label="Allow posting (new expenses/documents may be booked on this center)"
+                label={tr('Allow posting (new expenses/documents may be booked on this center)')}
               />
               <Button variant="contained" size="small" disabled={!formValid} onClick={submit} sx={{ alignSelf: 'flex-start' }}>
-                Save cost center
+                <T>Save cost center</T>
               </Button>
             </Stack>
           </Paper>
         ) : (
           <Button variant="outlined" size="small" onClick={() => { setOpen(true); setParentId(''); }} sx={{ alignSelf: 'flex-start' }}>
-            Add cost center
+            <T>Add cost center</T>
           </Button>
         )}
       </Stack>
@@ -296,6 +299,7 @@ function DriversDialog({ center, onSave, onClose }: {
   onSave: (centerId: string, drivers: { spaceSqm?: number; headcount?: number }) => void;
   onClose: () => void;
 }) {
+  const tr = useT();
   const [space, setSpace] = useState(center.spaceSqm !== undefined ? String(center.spaceSqm) : '');
   const [staff, setStaff] = useState(center.headcount !== undefined ? String(center.headcount) : '');
   const [error, setError] = useState<string | null>(null);
@@ -315,16 +319,16 @@ function DriversDialog({ center, onSave, onClose }: {
 
   return (
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Allocation drivers — {center.code}</DialogTitle>
+      <DialogTitle><T>Allocation drivers —</T> {center.code}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
           <Typography variant="caption" color="text.secondary">
-            Used by the Phase-D allocation run when a shared pool is distributed on floor area or
-            headcount. Informational until then.
+            <T>Used by the Phase-D allocation run when a shared pool is distributed on floor area or
+            headcount. Informational until then.</T>
           </Typography>
           <TextField
-            label="Floor area (m²)"
+            label={tr('Floor area (m²)')}
             type="number"
             value={space}
             onChange={(e) => setSpace(e.target.value)}
@@ -332,7 +336,7 @@ function DriversDialog({ center, onSave, onClose }: {
             fullWidth
           />
           <TextField
-            label="Headcount"
+            label={tr('Headcount')}
             type="number"
             value={staff}
             onChange={(e) => setStaff(e.target.value)}
@@ -342,8 +346,8 @@ function DriversDialog({ center, onSave, onClose }: {
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button size="small" onClick={onClose}>Cancel</Button>
-        <Button size="small" variant="contained" onClick={save}>Save drivers</Button>
+        <Button size="small" onClick={onClose}><T>Cancel</T></Button>
+        <Button size="small" variant="contained" onClick={save}><T>Save drivers</T></Button>
       </DialogActions>
     </Dialog>
   );

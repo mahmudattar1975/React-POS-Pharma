@@ -29,10 +29,12 @@ import {
 import { formatMoney } from '../../utils/format';
 import VendorFormDialog from './VendorFormDialog';
 
+import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
 type PartyFilter = 'all' | 'vendor' | 'customer';
 
 export default function VendorsPage() {
+  const tr = useT();
   const vendors = usePurchasingStore((s) => s.vendors);
   const invoices = usePurchasingStore((s) => s.invoices);
   const addVendor = usePurchasingStore((s) => s.addVendor);
@@ -174,24 +176,24 @@ export default function VendorsPage() {
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
           <Button variant="outlined" startIcon={<AddIcon />} onClick={() => openCreate(PARTY_TYPE_FLAG.customer)}>
-            Add Customer
+            <T>Add Customer</T>
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => openCreate(PARTY_TYPE_FLAG.vendor)}>
-            Add Vendor
+            <T>Add Vendor</T>
           </Button>
         </Stack>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        بيانات الموردين والعملاء — one FCODCSVN-style party file: vendor number, Arabic/English names,
-        tax IDs, credit terms and status, with type_flag separating vendors from business customers
+        <T>بيانات الموردين والعملاء — one FCODCSVN-style party file: vendor number, Arabic/English names,
+        tax IDs, credit terms and status, with type_flag separating vendors from business customers</T>
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
         <TextField
           fullWidth
           size="small"
-          label="Search number / name / phone / VAT / GLN / category / notes"
+          label={tr('Search number / name / phone / VAT / GLN / category / notes')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           slotProps={{
@@ -207,9 +209,9 @@ export default function VendorsPage() {
           onChange={(e) => setPartyFilter(e.target.value as PartyFilter)}
           sx={{ minWidth: 170 }}
         >
-          <MenuItem value="all">All parties</MenuItem>
-          <MenuItem value="vendor">Vendors only</MenuItem>
-          <MenuItem value="customer">Customers only</MenuItem>
+          <MenuItem value="all"><T>All parties</T></MenuItem>
+          <MenuItem value="vendor"><T>Vendors only</T></MenuItem>
+          <MenuItem value="customer"><T>Customers only</T></MenuItem>
         </Select>
         <Select
           size="small"
@@ -218,9 +220,9 @@ export default function VendorsPage() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
         >
-          <MenuItem value="all">All statuses</MenuItem>
-          <MenuItem value="active">Active only</MenuItem>
-          <MenuItem value="inactive">Inactive only</MenuItem>
+          <MenuItem value="all"><T>All statuses</T></MenuItem>
+          <MenuItem value="active"><T>Active only</T></MenuItem>
+          <MenuItem value="inactive"><T>Inactive only</T></MenuItem>
         </Select>
       </Stack>
 
@@ -228,17 +230,17 @@ export default function VendorsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 130, whiteSpace: 'nowrap' }}>Number</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Tax IDs</TableCell>
-              <TableCell align="center">Items</TableCell>
-              <TableCell align="right">Purchases</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Updated</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell sx={{ width: 130, whiteSpace: 'nowrap' }}><T>Number</T></TableCell>
+              <TableCell><T>Type</T></TableCell>
+              <TableCell><T>Name</T></TableCell>
+              <TableCell><T>Category</T></TableCell>
+              <TableCell><T>Phone</T></TableCell>
+              <TableCell><T>Tax IDs</T></TableCell>
+              <TableCell align="center"><T>Items</T></TableCell>
+              <TableCell align="right"><T>Purchases</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell><T>Updated</T></TableCell>
+              <TableCell align="right"><T>Actions</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -246,8 +248,8 @@ export default function VendorsPage() {
               <TableRow>
                 <TableCell colSpan={11}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No parties match this search. Add a vendor or a business customer to start
-                    building the party file.
+                    <T>No parties match this search. Add a vendor or a business customer to start
+                    building the party file.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -266,9 +268,9 @@ export default function VendorsPage() {
                 </TableCell>
                 <TableCell>
                   {vendor.typeFlag === PARTY_TYPE_FLAG.customer ? (
-                    <Chip size="small" color="secondary" variant="outlined" label="Customer" />
+                    <Chip size="small" color="secondary" variant="outlined" label={tr('Customer')} />
                   ) : (
-                    <Chip size="small" color="primary" variant="outlined" label="Vendor" />
+                    <Chip size="small" color="primary" variant="outlined" label={tr('Vendor')} />
                   )}
                 </TableCell>
                 <TableCell sx={{ minWidth: 230 }}>
@@ -283,10 +285,10 @@ export default function VendorsPage() {
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>
-                    VAT {vendor.vatNumber || '—'}
+                    <T>VAT</T> {vendor.vatNumber || '—'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontFamily: 'monospace' }}>
-                    GLN {vendor.glnNo || '—'}
+                    <T>GLN</T> {vendor.glnNo || '—'}
                   </Typography>
                 </TableCell>
                 <TableCell align="center">
@@ -301,7 +303,7 @@ export default function VendorsPage() {
                     <>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatMoney(purchases.total)}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {purchases.count} invoice{purchases.count === 1 ? '' : 's'}
+                        {purchases.count} <T>invoice</T>{purchases.count === 1 ? '' : 's'}
                       </Typography>
                     </>
                   ) : (
@@ -310,9 +312,9 @@ export default function VendorsPage() {
                 </TableCell>
                 <TableCell>
                   {vendor.isActive === false ? (
-                    <Chip size="small" color="default" label="Inactive" />
+                    <Chip size="small" color="default" label={tr('Inactive')} />
                   ) : (
-                    <Chip size="small" color="success" variant="outlined" label="Active" />
+                    <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
                   )}
                 </TableCell>
                 <TableCell>
@@ -323,14 +325,14 @@ export default function VendorsPage() {
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                   <IconButton
                     size="small"
-                    title="Edit party"
+                    title={tr('Edit party')}
                     onClick={(e) => { e.stopPropagation(); openEdit(vendor); }}
                   >
                     <EditOutlinedIcon fontSize="small" />
                   </IconButton>
                   <IconButton
                     size="small"
-                    title="Delete party"
+                    title={tr('Delete party')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteError(null);
@@ -362,24 +364,24 @@ export default function VendorsPage() {
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          Delete {deleteTarget?.typeFlag === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'}?
+          <T>Delete</T> {deleteTarget?.typeFlag === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'}?
         </DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
             <DialogContentText>
-              This permanently removes <strong>{deleteTarget?.nameEn}</strong>{' '}
-              ({deleteTarget?.vendorNo}) from the party file.
+              <T>This permanently removes</T> <strong>{deleteTarget?.nameEn}</strong>{' '}
+              ({deleteTarget?.vendorNo}<T>) from the party file.</T>
             </DialogContentText>
             <DialogContentText>
-              A party with purchase invoices or item-master links cannot be deleted - mark it
-              inactive instead so those records keep their reference.
+              <T>A party with purchase invoices or item-master links cannot be deleted - mark it
+              inactive instead so those records keep their reference.</T>
             </DialogContentText>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmDelete}>Delete</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete</T></Button>
         </DialogActions>
       </Dialog>
     </Box>

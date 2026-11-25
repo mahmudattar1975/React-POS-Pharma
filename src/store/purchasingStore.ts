@@ -10,6 +10,7 @@ import { PARTY_TYPE_FLAG } from '../types/party';
 import { seedVendors } from '../utils/seedData';
 import { batchReceiveDiscount, nextCustomerNumber, nextVendorNumber, purchaseReturnLineKey, returnedQuantitiesByLine } from '../utils/purchasing';
 import { mergeVendorMaster } from '../utils/vendors';
+import { branchNumberPrefix } from '../utils/invoiceNumber';
 import { useCatalogStore } from './catalogStore';
 
 interface PurchasingState {
@@ -293,8 +294,8 @@ export const usePurchasingStore = create<PurchasingState>()(
         set((s) => ({ vendors: s.vendors.filter((v) => v.id !== id) }));
       },
 
-      nextPurchaseNo: () => `PUR-${String(get().invoiceCounter + 1).padStart(6, '0')}`,
-      nextReturnNo: () => `RET-${String(get().returnCounter + 1).padStart(6, '0')}`,
+      nextPurchaseNo: () => `${branchNumberPrefix()}PUR-${String(get().invoiceCounter + 1).padStart(6, '0')}`,
+      nextReturnNo: () => `${branchNumberPrefix()}RET-${String(get().returnCounter + 1).padStart(6, '0')}`,
 
       isVendorInvoiceNoUsed: (vendorId, vendorInvoiceNo, excludeInvoiceId) =>
         get().invoices.some(

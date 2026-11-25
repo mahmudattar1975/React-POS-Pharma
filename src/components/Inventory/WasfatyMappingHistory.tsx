@@ -17,6 +17,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import type { WasfatyMappingSnapshot } from '../../types/wasfaty';
 import { formatSar } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 const VISIBLE_LIMIT = 50;
 
 function snapshotText(snapshot: WasfatyMappingSnapshot): string {
@@ -27,6 +28,7 @@ function snapshotText(snapshot: WasfatyMappingSnapshot): string {
 }
 
 export default function WasfatyMappingHistory() {
+  const tr = useT();
   const log = useCatalogStore((s) => s.wasfatyMappingLog);
   const [showAll, setShowAll] = useState(false);
 
@@ -40,20 +42,20 @@ export default function WasfatyMappingHistory() {
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <HistoryIcon fontSize="small" color="action" />
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Mapping history</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}><T>Mapping history</T></Typography>
           <Chip size="small" variant="outlined" label={`${entries.length} change(s)`} />
         </Stack>
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0 }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-          Every real change to a NUPCO code, approved price or Wasfaty eligibility is recorded with
-          who made it. Re-saving an unchanged row is not logged. The newest {VISIBLE_LIMIT} are shown
-          first; the log keeps the last 500 changes.
+          <T>Every real change to a NUPCO code, approved price or Wasfaty eligibility is recorded with
+          who made it. Re-saving an unchanged row is not logged. The newest</T> {VISIBLE_LIMIT} <T>are shown
+          first; the log keeps the last 500 changes.</T>
         </Typography>
 
         {entries.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-            No mapping changes yet.
+            <T>No mapping changes yet.</T>
           </Typography>
         ) : (
           <>
@@ -61,12 +63,12 @@ export default function WasfatyMappingHistory() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>When</TableCell>
-                    <TableCell>Who</TableCell>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Before</TableCell>
-                    <TableCell>After</TableCell>
-                    <TableCell>Source</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}><T>When</T></TableCell>
+                    <TableCell><T>Who</T></TableCell>
+                    <TableCell><T>Item</T></TableCell>
+                    <TableCell><T>Before</T></TableCell>
+                    <TableCell><T>After</T></TableCell>
+                    <TableCell><T>Source</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -89,7 +91,7 @@ export default function WasfatyMappingHistory() {
                           size="small"
                           variant="outlined"
                           color={entry.source === 'import' ? 'info' : 'default'}
-                          label={entry.source === 'import' ? 'Import' : 'Manual'}
+                          label={tr(entry.source === 'import' ? 'Import' : 'Manual')}
                         />
                       </TableCell>
                     </TableRow>

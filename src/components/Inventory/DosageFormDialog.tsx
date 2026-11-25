@@ -24,6 +24,7 @@ import {
   duplicateDosageText, validateDosageForm, type DosageFormValues,
 } from '../../utils/dosages';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   dosage: DosageInstruction | null;
@@ -38,6 +39,7 @@ const PAIR_GRID = {
 };
 
 export default function DosageFormDialog({ open, dosage, onSave, onClose }: Props) {
+  const tr = useT();
   const dosages = useDosageStore((s) => s.dosages);
   const [values, setValues] = useState<DosageFormValues>(() =>
     dosage ? dosageToForm(dosage) : EMPTY_DOSAGE_FORM
@@ -82,18 +84,18 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
           </Box>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-              {dosage ? 'Edit dosage instruction' : 'New dosage instruction'}
+              {dosage ? tr("Edit dosage instruction") : tr("New dosage instruction")}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {dosage ? `${dosage.code} · carried by every linked item` : 'Saved once, linked to any number of items'}
+              {dosage ? `${dosage.code}${tr(" · carried by every linked item")}` : 'Saved once, linked to any number of items'}
             </Typography>
           </Box>
         </Stack>
         <Button
-          aria-label="Close"
+          aria-label={tr('Close')}
           onClick={onClose}
           size="small"
-          sx={{ position: 'absolute', right: 10, top: 10, minWidth: 0, p: 0.75 }}
+          sx={{ position: 'absolute', insetInlineEnd: 10, top: 10, minWidth: 0, p: 0.75 }}
         >
           <CloseIcon fontSize="small" />
         </Button>
@@ -103,7 +105,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
         <Stack spacing={2}>
           <Box sx={PAIR_GRID}>
             <TextField
-              label="Dose per intake"
+              label={tr('Dose per intake')}
               value={values.doseAmount}
               onChange={(e) => patch('doseAmount', e.target.value)}
               error={!!errorFor('doseAmount')}
@@ -114,10 +116,10 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
               required
             />
             <FormControl fullWidth size="small">
-              <InputLabel id="dosage-unit-label">Dose unit</InputLabel>
+              <InputLabel id="dosage-unit-label"><T>Dose unit</T></InputLabel>
               <Select
                 labelId="dosage-unit-label"
-                label="Dose unit"
+                label={tr('Dose unit')}
                 value={values.doseUnit}
                 onChange={(e) => patch('doseUnit', e.target.value as DosageFormValues['doseUnit'])}
               >
@@ -130,10 +132,10 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             </FormControl>
 
             <FormControl fullWidth size="small">
-              <InputLabel id="dosage-route-label">Route</InputLabel>
+              <InputLabel id="dosage-route-label"><T>Route</T></InputLabel>
               <Select
                 labelId="dosage-route-label"
-                label="Route"
+                label={tr('Route')}
                 value={values.route}
                 onChange={(e) => patch('route', e.target.value as DosageFormValues['route'])}
               >
@@ -145,10 +147,10 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
               </Select>
             </FormControl>
             <FormControl fullWidth size="small">
-              <InputLabel id="dosage-frequency-label">Frequency</InputLabel>
+              <InputLabel id="dosage-frequency-label"><T>Frequency</T></InputLabel>
               <Select
                 labelId="dosage-frequency-label"
-                label="Frequency"
+                label={tr('Frequency')}
                 value={values.frequency}
                 onChange={(e) => patch('frequency', e.target.value as DosageFormValues['frequency'])}
               >
@@ -163,7 +165,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             {values.frequency === 'custom' && (
               <>
                 <TextField
-                  label="Custom schedule (English)"
+                  label={tr('Custom schedule (English)')}
                   value={values.customFrequencyEn}
                   onChange={(e) => patch('customFrequencyEn', e.target.value)}
                   error={!!errorFor('customFrequencyEn')}
@@ -173,7 +175,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
                   required
                 />
                 <TextField
-                  label="Custom schedule (Arabic - عربي)"
+                  label={tr('Custom schedule (Arabic - عربي)')}
                   value={values.customFrequencyAr}
                   onChange={(e) => patch('customFrequencyAr', e.target.value)}
                   error={!!errorFor('customFrequencyAr')}
@@ -187,10 +189,10 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             )}
 
             <FormControl fullWidth size="small">
-              <InputLabel id="dosage-timing-label">Timing</InputLabel>
+              <InputLabel id="dosage-timing-label"><T>Timing</T></InputLabel>
               <Select
                 labelId="dosage-timing-label"
-                label="Timing"
+                label={tr('Timing')}
                 value={values.timing}
                 onChange={(e) => patch('timing', e.target.value as DosageFormValues['timing'])}
               >
@@ -202,7 +204,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
               </Select>
             </FormControl>
             <TextField
-              label="Course length (days)"
+              label={tr('Course length (days)')}
               type="number"
               value={values.durationDays}
               onChange={(e) => patch('durationDays', e.target.value)}
@@ -216,7 +218,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
 
           <Box sx={PAIR_GRID}>
             <TextField
-              label="Extra directions (English, optional)"
+              label={tr('Extra directions (English, optional)')}
               value={values.additionalInstructionsEn}
               onChange={(e) => patch('additionalInstructionsEn', e.target.value)}
               error={!!errorFor('additionalInstructionsEn')}
@@ -230,7 +232,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
               minRows={2}
             />
             <TextField
-              label="Extra directions (Arabic - عربي, optional)"
+              label={tr('Extra directions (Arabic - عربي, optional)')}
               value={values.additionalInstructionsAr}
               onChange={(e) => patch('additionalInstructionsAr', e.target.value)}
               error={!!errorFor('additionalInstructionsAr')}
@@ -248,12 +250,12 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             label={
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {values.isActive ? 'Available for linking' : 'Inactive'}
+                  {values.isActive ? tr("Available for linking") : tr("Inactive")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {values.isActive
-                    ? 'Shown in the Item Master and POS pickers'
-                    : 'Hidden from new selections; already-issued sheets are unchanged'}
+                    ? tr("Shown in the Item Master and POS pickers")
+                    : tr("Hidden from new selections; already-issued sheets are unchanged")}
                 </Typography>
               </Box>
             }
@@ -261,8 +263,8 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
 
           {duplicate && (
             <Alert severity="warning">
-              The same English wording already exists as <strong>{duplicate.code}</strong>. Two
-              products may share it, but if this was meant to correct that row, edit it instead.
+              <T>The same English wording already exists as</T> <strong>{duplicate.code}</strong><T>. Two
+              products may share it, but if this was meant to correct that row, edit it instead.</T>
             </Alert>
           )}
 
@@ -276,7 +278,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             })}
           >
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
-              Printed preview — plain language, no SIG abbreviations
+              <T>Printed preview — plain language, no SIG abbreviations</T>
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
               {preview.textEn || '—'}
@@ -284,7 +286,7 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
             <Typography variant="body2" dir="rtl" sx={{ textAlign: 'left' }}>
               {preview.textAr || '—'}
             </Typography>
-            <Chip size="small" variant="outlined" label="Generated automatically" sx={{ mt: 1 }} />
+            <Chip size="small" variant="outlined" label={tr('Generated automatically')} sx={{ mt: 1 }} />
           </Paper>
         </Stack>
       </DialogContent>
@@ -293,13 +295,13 @@ export default function DosageFormDialog({ open, dosage, onSave, onClose }: Prop
         <Box sx={{ mr: 'auto' }}>
           {submitted && Object.keys(errors).length > 0 && (
             <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
-              Fix the highlighted field{Object.keys(errors).length === 1 ? '' : 's'} before saving.
+              <T>Fix the highlighted field</T>{Object.keys(errors).length === 1 ? '' : 's'} <T>before saving.</T>
             </Typography>
           )}
         </Box>
-        <Button onClick={onClose} color="inherit">Cancel</Button>
+        <Button onClick={onClose} color="inherit"><T>Cancel</T></Button>
         <Button variant="contained" startIcon={<SaveOutlinedIcon />} onClick={save}>
-          {dosage ? 'Save Changes' : 'Create Instruction'}
+          {dosage ? tr("Save Changes") : tr("Create Instruction")}
         </Button>
       </DialogActions>
     </Dialog>

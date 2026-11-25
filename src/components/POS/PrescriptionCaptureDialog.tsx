@@ -33,6 +33,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import DosagePickerDialog from './DosagePickerDialog';
 
+import { T, useT } from '../../i18n';
 export interface ControlledLine {
   itemId: string;
   itemNameEn: string;
@@ -81,10 +82,11 @@ const STATUS_COLOR = PRESCRIPTION_STATUS_COLOR;
 // Compact, label-shaped summary of the sig - the same text the prescription label prints, so what
 // the cashier sees here is what the patient reads on the box.
 function DirectionsSummary({ dosage }: { dosage?: DosageSnapshot }) {
+  const tr = useT();
   if (!dosage) {
     return (
       <Typography variant="caption" color="text.secondary">
-        No written directions recorded for this item.
+        <T>No written directions recorded for this item.</T>
       </Typography>
     );
   }
@@ -93,7 +95,7 @@ function DirectionsSummary({ dosage }: { dosage?: DosageSnapshot }) {
     <>
       <Typography variant="caption" sx={{ display: 'block' }}>
         {compact.labelEn || '—'}
-        {dosage.durationDays ? ` · ${dosage.durationDays} day(s)` : ''}
+        {dosage.durationDays ? ` · ${dosage.durationDays}${tr(" day(s)")}` : ''}
       </Typography>
       <Typography variant="caption" color="text.secondary" dir="rtl" sx={{ display: 'block', textAlign: 'left' }}>
         {compact.labelAr}
@@ -105,6 +107,7 @@ function DirectionsSummary({ dosage }: { dosage?: DosageSnapshot }) {
 export default function PrescriptionCaptureDialog({
   open, lines, patientNationalId, patientName, onCancel, onConfirm,
 }: Props) {
+  const tr = useT();
   const prescriptions = usePrescriptionStore((s) => s.prescriptions);
   const addPrescription = usePrescriptionStore((s) => s.addPrescription);
   const searchPrescriptions = usePrescriptionStore((s) => s.search);
@@ -300,18 +303,18 @@ export default function PrescriptionCaptureDialog({
 
   return (
     <Dialog open={open} onClose={onCancel} fullWidth maxWidth="sm">
-      <DialogTitle>Prescription Required</DialogTitle>
+      <DialogTitle><T>Prescription Required</T></DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Stack spacing={0.75}>
-            <Typography variant="body2" color="text.secondary">This sale includes:</Typography>
+            <Typography variant="body2" color="text.secondary"><T>This sale includes:</T></Typography>
             <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
               {lines.map((line, index) => (
                 <Chip
                   key={index}
                   size="small"
                   color="warning"
-                  label={`${line.itemNameEn} · ${CONTROLLED_STATUS_LABEL[line.controlledStatus]}`}
+                  label={`${line.itemNameEn} · ${tr(CONTROLLED_STATUS_LABEL[line.controlledStatus])}`}
                 />
               ))}
             </Stack>
@@ -324,14 +327,14 @@ export default function PrescriptionCaptureDialog({
             value={mode}
             onChange={(_, value: 'existing' | 'new' | null) => value && setMode(value)}
           >
-            <ToggleButton value="existing">Find existing prescription</ToggleButton>
-            <ToggleButton value="new">New prescription</ToggleButton>
+            <ToggleButton value="existing"><T>Find existing prescription</T></ToggleButton>
+            <ToggleButton value="new"><T>New prescription</T></ToggleButton>
           </ToggleButtonGroup>
 
           {mode === 'existing' ? (
             <>
               <TextField
-                label="Search prescription no. / national ID / Wasfaty ref."
+                label={tr('Search prescription no. / national ID / Wasfaty ref.')}
                 fullWidth
                 size="small"
                 value={query}
@@ -340,8 +343,8 @@ export default function PrescriptionCaptureDialog({
               />
               {results.length === 0 ? (
                 <Alert severity="info">
-                  No prescription found. Capture a new one instead — it will be filed in the registry
-                  for the next fill.
+                  <T>No prescription found. Capture a new one instead — it will be filed in the registry
+                  for the next fill.</T>
                 </Alert>
               ) : (
                 <Stack spacing={1}>
@@ -370,13 +373,13 @@ export default function PrescriptionCaptureDialog({
                         }}
                       >
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{rx.prescriptionNo}</Typography>
-                          <Chip size="small" label={STATUS_LABEL[rx.status]} color={STATUS_COLOR[rx.status]} />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, direction: 'ltr', unicodeBidi: 'isolate' }}>{rx.prescriptionNo}</Typography>
+                          <Chip size="small" label={tr(STATUS_LABEL[rx.status])} color={STATUS_COLOR[rx.status]} />
                           <Chip size="small" variant="outlined" label={rx.source === 'wasfaty' ? 'Wasfaty' : 'Private'} />
                         </Stack>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          Patient {maskNationalId(rx.patientNationalId)} · {rx.lines.length} line(s) ·
-                          {' '}{rx.prescriberName} · expires {rx.expiryDate}
+                          <T>Patient</T> {maskNationalId(rx.patientNationalId)} · {rx.lines.length} <T>line(s) ·</T>
+                          {' '}{rx.prescriberName} <T>· expires</T> {rx.expiryDate}
                         </Typography>
                       </Box>
                     );
@@ -388,13 +391,13 @@ export default function PrescriptionCaptureDialog({
                 <>
                   <Divider />
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Dispense against {selected.prescriptionNo}</Typography>
-                    <Chip size="small" label={STATUS_LABEL[selectedStatus]} color={STATUS_COLOR[selectedStatus]} />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Dispense against</T> {selected.prescriptionNo}</Typography>
+                    <Chip size="small" label={tr(STATUS_LABEL[selectedStatus])} color={STATUS_COLOR[selectedStatus]} />
                   </Stack>
                   {unmatched.length > 0 && (
                     <Alert severity="error">
-                      Not on this prescription: {unmatched.map((line) => line.itemNameEn).join(', ')}.
-                      Remove them from the cart or capture a new prescription.
+                      <T>Not on this prescription:</T> {unmatched.map((line) => line.itemNameEn).join(', ')}<T>.
+                      Remove them from the cart or capture a new prescription.</T>
                     </Alert>
                   )}
                   {selected.lines.map((rxLine) => {
@@ -405,8 +408,8 @@ export default function PrescriptionCaptureDialog({
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{rxLine.itemNameEn}</Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Prescribed {rxLine.quantityPrescribed} {rxLine.unit}(s) × {1 + rxLine.refillsAuthorized} fill(s)
-                            {' · '}remaining {lineRemaining(rxLine)} · refills left {refillsLeft(rxLine)}
+                            <T>Prescribed</T> {rxLine.quantityPrescribed} {rxLine.unit}<T>(s) ×</T> {1 + rxLine.refillsAuthorized} <T>fill(s)</T>
+                            {' · '}<T>remaining</T> {lineRemaining(rxLine)} <T>· refills left</T> {refillsLeft(rxLine)}
                           </Typography>
                           <DirectionsSummary dosage={rxLine.dosage} />
                         </Box>
@@ -428,12 +431,12 @@ export default function PrescriptionCaptureDialog({
                   })}
                   {(selectedStatus === 'expired' || selectedStatus === 'blocked') && (
                     <TextField
-                      label="Override reason (required)"
+                      label={tr('Override reason (required)')}
                       fullWidth
                       size="small"
                       value={overrideReason}
                       onChange={(e) => setOverrideReason(e.target.value)}
-                      helperText={`This prescription is ${STATUS_LABEL[selectedStatus].toLowerCase()}. The reason is stored on the dispense record.`}
+                      helperText={`${tr("This prescription is ")}${STATUS_LABEL[selectedStatus].toLowerCase()}${tr(". The reason is stored on the dispense record.")}`}
                     />
                   )}
                   {plan && plan.errors.length > 0 && (
@@ -458,25 +461,25 @@ export default function PrescriptionCaptureDialog({
                 value={source}
                 onChange={(_, value: PrescriptionSource | null) => value && setSource(value)}
               >
-                <ToggleButton value="private">Private Prescription</ToggleButton>
-                <ToggleButton value="wasfaty">Wasfaty (وصفتي)</ToggleButton>
+                <ToggleButton value="private"><T>Private Prescription</T></ToggleButton>
+                <ToggleButton value="wasfaty"><T>Wasfaty (وصفتي)</T></ToggleButton>
               </ToggleButtonGroup>
 
               {source === 'wasfaty' && (
                 <TextField
-                  label="Wasfaty reference number"
+                  label={tr('Wasfaty reference number')}
                   fullWidth
                   value={wasfatyReferenceNo}
                   onChange={(e) => setWasfatyReferenceNo(e.target.value)}
-                  helperText="From the patient's Wasfaty e-prescription - recorded for this pharmacy's own reference only, not yet verified electronically against Wasfaty."
+                  helperText={tr('From the patient\'s Wasfaty e-prescription - recorded for this pharmacy\'s own reference only, not yet verified electronically against Wasfaty.')}
                 />
               )}
 
-              <TextField label="Prescriber name" fullWidth value={prescriberName} onChange={(e) => setPrescriberName(e.target.value)} />
-              <TextField label="Prescriber ID / license (optional)" fullWidth value={prescriberId} onChange={(e) => setPrescriberId(e.target.value)} />
-              <TextField label="Prescription number" fullWidth value={prescriptionId} onChange={(e) => setPrescriptionId(e.target.value)} />
+              <TextField label={tr('Prescriber name')} fullWidth value={prescriberName} onChange={(e) => setPrescriberName(e.target.value)} />
+              <TextField label={tr('Prescriber ID / license (optional)')} fullWidth value={prescriberId} onChange={(e) => setPrescriberId(e.target.value)} />
+              <TextField label={tr('Prescription number')} fullWidth value={prescriptionId} onChange={(e) => setPrescriptionId(e.target.value)} />
               <TextField
-                label="Prescription date"
+                label={tr('Prescription date')}
                 type="date"
                 fullWidth
                 value={prescriptionDate}
@@ -485,17 +488,17 @@ export default function PrescriptionCaptureDialog({
                 helperText={`Valid for ${DEFAULT_VALIDITY_DAYS} days — expires ${prescriptionDate ? expiryFor(prescriptionDate) : '—'}.`}
               />
               <TextField
-                label="Patient national ID / Iqama"
+                label={tr('Patient national ID / Iqama')}
                 fullWidth
                 value={nationalId}
                 onChange={(e) => setNationalId(e.target.value.replace(/[^\d]/g, ''))}
                 error={nationalId.length > 0 && !/^\d{10}$/.test(nationalId)}
-                helperText="10 digits, required for the pharmacy's prescription registry."
+                helperText={tr('10 digits, required for the pharmacy\'s prescription registry.')}
                 slotProps={{ htmlInput: { maxLength: 10, inputMode: 'numeric' } }}
               />
 
               <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Items on this prescription</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Items on this prescription</T></Typography>
               {lines.map((line) => (
                 <Stack
                   key={line.itemId}
@@ -521,15 +524,15 @@ export default function PrescriptionCaptureDialog({
                     />
                     <TextField
                       select
-                      label="Refills"
+                      label={tr('Refills')}
                       size="small"
                       sx={{ width: { xs: '100%', sm: 110 } }}
                       value={refillsByItem[line.itemId] ?? 0}
                       onChange={(e) => setRefillsByItem((current) => ({ ...current, [line.itemId]: Number(e.target.value) }))}
                     >
-                      <MenuItem value={0}>None</MenuItem>
-                      <MenuItem value={1}>1 refill</MenuItem>
-                      <MenuItem value={2}>2 refills</MenuItem>
+                      <MenuItem value={0}><T>None</T></MenuItem>
+                      <MenuItem value={1}><T>1 refill</T></MenuItem>
+                      <MenuItem value={2}><T>2 refills</T></MenuItem>
                     </TextField>
                   </Stack>
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
@@ -539,7 +542,7 @@ export default function PrescriptionCaptureDialog({
                       onClick={() => setDosagePickerItemId(line.itemId)}
                       sx={{ whiteSpace: 'nowrap' }}
                     >
-                      Directions
+                      <T>Directions</T>
                     </Button>
                     <Box sx={{ flex: 1, minWidth: 180 }}>
                       <DirectionsSummary dosage={dosageByItem[line.itemId]} />
@@ -555,16 +558,16 @@ export default function PrescriptionCaptureDialog({
               {newExpired && (
                 <>
                   <Alert severity="warning">
-                    This prescription expired on {expiryFor(prescriptionDate)}. Dispensing it needs a
-                    written override reason, which is stored on the dispense record.
+                    <T>This prescription expired on</T> {expiryFor(prescriptionDate)}<T>. Dispensing it needs a
+                    written override reason, which is stored on the dispense record.</T>
                   </Alert>
                   <TextField
-                    label="Override reason (required)"
+                    label={tr('Override reason (required)')}
                     fullWidth
                     size="small"
                     value={overrideReason}
                     onChange={(e) => setOverrideReason(e.target.value)}
-                    helperText="For example: prescriber confirmed by phone; patient already started treatment."
+                    helperText={tr('For example: prescriber confirmed by phone; patient already started treatment.')}
                   />
                 </>
               )}
@@ -587,8 +590,8 @@ export default function PrescriptionCaptureDialog({
         onClose={() => setDosagePickerItemId(null)}
       />
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button variant="contained" disabled={!canConfirm} onClick={confirm}>Continue to Payment</Button>
+        <Button onClick={onCancel}><T>Cancel</T></Button>
+        <Button variant="contained" disabled={!canConfirm} onClick={confirm}><T>Continue to Payment</T></Button>
       </DialogActions>
     </Dialog>
   );

@@ -10,6 +10,7 @@ import { itemCodes } from '../../utils/itemMaster';
 import { formatMoney, formatQty } from '../../utils/format';
 import DiscountInput from '../common/DiscountInput';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   items: Item[];
@@ -25,6 +26,7 @@ function today(): string {
 }
 
 export default function OfferFormDialog({ open, items, offers, offer, onSave, onEditExisting, onClose }: Props) {
+  const tr = useT();
   const [itemId, setItemId] = useState('');
   const [itemQuery, setItemQuery] = useState('');
   const [type, setType] = useState<OfferType>('percent');
@@ -112,17 +114,17 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>{offer ? 'Edit Offer' : 'New Offer'}</DialogTitle>
+      <DialogTitle>{offer ? tr("Edit Offer") : tr("New Offer")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <TextField
-            label="Search item (name or barcode)"
+            label={tr('Search item (name or barcode)')}
             value={itemQuery}
             onChange={(e) => {
               setItemQuery(e.target.value);
               setItemId('');
             }}
-            placeholder="Type name, Arabic name, or barcode"
+            placeholder={tr('Type name, Arabic name, or barcode')}
             size="small"
             fullWidth
           />
@@ -160,23 +162,23 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
           )}
           {existingOffer && (
             <Alert severity="warning">
-              This item has offer ({existingOffer.type === 'percent'
+              <T>This item has offer (</T>{existingOffer.type === 'percent'
                 ? formatDiscountPercent(existingOffer.percent ?? 0)
                 : existingOffer.type === 'value'
-                  ? `SAR ${formatMoney(existingOffer.value ?? 0)}`
-                  : `Buy ${formatQty(existingOffer.buyQty)} Get ${formatQty(existingOffer.freeQty)}`}). Pick it from the list above to edit it.
+                  ? `${tr("SAR ")}${formatMoney(existingOffer.value ?? 0)}`
+                  : `${tr("Buy ")}${formatQty(existingOffer.buyQty)}${tr("Get ")}${formatQty(existingOffer.freeQty)}`}<T>). Pick it from the list above to edit it.</T>
             </Alert>
           )}
 
           <ToggleButtonGroup exclusive fullWidth value={type} onChange={(_, v) => v && setType(v)}>
-            <ToggleButton value="percent">% Off</ToggleButton>
-            <ToggleButton value="value">SAR Off</ToggleButton>
-            <ToggleButton value="bogo">Buy X Get Y</ToggleButton>
+            <ToggleButton value="percent"><T>% Off</T></ToggleButton>
+            <ToggleButton value="value"><T>SAR Off</T></ToggleButton>
+            <ToggleButton value="bogo"><T>Buy X Get Y</T></ToggleButton>
           </ToggleButtonGroup>
 
           {type === 'percent' && (
             <DiscountInput
-              label="Discount"
+              label={tr('Discount')}
               value={percentInput}
               onChange={setPercentInput}
               fullWidth
@@ -184,18 +186,18 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
           )}
           {type === 'value' && (
             <TextField
-              label="Discount per unit"
+              label={tr('Discount per unit')}
               type="number"
               value={valueInput}
               onChange={(e) => setValueInput(e.target.value)}
-              slotProps={{ input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> }, htmlInput: { min: 0, step: '0.01' } }}
+              slotProps={{ input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> }, htmlInput: { min: 0, step: '0.01' } }}
               fullWidth
             />
           )}
           {type === 'bogo' && (
             <Stack direction="row" spacing={2}>
               <TextField
-                label="Buy Qty"
+                label={tr('Buy Qty')}
                 type="number"
                 value={buyQtyInput}
                 onChange={(e) => setBuyQtyInput(e.target.value)}
@@ -203,7 +205,7 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
                 fullWidth
               />
               <TextField
-                label="Free Qty"
+                label={tr('Free Qty')}
                 type="number"
                 value={freeQtyInput}
                 onChange={(e) => setFreeQtyInput(e.target.value)}
@@ -214,16 +216,16 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
           )}
 
           <TextField
-            label="Label shown to the cashier"
+            label={tr('Label shown to the cashier')}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            helperText="e.g. Buy 2 Get 1 Free, 20% Off"
+            helperText={tr('e.g. Buy 2 Get 1 Free, 20% Off')}
             fullWidth
           />
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Active From"
+              label={tr('Active From')}
               type="date"
               value={activeFrom}
               onChange={(e) => setActiveFrom(e.target.value)}
@@ -231,7 +233,7 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
               fullWidth
             />
             <TextField
-              label="Active To"
+              label={tr('Active To')}
               type="date"
               value={activeTo}
               onChange={(e) => setActiveTo(e.target.value)}
@@ -242,9 +244,9 @@ export default function OfferFormDialog({ open, items, offers, offer, onSave, on
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}><T>Cancel</T></Button>
         <Button variant="contained" disabled={!valid} onClick={save}>
-          {offer ? 'Save Changes' : 'Create Offer'}
+          {offer ? tr("Save Changes") : tr("Create Offer")}
         </Button>
       </DialogActions>
     </Dialog>

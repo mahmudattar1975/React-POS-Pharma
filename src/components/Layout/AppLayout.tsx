@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Chip, Button } from '@mui/material';
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Chip, Button, IconButton, Tooltip } from '@mui/material';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -10,6 +10,8 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import InsightsIcon from '@mui/icons-material/Insights';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import LanguageIcon from '@mui/icons-material/Language';
+import { T, useT, useI18n } from '../../i18n';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAuthStore } from '../../store/authStore';
 import { useShiftStore } from '../../store/shiftStore';
@@ -42,12 +44,14 @@ const HUB_PATHS: Record<string, string[]> = {
 };
 
 export default function AppLayout() {
+  const tr = useT();
   const settings = useSettingsStore((s) => s.settings);
   const location = useLocation();
   const navigate = useNavigate();
   const session = useAuthStore((s) => s.session);
   const logout = useAuthStore((s) => s.logout);
   const shift = useShiftStore((s) => s.shift);
+  const { locale, direction, toggleLocale, t } = useI18n();
   const [closeDrawerOpen, setCloseDrawerOpen] = useState(false);
 
   return (
@@ -57,29 +61,29 @@ export default function AppLayout() {
         href="#main-content"
         sx={{
           position: 'absolute',
-          left: -9999,
+          insetInlineStart: -9999,
           top: 0,
           zIndex: 9999,
           bgcolor: 'background.paper',
           p: 1,
-          '&:focus': { left: 8, outline: '2px solid', outlineColor: 'primary.main' },
+          '&:focus': { insetInlineStart: 8, outline: '2px solid', outlineColor: 'primary.main' },
         }}
       >
-        Skip to main content
+        <T>Skip to main content</T>
       </Box>
       <Box sx={{ display: 'flex', height: '100vh' }}>
       <Box
         component="nav"
-        aria-label="Main navigation"
+        aria-label={tr("Main navigation")}
         sx={{
           width: 236,
           flex: 'none',
-          borderRight: '1px solid',
+          borderInlineEnd: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.paper',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '2px 0 8px rgba(20, 18, 10, 0.03)',
+          boxShadow: direction === 'rtl' ? '-2px 0 8px rgba(20, 18, 10, 0.03)' : '2px 0 8px rgba(20, 18, 10, 0.03)',
         }}
       >
         <Box sx={{ px: 2.5, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -91,9 +95,23 @@ export default function AppLayout() {
               {settings.storeNameEn}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Pharmacy POS
+              <T>Pharmacy POS</T>
+              {settings.branchCode ? ` · ${settings.branchCode}` : ''}
             </Typography>
           </Box>
+          <Tooltip title={tr("العربية / English")}>
+            <IconButton
+              size="small"
+              onClick={toggleLocale}
+              aria-label={t('Switch language')}
+              sx={{ marginInlineStart: 'auto', flex: 'none', color: 'text.secondary' }}
+            >
+              <LanguageIcon fontSize="small" />
+              <Typography component="span" variant="caption" sx={{ marginInlineStart: 0.5, fontWeight: 700 }}>
+                {locale === 'en' ? 'EN' : 'AR'}
+              </Typography>
+            </IconButton>
+          </Tooltip>
         </Box>
         <Divider />
         <List sx={{ px: 1, py: 1 }}>
@@ -108,7 +126,7 @@ export default function AppLayout() {
                 sx={{ borderRadius: 2 }}
               >
                 <ListItemIcon sx={{ minWidth: 34, color: n.color }}>{n.icon}</ListItemIcon>
-                <ListItemText slotProps={{ primary: { sx: { fontSize: 14 } } }} primary={n.label} />
+                <ListItemText slotProps={{ primary: { sx: { fontSize: 14 } } }} primary={t(n.label)} />
               </ListItemButton>
             </ListItem>
           ))}
@@ -117,10 +135,10 @@ export default function AppLayout() {
           <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>
             {session?.fullName ?? settings.cashierName}
           </Typography>
-          <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>VAT {settings.vatRegistrationNo}</Typography>
+          <Typography variant="caption" sx={{ display: 'block', mb: 1 }}><T>VAT</T> {settings.vatRegistrationNo}</Typography>
           {shift && (
             <Chip
-              label={`Drawer open • float ${formatMoney(shift.openingFloat)} SAR`}
+              label={`${t('Drawer open • float')} ${formatMoney(shift.openingFloat)} ${t('SAR')}`}
               size="small"
               color="success"
               variant="outlined"
@@ -130,7 +148,7 @@ export default function AppLayout() {
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {shift && (
               <Button size="small" variant="outlined" fullWidth onClick={() => setCloseDrawerOpen(true)}>
-                Close Drawer
+                <T>Close Drawer</T>
               </Button>
             )}
             <Button
@@ -140,7 +158,8 @@ export default function AppLayout() {
                 logout();
                 navigate('/login', { replace: true });
               }}
-              title="Sign out"
+              title={t('Sign out')}
+              aria-label={t('Sign out')}
             >
               <LogoutIcon fontSize="small" />
             </Button>

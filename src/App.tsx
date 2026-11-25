@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { theme } from './theme';
 import { usePendingSyncStore } from './store/pendingSyncStore';
 import { useRsdOutboxStore } from './store/rsdOutboxStore';
+import { useSettingsStore } from './store/settingsStore';
+import { getBranchContext } from './api/branchApi';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
 import RequireAuth from './components/Auth/RequireAuth';
@@ -50,10 +51,35 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // This terminal's branch comes from config/branch.json on the server. Cache it in settings so
+  // invoice numbers get the right prefix. If the server is unreachable, keep the last known value:
+  // an offline pharmacy still sells, with the same branch stamped on every document.
+  useEffect(() => {
+    let active = true;
+    getBranchContext()
+      .then((ctx) => {
+        if (!active || !ctx.configured) return;
+        // An unconfigured terminal keeps the historical numbering. This also keeps a fresh
+        // dev/test install (no branch.json) behaving exactly as before.
+        const settings = useSettingsStore.getState().settings;
+        useSettingsStore.getState().update({
+          branchId: ctx.branch.id,
+          branchCode: ctx.branch.code,
+          branchNameEn: ctx.branch.nameEn,
+          branchNameAr: ctx.branch.nameAr,
+          costCenterId: ctx.branch.costCenterId || settings.costCenterId,
+        });
+      })
+      .catch(() => {
+        // Advisory only - no notification at the till; the next successful boot will refresh it.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
+    <BrowserRouter>
         <Suspense fallback={<Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -102,7 +128,6 @@ export default function App() {
           </Route>
         </Routes>
         </Suspense>
-      </BrowserRouter>
-    </ThemeProvider>
+    </BrowserRouter>
   );
 }

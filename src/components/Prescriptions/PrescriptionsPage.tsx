@@ -20,16 +20,19 @@ import { formatQty } from '../../utils/format';
 import { maskNationalId } from '../../utils/wasfaty';
 import PrescriptionLabelDialog from './PrescriptionLabelDialog';
 
+import { T, useT } from '../../i18n';
 function statusOf(rx: Prescription): Prescription['status'] {
   return rx.status === 'cancelled' || rx.status === 'blocked' ? rx.status : statusFor(rx);
 }
 
 function StatusChip({ rx }: { rx: Prescription }) {
+  const tr = useT();
   const status = statusOf(rx);
-  return <Chip size="small" label={PRESCRIPTION_STATUS_LABEL[status]} color={PRESCRIPTION_STATUS_COLOR[status]} />;
+  return <Chip size="small" label={tr(PRESCRIPTION_STATUS_LABEL[status])} color={PRESCRIPTION_STATUS_COLOR[status]} />;
 }
 
 export default function PrescriptionsPage() {
+  const tr = useT();
   const prescriptions = usePrescriptionStore((s) => s.prescriptions);
   const setStatus = usePrescriptionStore((s) => s.setStatus);
   const settings = useSettingsStore((s) => s.settings);
@@ -84,10 +87,10 @@ export default function PrescriptionsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Prescriptions</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Prescriptions</T></Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Every prescription on file, its remaining quantity and refills, and the invoices that
-        dispensed it. Captured at the POS when a controlled or prescription-only item is sold.
+        <T>Every prescription on file, its remaining quantity and refills, and the invoices that
+        dispensed it. Captured at the POS when a controlled or prescription-only item is sold.</T>
       </Typography>
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 2 }}>
@@ -100,7 +103,7 @@ export default function PrescriptionsPage() {
 
       <TextField
         size="small"
-        placeholder="Search prescription no. / national ID / patient name / Wasfaty ref."
+        placeholder={tr('Search prescription no. / national ID / patient name / Wasfaty ref.')}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         sx={{ mb: 2, width: { xs: '100%', md: 480 } }}
@@ -110,23 +113,23 @@ export default function PrescriptionsPage() {
       {rows.length === 0 ? (
         <Alert severity="info">
           {prescriptions.length === 0
-            ? 'No prescriptions captured yet. The next sale containing a prescription-only or controlled item will create one.'
-            : 'No prescription matches this search.'}
+            ? tr("No prescriptions captured yet. The next sale containing a prescription-only or controlled item will create one.")
+            : tr("No prescription matches this search.")}
         </Alert>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Prescription</TableCell>
-                <TableCell>Patient</TableCell>
-                <TableCell>Prescriber</TableCell>
-                <TableCell>Issued / expires</TableCell>
-                <TableCell align="right">Items</TableCell>
-                <TableCell align="right">Remaining</TableCell>
-                <TableCell align="right">Refills left</TableCell>
-                <TableCell>Last dispense</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell><T>Prescription</T></TableCell>
+                <TableCell><T>Patient</T></TableCell>
+                <TableCell><T>Prescriber</T></TableCell>
+                <TableCell><T>Issued / expires</T></TableCell>
+                <TableCell align="right"><T>Items</T></TableCell>
+                <TableCell align="right"><T>Remaining</T></TableCell>
+                <TableCell align="right"><T>Refills left</T></TableCell>
+                <TableCell><T>Last dispense</T></TableCell>
+                <TableCell><T>Status</T></TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -136,13 +139,13 @@ export default function PrescriptionsPage() {
                 return (
                   <TableRow key={rx.id} hover>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{rx.prescriptionNo}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, direction: 'ltr', unicodeBidi: 'isolate' }}>{rx.prescriptionNo}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {rx.source === 'wasfaty' ? `Wasfaty ${rx.wasfatyReferenceNo ?? ''}`.trim() : 'Private'}
+                        {rx.source === 'wasfaty' ? `${tr("Wasfaty ")}${rx.wasfatyReferenceNo ?? ''}`.trim() : tr("Private")}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{rx.patientName ?? 'Patient'}</Typography>
+                      <Typography variant="body2">{rx.patientName ?? tr("Patient")}</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                         {maskNationalId(rx.patientNationalId)}
                       </Typography>
@@ -163,7 +166,7 @@ export default function PrescriptionsPage() {
                     <TableCell><StatusChip rx={rx} /></TableCell>
                     <TableCell align="right">
                       <Button size="small" aria-label={`View ${rx.prescriptionNo}`} onClick={() => setSelectedId(rx.id)}>
-                        View
+                        <T>View</T>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -186,26 +189,26 @@ export default function PrescriptionsPage() {
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="body2">
-                    <strong>Patient:</strong> {selected.patientName ?? 'Patient'} ({maskNationalId(selected.patientNationalId)})
+                    <strong><T>Patient:</T></strong> {selected.patientName ?? tr("Patient")} ({maskNationalId(selected.patientNationalId)})
                   </Typography>
-                  <Typography variant="body2"><strong>Prescriber:</strong> {selected.prescriberName}{selected.prescriberId ? ` · ${selected.prescriberId}` : ''}</Typography>
-                  <Typography variant="body2"><strong>Issued:</strong> {selected.issuedDate} · <strong>Expires:</strong> {selected.expiryDate}</Typography>
+                  <Typography variant="body2"><strong><T>Prescriber:</T></strong> {selected.prescriberName}{selected.prescriberId ? ` · ${selected.prescriberId}` : ''}</Typography>
+                  <Typography variant="body2"><strong><T>Issued:</T></strong> {selected.issuedDate} · <strong><T>Expires:</T></strong> {selected.expiryDate}</Typography>
                   {selected.wasfatyReferenceNo && (
-                    <Typography variant="body2"><strong>Wasfaty reference:</strong> {selected.wasfatyReferenceNo}</Typography>
+                    <Typography variant="body2"><strong><T>Wasfaty reference:</T></strong> {selected.wasfatyReferenceNo}</Typography>
                   )}
-                  <Typography variant="body2"><strong>Captured:</strong> {selected.createdAt.slice(0, 10)} by {selected.createdBy}</Typography>
+                  <Typography variant="body2"><strong><T>Captured:</T></strong> {selected.createdAt.slice(0, 10)} <T>by</T> {selected.createdBy}</Typography>
                 </Box>
 
                 <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Items</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Items</T></Typography>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Item</TableCell>
-                      <TableCell align="right">Prescribed</TableCell>
-                      <TableCell align="right">Dispensed</TableCell>
-                      <TableCell align="right">Remaining</TableCell>
-                      <TableCell align="right">Refills left</TableCell>
+                      <TableCell><T>Item</T></TableCell>
+                      <TableCell align="right"><T>Prescribed</T></TableCell>
+                      <TableCell align="right"><T>Dispensed</T></TableCell>
+                      <TableCell align="right"><T>Remaining</T></TableCell>
+                      <TableCell align="right"><T>Refills left</T></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -218,7 +221,7 @@ export default function PrescriptionsPage() {
                             <>
                               <Typography variant="caption" sx={{ display: 'block', mt: 0.25 }}>
                                 {buildDosageLabel(line.dosage).labelEn || '—'}
-                                {line.dosage.durationDays ? ` · ${line.dosage.durationDays} day(s)` : ''}
+                                {line.dosage.durationDays ? ` · ${line.dosage.durationDays}${tr(" day(s)")}` : ''}
                               </Typography>
                               <Typography
                                 variant="caption"
@@ -231,7 +234,7 @@ export default function PrescriptionsPage() {
                             </>
                           ) : (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                              No written directions
+                              <T>No written directions</T>
                             </Typography>
                           )}
                         </TableCell>
@@ -245,9 +248,9 @@ export default function PrescriptionsPage() {
                 </Table>
 
                 <Divider />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Dispense history</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Dispense history</T></Typography>
                 {selected.dispenseEvents.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">Nothing dispensed yet.</Typography>
+                  <Typography variant="body2" color="text.secondary"><T>Nothing dispensed yet.</T></Typography>
                 ) : (
                   <Stack spacing={1}>
                     {selected.dispenseEvents.map((event) => (
@@ -255,7 +258,7 @@ export default function PrescriptionsPage() {
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{event.invoiceNo}</Typography>
                           <Chip size="small" variant="outlined" label={event.dispensedAt.slice(0, 10)} />
-                          <Typography variant="caption" color="text.secondary">by {event.dispensedBy}</Typography>
+                          <Typography variant="caption" color="text.secondary"><T>by</T> {event.dispensedBy}</Typography>
                         </Stack>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                           {event.lines.map((line) => {
@@ -265,7 +268,7 @@ export default function PrescriptionsPage() {
                         </Typography>
                         {event.overrideReason && (
                           <Alert severity="warning" sx={{ mt: 1 }}>
-                            Dispensed with override: {event.overrideReason}
+                            <T>Dispensed with override:</T> {event.overrideReason}
                           </Alert>
                         )}
                       </Paper>
@@ -276,19 +279,19 @@ export default function PrescriptionsPage() {
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, flexWrap: 'wrap' }}>
               {selected.status !== 'cancelled' && selected.status !== 'blocked' && (
-                <Button color="warning" onClick={() => setStatus(selected.id, 'blocked')}>Block</Button>
+                <Button color="warning" onClick={() => setStatus(selected.id, 'blocked')}><T>Block</T></Button>
               )}
               {selected.status === 'blocked' && (
-                <Button onClick={() => setStatus(selected.id, statusOf(selected) === 'expired' ? 'expired' : 'active')}>Unblock</Button>
+                <Button onClick={() => setStatus(selected.id, statusOf(selected) === 'expired' ? 'expired' : 'active')}><T>Unblock</T></Button>
               )}
               {selected.status !== 'cancelled' && (
-                <Button color="error" onClick={() => setConfirmCancel(true)}>Cancel prescription</Button>
+                <Button color="error" onClick={() => setConfirmCancel(true)}><T>Cancel prescription</T></Button>
               )}
               <Box sx={{ flex: 1 }} />
               <Button variant="outlined" onClick={() => openLabels(selected)}>
-                Print labels
+                <T>Print labels</T>
               </Button>
-              <Button onClick={closeDetail}>Close</Button>
+              <Button onClick={closeDetail}><T>Close</T></Button>
             </DialogActions>
           </>
         )}
@@ -302,15 +305,15 @@ export default function PrescriptionsPage() {
       />
 
       <Dialog open={confirmCancel} onClose={() => setConfirmCancel(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Cancel this prescription?</DialogTitle>
+        <DialogTitle><T>Cancel this prescription?</T></DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            {selected?.prescriptionNo} will be marked cancelled and can never be dispensed again.
-            Its dispense history stays on record. This cannot be undone.
+            {selected?.prescriptionNo} <T>will be marked cancelled and can never be dispensed again.
+            Its dispense history stays on record. This cannot be undone.</T>
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmCancel(false)}>Keep it</Button>
+          <Button onClick={() => setConfirmCancel(false)}><T>Keep it</T></Button>
           <Button
             color="error"
             variant="contained"
@@ -319,7 +322,7 @@ export default function PrescriptionsPage() {
               closeDetail();
             }}
           >
-            Cancel prescription
+            <T>Cancel prescription</T>
           </Button>
         </DialogActions>
       </Dialog>

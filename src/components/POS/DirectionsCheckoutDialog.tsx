@@ -25,6 +25,7 @@ import { useDosageStore } from '../../store/dosageStore';
 import { buildDosageText, snapshotDosage } from '../../utils/dosages';
 import { formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export interface DosagePatch {
   lineId: string;
   dosage?: DosageSnapshot;
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onSkip }: Props) {
+  const tr = useT();
   const dosages = useDosageStore((s) => s.dosages);
   const itemById = useCatalogStore((s) => s.itemById);
 
@@ -117,10 +119,10 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
           </Box>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-              Directions for this sale
+              <T>Directions for this sale</T>
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {invoice.invoiceNo} · {invoice.customerNameEn || invoice.customerNameAr} · payment complete
+              {invoice.invoiceNo} · {invoice.customerNameEn || invoice.customerNameAr} <T>· payment complete</T>
             </Typography>
           </Box>
         </Stack>
@@ -134,10 +136,10 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
             sx={{ '& .MuiAlert-message': { width: '100%' } }}
           >
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Sale completed. Add the patient&apos;s directions before printing.
+              <T>Sale completed. Add the patient&apos;s directions before printing.</T>
             </Typography>
             <Typography variant="caption">
-              Optional — the separate direction label prints after the sales invoice.
+              <T>Optional — the separate direction label prints after the sales invoice.</T>
             </Typography>
           </Alert>
 
@@ -156,7 +158,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                       <Chip size="small" variant="outlined" label={`Qty ${formatQty(line.qty)}${line.unit ? ` ${line.unit}` : ''}`} />
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
-                      {line.itemNameAr} · batch {line.batchNo}
+                      {line.itemNameAr} <T>· batch</T> {line.batchNo}
                     </Typography>
                   </Box>
 
@@ -166,17 +168,17 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                       color="text.secondary"
                       sx={{ maxWidth: { md: 320 }, flexShrink: 0 }}
                     >
-                      No instructions linked to this item. Link suitable ones in Inventory → Dosage
-                      Instructions; the sale does not need any.
+                      <T>No instructions linked to this item. Link suitable ones in Inventory → Dosage
+                      Instructions; the sale does not need any.</T>
                     </Typography>
                   ) : (
                     <FormControl size="small" sx={{ minWidth: { md: 330 }, maxWidth: { md: 420 }, flexShrink: 0 }}>
                       <InputLabel id={`dosage-line-${line.id}`} shrink>
-                        Directions
+                        <T>Directions</T>
                       </InputLabel>
                       <Select
                         labelId={`dosage-line-${line.id}`}
-                        label="Directions"
+                        label={tr('Directions')}
                         displayEmpty
                         notched
                         value={chosen?.dosageId ?? ''}
@@ -186,7 +188,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                           if (!id) {
                             return (
                               <Typography variant="body2" color="text.secondary">
-                                No written directions
+                                <T>No written directions</T>
                               </Typography>
                             );
                           }
@@ -200,7 +202,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                                 {fromLibrary?.code ?? chosen?.code ?? id}
                               </Typography>
                               {id === suggested && (
-                                <Chip size="small" color="primary" label="Suggested" sx={{ height: 20 }} />
+                                <Chip size="small" color="primary" label={tr('Suggested')} sx={{ height: 20 }} />
                               )}
                             </Stack>
                           );
@@ -208,7 +210,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                       >
                         <MenuItem value="">
                           <Typography variant="body2" color="text.secondary">
-                            No written directions
+                            <T>No written directions</T>
                           </Typography>
                         </MenuItem>
                         {linked.map((dosage) => (
@@ -219,7 +221,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                                   {dosage.code}
                                 </Typography>
                                 {dosage.id === suggested && (
-                                  <Chip size="small" color="primary" label="Suggested" sx={{ height: 20 }} />
+                                  <Chip size="small" color="primary" label={tr('Suggested')} sx={{ height: 20 }} />
                                 )}
                               </Stack>
                               <Typography variant="caption" color="text.secondary">
@@ -235,7 +237,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                           <MenuItem value={chosen.dosageId} sx={{ whiteSpace: 'normal', py: 1 }}>
                             <Box>
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {chosen.code} · current
+                                {chosen.code} <T>· current</T>
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
                                 {chosen.textEn}
@@ -252,7 +254,7 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
                   <Box
                     sx={{
                       mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: 'action.hover',
-                      borderLeft: '3px solid', borderColor: 'primary.main',
+                      borderInlineStart: '3px solid', borderColor: 'primary.main',
                     }}
                   >
                     <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>
@@ -273,8 +275,8 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
           })}
 
           <Typography variant="caption" color="text.secondary">
-            The invoice is already recorded and paid; this screen only adds patient guidance. Nothing
-            here changes prices, VAT, payment or the ZATCA document.
+            <T>The invoice is already recorded and paid; this screen only adds patient guidance. Nothing
+            here changes prices, VAT, payment or the ZATCA document.</T>
           </Typography>
         </Stack>
       </DialogContent>
@@ -285,13 +287,13 @@ export default function DirectionsCheckoutDialog({ open, invoice, onConfirm, onS
           disabled={suggestedCount === 0}
           sx={{ mr: 'auto' }}
         >
-          Use suggested ({suggestedCount})
+          <T>Use suggested (</T>{suggestedCount})
         </Button>
         <Button color="inherit" onClick={onSkip}>
-          Skip
+          <T>Skip</T>
         </Button>
         <Button variant="contained" onClick={confirm}>
-          {chosenCount > 0 ? 'Continue to receipt' : 'Continue without directions'}
+          {chosenCount > 0 ? tr("Continue to receipt") : tr("Continue without directions")}
         </Button>
       </DialogActions>
     </Dialog>

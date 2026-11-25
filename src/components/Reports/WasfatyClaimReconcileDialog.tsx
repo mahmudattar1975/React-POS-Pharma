@@ -11,6 +11,7 @@ import {
 import type { WasfatyClaim } from '../../types/wasfaty';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export interface ReconcileInput {
   reportedAmount: number;
   paidAmount?: number;
@@ -33,6 +34,7 @@ function amountError(value: string, required: boolean): string | undefined {
 }
 
 export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClose, onConfirm }: Props) {
+  const tr = useT();
   const [reported, setReported] = useState(String(claim.reportedAmount ?? claim.expectedAmount));
   const [paid, setPaid] = useState(claim.paidAmount === undefined ? '' : String(claim.paidAmount));
   const [reason, setReason] = useState(claim.varianceReason ?? '');
@@ -48,16 +50,16 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
   return (
     <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        Reconcile claim
+        <T>Reconcile claim</T>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {claim.invoiceNo ?? claim.id} · {claim.month} · expected SAR {formatMoney(claim.expectedAmount)}
+          {claim.invoiceNo ?? claim.id} · {claim.month} <T>· expected SAR</T> {formatMoney(claim.expectedAmount)}
         </Typography>
       </DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Reported amount"
+            label={tr('Reported amount')}
             type="number"
             value={reported}
             onChange={(e) => setReported(e.target.value)}
@@ -65,12 +67,12 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
             helperText={reportedError ?? 'What NUPCO reported for this claim.'}
             slotProps={{
               htmlInput: { min: 0, step: '0.01' },
-              input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> },
+              input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> },
             }}
             fullWidth
           />
           <TextField
-            label="Paid amount"
+            label={tr('Paid amount')}
             type="number"
             value={paid}
             onChange={(e) => setPaid(e.target.value)}
@@ -78,27 +80,27 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
             helperText={paidError ?? 'Leave blank to record the reported amount as paid.'}
             slotProps={{
               htmlInput: { min: 0, step: '0.01' },
-              input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> },
+              input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> },
             }}
             fullWidth
           />
           {variance !== undefined && (
             <Alert severity="warning">
-              Paid is {variance > 0 ? 'above' : 'below'} the expected amount by SAR{' '}
-              {formatMoney(Math.abs(variance))}. The claim will be saved as a variance.
+              <T>Paid is</T> {variance > 0 ? 'above' : 'below'} <T>the expected amount by SAR</T>{' '}
+              {formatMoney(Math.abs(variance))}<T>. The claim will be saved as a variance.</T>
             </Alert>
           )}
           <TextField
-            label="Variance reason"
+            label={tr('Variance reason')}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            helperText="Optional, but recorded with the claim when the amounts differ."
+            helperText={tr('Optional, but recorded with the claim when the amounts differ.')}
             fullWidth
           />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button onClick={onClose} disabled={busy}><T>Cancel</T></Button>
         <Button
           variant="contained"
           disabled={busy || !!reportedError || !!paidError}
@@ -110,7 +112,7 @@ export default function WasfatyClaimReconcileDialog({ claim, busy, error, onClos
             })
           }
         >
-          {busy ? 'Saving…' : 'Save reconciliation'}
+          {busy ? tr("Saving…") : tr("Save reconciliation")}
         </Button>
       </DialogActions>
     </Dialog>

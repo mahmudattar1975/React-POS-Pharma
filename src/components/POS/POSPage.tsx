@@ -59,7 +59,9 @@ import PrescriptionCaptureDialog, { type PrescriptionCaptureResult } from './Pre
 import PrescriptionLabelDialog from '../Prescriptions/PrescriptionLabelDialog';
 import WasfatyCaptureDialog from './WasfatyCaptureDialog';
 
+import { T, useT } from '../../i18n';
 export default function POSPage() {
+  const tr = useT();
   const navigate = useNavigate();
   // Load active incentive rules once so badges/totals/records reflect the current list.
   useEffect(() => {
@@ -206,13 +208,12 @@ export default function POSPage() {
   function applyScanResult(result: ScanResult) {
     if (result.type === 'not-found') notify('Item not found for that barcode.', 'warning');
     else if (result.type === 'out-of-stock') {
-      // Only an ERP-sourced item (id 'erp-<itemNo>') has a real XPH item number to check other
-      // branches for - a local seed item has no such record, so no action is offered for those.
-      const isErpItem = result.item.id.startsWith('erp-');
+      // Stock at the other pharmacies is read from the shared PharmaDB, so local catalogue items
+      // can be checked too - not just ERP-sourced ones.
       notify(
         `${result.item.nameEn} has no stock in any batch.`,
         'warning',
-        isErpItem ? { label: 'Check other branches', onClick: () => setBranchStockItem(result.item) } : undefined
+        { label: 'Check other branches', onClick: () => setBranchStockItem(result.item) }
       );
     } else if (result.type === 'no-batch-matched') notify(`Scanned batch/expiry doesn't match stock on hand for ${result.itemNameEn}.`, 'warning');
     else if (result.type === 'choose-batch') setPicker({ open: true, item: result.item, batches: result.batches });
@@ -687,7 +688,7 @@ export default function POSPage() {
             inputRef={inputRef}
             autoFocus
             fullWidth
-            label="Scan barcode or type item name / SKU, then Enter"
+            label={tr('Scan barcode or type item name / SKU, then Enter')}
             value={scanValue}
             disabled={isScanning}
             onChange={(e) => {
@@ -710,7 +711,7 @@ export default function POSPage() {
           {dropdownOpen && (
             <Paper
               elevation={4}
-              sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
+              sx={{ position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
             >
               <List dense disablePadding>
                 {suggestions.map((item, i) => (
@@ -733,15 +734,15 @@ export default function POSPage() {
         <Stack
           direction="row"
           spacing={1}
-          sx={{ alignItems: 'stretch', justifyContent: 'flex-end', flexWrap: 'wrap' }}
+          sx={{ alignItems: 'stretch', justifyContent: 'end', flexWrap: 'wrap' }}
         >
           {/* Customer and Wasfaty describe WHO the basket is for, so they sit beside the scan field
               as two equal-height controls. Keeping them one row high leaves the vertical space to
               the cart, where the cashier actually works. */}
           <Button
             variant="outlined"
-            aria-label="Select customer"
-            sx={{ justifyContent: 'flex-start', textTransform: 'none', minWidth: 200, height: 56, py: 0, px: 1.5 }}
+            aria-label={tr('Select customer')}
+            sx={{ justifyContent: 'start', textTransform: 'none', minWidth: 200, height: 56, py: 0, px: 1.5 }}
             onClick={() => setCustomerDialogOpen(true)}
           >
             <Stack sx={{ alignItems: 'flex-start', minWidth: 0 }}>
@@ -751,7 +752,7 @@ export default function POSPage() {
               <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
                 {customer.phone
                   ? `${customer.phone} · ${customerPointsBalance} pts`
-                  : 'Walk-in sale'}
+                  : tr("Walk-in sale")}
               </Typography>
             </Stack>
           </Button>
@@ -759,13 +760,13 @@ export default function POSPage() {
             variant={wasfatySession ? 'contained' : 'outlined'}
             color={wasfatySession ? 'primary' : 'inherit'}
             startIcon={<LocalPharmacyOutlinedIcon />}
-            aria-label={wasfatySession ? 'Wasfaty dispense in progress' : 'Start Wasfaty dispense'}
-            sx={{ justifyContent: 'flex-start', textTransform: 'none', minWidth: 215, height: 56, py: 0, px: 1.5 }}
+            aria-label={wasfatySession ? tr('Wasfaty dispense in progress') : tr('Start Wasfaty dispense')}
+            sx={{ justifyContent: 'start', textTransform: 'none', minWidth: 215, height: 56, py: 0, px: 1.5 }}
             onClick={() => setWasfatyDialogOpen(true)}
           >
             <Stack sx={{ alignItems: 'flex-start', minWidth: 0 }}>
               <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 200 }}>
-                {wasfatySession ? `Wasfaty · ${wasfatySession.prescriptionNo}` : 'Wasfaty / وصفتي'}
+                {wasfatySession ? `${tr("Wasfaty · ")}${wasfatySession.prescriptionNo}` : tr("Wasfaty / وصفتي")}
               </Typography>
               <Typography
                 variant="caption"
@@ -774,8 +775,8 @@ export default function POSPage() {
                 sx={{ maxWidth: 200, opacity: wasfatySession ? 0.85 : 1 }}
               >
                 {wasfatySession
-                  ? `Patient ${maskNationalId(wasfatySession.patientNationalId)} · ${coveredLines.length} covered`
-                  : 'NUPCO covered sale'}
+                  ? `${tr("Patient ")}${maskNationalId(wasfatySession.patientNationalId)} · ${coveredLines.length} covered`
+                  : tr("NUPCO covered sale")}
               </Typography>
             </Stack>
           </Button>
@@ -795,7 +796,7 @@ export default function POSPage() {
                   variant="contained"
                   onClick={() => navigate('/wasfaty-mapping')}
                 >
-                  Map items
+                  <T>Map items</T>
                 </Button>
               )}
               <Button
@@ -807,22 +808,22 @@ export default function POSPage() {
                 }}
                 sx={{ textTransform: 'none' }}
               >
-                Cancel Wasfaty
+                <T>Cancel Wasfaty</T>
               </Button>
             </Stack>
           }
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Wasfaty dispense in progress · prescription {wasfatySession.prescriptionNo}
+            <T>Wasfaty dispense in progress · prescription</T> {wasfatySession.prescriptionNo}
           </Typography>
           <Typography variant="caption" component="div">
             {coveredLines.length > 0
-              ? `${coveredLines.length} line(s) covered by NUPCO · SAR ${formatMoney(coveredTotal)}; the patient pays SAR ${formatMoney(patientDue)}.`
-              : 'No item on the counter is on the NUPCO approved list yet — covered items are invoiced at the approved price and paid by Wasfaty.'}
+              ? `${coveredLines.length}${tr(" line(s) covered by NUPCO · SAR ")}${formatMoney(coveredTotal)}${tr("; the patient pays SAR ")}${formatMoney(patientDue)}.`
+              : tr("No item on the counter is on the NUPCO approved list yet — covered items are invoiced at the approved price and paid by Wasfaty.")}
           </Typography>
           {unmappedWasfaty.length > 0 && (
             <Typography variant="caption" component="div" color="warning.dark" sx={{ mt: 0.5 }}>
-              Blocked until mapped: {unmappedWasfaty.join(', ')}. Checkout will not charge the patient for these.
+              <T>Blocked until mapped:</T> {unmappedWasfaty.join(', ')}<T>. Checkout will not charge the patient for these.</T>
             </Typography>
           )}
         </Alert>
@@ -851,15 +852,15 @@ export default function POSPage() {
         <Table stickyHeader size="small" sx={{ '& th, & td': { px: 1.25 } }}>
           <TableHead>
             <TableRow sx={{ '& th': { whiteSpace: 'nowrap' } }}>
-              <TableCell>Item</TableCell>
-              <TableCell sx={{ minWidth: 160 }}>Directions</TableCell>
-              <TableCell>Batch / Expiry</TableCell>
-              <TableCell align="right">Qty</TableCell>
-              <TableCell align="right">Unit Price</TableCell>
-              <TableCell align="right">Discount</TableCell>
-              <TableCell align="right">VAT</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell sx={{ minWidth: 160 }}><T>Directions</T></TableCell>
+              <TableCell><T>Batch / Expiry</T></TableCell>
+              <TableCell align="right"><T>Qty</T></TableCell>
+              <TableCell align="right"><T>Unit Price</T></TableCell>
+              <TableCell align="right"><T>Discount</T></TableCell>
+              <TableCell align="right"><T>VAT</T></TableCell>
+              <TableCell align="right"><T>Total</T></TableCell>
+              <TableCell align="right"><T>Actions</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -867,7 +868,7 @@ export default function POSPage() {
               <TableRow>
                 <TableCell colSpan={9}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    Cart is empty — scan an item to begin a sale.
+                    <T>Cart is empty — scan an item to begin a sale.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -894,7 +895,9 @@ export default function POSPage() {
                           size="small"
                           color={l.nupcoCode ? 'primary' : 'warning'}
                           variant="outlined"
-                          label={l.nupcoCode ? `Wasfaty · ${l.nupcoCode}` : 'Wasfaty · no NUPCO code'}
+                          label={l.nupcoCode
+                            ? <>{tr("Wasfaty · ")}<Box component="span" dir="ltr" sx={{ unicodeBidi: 'isolate' }}>{l.nupcoCode}</Box></>
+                            : tr("Wasfaty · no NUPCO code")}
                         />
                       )}
                     </Stack>
@@ -904,7 +907,7 @@ export default function POSPage() {
                       title={
                         <span style={{ whiteSpace: 'pre-line' }}>
                           {l.serials.map((s) => `SN ${s.serialNo} · ${s.batchNo}`).join('\n')}
-                          {'\n'}Each pack is reported to RSD once this sale completes.
+                          {'\n'}<T>Each pack is reported to RSD once this sale completes.</T>
                         </span>
                       }
                     >
@@ -937,7 +940,7 @@ export default function POSPage() {
                         onClick={() => setDosageLineId(l.id)}
                         sx={{ alignSelf: 'flex-start', minWidth: 0, px: 0.5 }}
                       >
-                        Change
+                        <T>Change</T>
                       </Button>
                     </Stack>
                   ) : (
@@ -956,7 +959,7 @@ export default function POSPage() {
                           onClick={() => setDosageLineId(l.id)}
                           sx={{ whiteSpace: 'nowrap' }}
                         >
-                          Directions
+                          <T>Directions</T>
                         </Button>
                       </span>
                     </Tooltip>
@@ -964,9 +967,9 @@ export default function POSPage() {
                 </TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   <Typography variant="caption">
-                    {l.batchNo} · {l.expiryDate ?? 'No expiry'}
+                    {l.batchNo} · {l.expiryDate ?? tr("No expiry")}
                   </Typography>
-                  {isNearExpiry(l.expiryDate) && <Chip size="small" color="warning" label="Near expiry" sx={{ ml: 0.5 }} />}
+                  {isNearExpiry(l.expiryDate) && <Chip size="small" color="warning" label={tr('Near expiry')} sx={{ ml: 0.5 }} />}
                 </TableCell>
                 <TableCell align="right">
                   {/* Packed items: the cashier can sell a box, a strip or loose tablets from the
@@ -1017,12 +1020,11 @@ export default function POSPage() {
                           return;
                         }
                         const lineItem = itemById(l.itemId);
-                        const isErpItem = lineItem?.id.startsWith('erp-');
                         const levelLabel = l.packLevel ? PACK_LEVEL_LABEL_PLURAL[l.packLevel] : 'units';
                         notify(
                           `Only ${formatQty(appliedQty)} ${levelLabel.toLowerCase()} in stock for ${l.itemNameEn} (requested ${formatQty(requested)}).`,
                           'warning',
-                          isErpItem && lineItem ? { label: 'Check other branches', onClick: () => setBranchStockItem(lineItem) } : undefined
+                          lineItem ? { label: 'Check other branches', onClick: () => setBranchStockItem(lineItem) } : undefined
                         );
                       }
                     }}
@@ -1036,7 +1038,7 @@ export default function POSPage() {
                   />
                   {l.packLevel && l.packLevel !== 'tablet' && l.baseQty > 0 && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      = {formatQty(l.baseQty)} tablets
+                      = {formatQty(l.baseQty)} <T>tablets</T>
                     </Typography>
                   )}
                 </TableCell>
@@ -1080,17 +1082,17 @@ export default function POSPage() {
         <Stack direction="row" spacing={3} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <Stack spacing={0.25} sx={{ minWidth: 220 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-              <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+              <Typography variant="body2" color="text.secondary"><T>Subtotal</T></Typography>
               <Typography variant="body2">{formatMoney(t.subtotalExclVat)}</Typography>
             </Stack>
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-              <Typography variant="body2" color="text.secondary">Discount</Typography>
+              <Typography variant="body2" color="text.secondary"><T>Discount</T></Typography>
               <Typography variant="body2">-{formatMoney(t.totalDiscount)}</Typography>
             </Stack>
             {t.vatByRate.map((b) => (
               <Stack key={b.rate} direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
-                  VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}
+                  <T>VAT</T> {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr("(zero-rated)")}
                 </Typography>
                 <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
               </Stack>
@@ -1103,7 +1105,7 @@ export default function POSPage() {
               return totalIncentive > 0 ? (
                 <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="success.main">
-                    Sales incentive (حافز)
+                    <T>Sales incentive (حافز)</T>
                   </Typography>
                   <Typography variant="body2" color="success.main">{formatMoney(totalIncentive)}</Typography>
                 </Stack>
@@ -1112,7 +1114,7 @@ export default function POSPage() {
             {wasfatySession && coveredTotal > 0 && (
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="primary">
-                  Wasfaty coverage
+                  <T>Wasfaty coverage</T>
                 </Typography>
                 <Typography variant="body2" color="primary">{formatMoney(coveredTotal)}</Typography>
               </Stack>
@@ -1120,11 +1122,11 @@ export default function POSPage() {
           </Stack>
           <Stack spacing={1} sx={{ alignItems: 'flex-end' }}>
             <Typography component="span" variant="h4" sx={{ fontWeight: 700 }}>
-              SAR {formatMoney(t.totalInclVat)}
+              <T>SAR</T> {formatMoney(t.totalInclVat)}
             </Typography>
             {wasfatySession && (
               <Typography variant="body2" color="text.secondary">
-                Patient pays SAR {formatMoney(patientDue)}
+                <T>Patient pays SAR</T> {formatMoney(patientDue)}
               </Typography>
             )}
             <Button
@@ -1146,7 +1148,7 @@ export default function POSPage() {
                 else setPaymentOpen(true);
               }}
             >
-              Checkout
+              <T>Checkout</T>
             </Button>
           </Stack>
         </Stack>

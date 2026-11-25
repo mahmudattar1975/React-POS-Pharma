@@ -27,6 +27,7 @@ import {
   type VendorFormValues,
 } from '../../utils/vendors';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   vendor: Vendor | null; // null = creating
@@ -43,6 +44,7 @@ const NOTES_MAX = 2000;
 export default function VendorFormDialog({
   open, vendor, vendors, typeFlag = PARTY_TYPE_FLAG.vendor, onSave, onClose, error,
 }: Props) {
+  const tr = useT();
   const partyType = vendor?.typeFlag ?? typeFlag;
   const isCustomer = partyType === PARTY_TYPE_FLAG.customer;
   const noun = isCustomer ? 'customer' : 'vendor';
@@ -105,27 +107,27 @@ export default function VendorFormDialog({
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="h6" noWrap sx={{ lineHeight: 1.2 }}>
-              {vendor ? `Edit ${noun}` : `New ${noun}`}
+              {vendor ? `${tr("Edit ")}${noun}` : `${tr("New ")}${noun}`}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
               {vendor
                 ? `${Noun} no ${vendor.vendorNo} · ${vendor.nameEn}`
-                : `Next number ${values.vendorNo} — assigned automatically`}
+                : `${tr("Next number ")}${values.vendorNo}${tr(" — assigned automatically")}`}
             </Typography>
           </Box>
           {vendor ? (
             <Chip
               size="small"
-              label={values.isActive ? 'Active' : 'Inactive'}
+              label={values.isActive ? tr("Active") : tr("Inactive")}
               color={values.isActive ? 'success' : 'default'}
               variant={values.isActive ? 'outlined' : 'filled'}
               sx={{ flexShrink: 0 }}
             />
           ) : (
-            <Chip size="small" label="New" variant="outlined" sx={{ flexShrink: 0 }} />
+            <Chip size="small" label={tr('New')} variant="outlined" sx={{ flexShrink: 0 }} />
           )}
         </Stack>
-        <IconButton aria-label="Close" onClick={onClose} size="small" sx={{ position: 'absolute', right: 12, top: 12 }}>
+        <IconButton aria-label={tr('Close')} onClick={onClose} size="small" sx={{ position: 'absolute', insetInlineEnd: 12, top: 12 }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
@@ -151,7 +153,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Phone"
+                label={tr('Phone')}
                 value={values.phone}
                 onChange={(e) => patch('phone', e.target.value)}
                 error={!!errorFor('phone')}
@@ -160,7 +162,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Name (Arabic - عربي)"
+                label={tr('Name (Arabic - عربي)')}
                 value={values.nameAr}
                 onChange={(e) => patch('nameAr', e.target.value)}
                 error={!!errorFor('nameAr')}
@@ -171,7 +173,7 @@ export default function VendorFormDialog({
                 slotProps={{ htmlInput: { dir: 'rtl', style: { textAlign: 'right' } } }}
               />
               <TextField
-                label="Name (English)"
+                label={tr('Name (English)')}
                 value={values.nameEn}
                 onChange={(e) => patch('nameEn', e.target.value)}
                 error={!!errorFor('nameEn')}
@@ -181,7 +183,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Category"
+                label={tr('Category')}
                 value={values.category}
                 onChange={(e) => patch('category', e.target.value)}
                 error={!!errorFor('category')}
@@ -195,12 +197,12 @@ export default function VendorFormDialog({
 
           <Section
             icon={<AccountBalanceOutlinedIcon />}
-            title="Credit & terms"
+            title={tr('Credit & terms')}
             caption="Legacy cust_limit / setlemen_days / bonus and limitation sets"
           >
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}>
               <TextField
-                label="Credit limit"
+                label={tr('Credit limit')}
                 type="number"
                 value={values.creditLimit}
                 onChange={(e) => patch('creditLimit', e.target.value)}
@@ -211,7 +213,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Settlement days"
+                label={tr('Settlement days')}
                 type="number"
                 value={values.settlementDays}
                 onChange={(e) => patch('settlementDays', e.target.value)}
@@ -222,7 +224,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Bonus / discount set"
+                label={tr('Bonus / discount set')}
                 type="number"
                 value={values.bonusDiscountSetNo}
                 onChange={(e) => patch('bonusDiscountSetNo', e.target.value)}
@@ -233,7 +235,7 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <TextField
-                label="Limitation set"
+                label={tr('Limitation set')}
                 type="number"
                 value={values.limitationSetNo}
                 onChange={(e) => patch('limitationSetNo', e.target.value)}
@@ -248,12 +250,12 @@ export default function VendorFormDialog({
 
           <Section
             icon={<ReceiptLongOutlinedIcon />}
-            title="Tax & identifiers"
+            title={tr('Tax & identifiers')}
             caption="KSA VAT file number (15 digits) and GS1 GLN (13 digits)"
           >
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' } }}>
               <TextField
-                label="VAT number (optional)"
+                label={tr('VAT number (optional)')}
                 value={values.vatNumber}
                 onChange={(e) => patch('vatNumber', cleanVatNumberInput(e.target.value))}
                 error={!!errorFor('vatNumber')}
@@ -263,10 +265,10 @@ export default function VendorFormDialog({
                 fullWidth
               />
               <FormControl fullWidth size="small" error={!!errorFor('vatType')}>
-                <InputLabel id="vendor-vat-type-label">VAT type</InputLabel>
+                <InputLabel id="vendor-vat-type-label"><T>VAT type</T></InputLabel>
                 <Select
                   labelId="vendor-vat-type-label"
-                  label="VAT type"
+                  label={tr('VAT type')}
                   value={values.vatType}
                   onChange={(e) => patch('vatType', e.target.value)}
                 >
@@ -276,10 +278,10 @@ export default function VendorFormDialog({
                     </MenuItem>
                   ))}
                 </Select>
-                <FormHelperText>{errorFor('vatType') ?? `Used on the ${noun} file`}</FormHelperText>
+                <FormHelperText>{errorFor('vatType') ?? `${tr("Used on the ")}${noun} file`}</FormHelperText>
               </FormControl>
               <TextField
-                label="GLN (optional)"
+                label={tr('GLN (optional)')}
                 value={values.glnNo}
                 onChange={(e) => patch('glnNo', e.target.value.replace(/\D/g, '').slice(0, 13))}
                 error={!!errorFor('glnNo')}
@@ -293,7 +295,7 @@ export default function VendorFormDialog({
 
           <Section
             icon={<ToggleOnOutlinedIcon />}
-            title="Status & notes"
+            title={tr('Status & notes')}
             caption={`Inactive ${noun}s stay on old invoices and items, but are not offered for new ones`}
           >
             <Stack spacing={2}>
@@ -303,7 +305,7 @@ export default function VendorFormDialog({
                 sx={{ ml: 0 }}
               />
               <TextField
-                label="Notes"
+                label={tr('Notes')}
                 value={values.notes}
                 onChange={(e) => patch('notes', e.target.value)}
                 error={!!errorFor('notes')}
@@ -312,7 +314,7 @@ export default function VendorFormDialog({
                 fullWidth
                 multiline
                 minRows={3}
-                placeholder="Delivery days, contact person, payment notes…"
+                placeholder={tr('Delivery days, contact person, payment notes…')}
               />
             </Stack>
           </Section>
@@ -332,16 +334,16 @@ export default function VendorFormDialog({
         <Box sx={{ mr: 'auto', minWidth: 0, display: { xs: 'none', sm: 'block' } }}>
           {submitted && hasErrors ? (
             <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
-              Fix the highlighted field{errorCount === 1 ? '' : 's'} before saving.
+              <T>Fix the highlighted field</T>{errorCount === 1 ? '' : 's'} <T>before saving.</T>
             </Typography>
           ) : (
             <Typography variant="caption" color="text.secondary">
-              Fields marked * are required
+              <T>Fields marked * are required</T>
             </Typography>
           )}
         </Box>
         <Button onClick={onClose} color="inherit" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-          Cancel
+          <T>Cancel</T>
         </Button>
         <Button
           variant="contained"
@@ -349,7 +351,7 @@ export default function VendorFormDialog({
           startIcon={<SaveOutlinedIcon />}
           sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         >
-          {vendor ? 'Save Changes' : `Create ${Noun}`}
+          {vendor ? tr("Save Changes") : `${tr("Create ")}${Noun}`}
         </Button>
       </DialogActions>
     </Dialog>

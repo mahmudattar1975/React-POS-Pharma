@@ -12,6 +12,7 @@ import ZatcaIdentityPanel from './ZatcaIdentityPanel';
 import ZatcaOnboardingPanel from './ZatcaOnboardingPanel';
 import { useSettingsStore } from '../../store/settingsStore';
 
+import { T } from '../../i18n';
 const REQUIRED_FIELDS = [
   ['VAT number', '15 digits, starts and ends with 3'],
   ['Legal seller name', 'English and Arabic, exactly as registered'],
@@ -31,18 +32,18 @@ export default function ZatcaSetupPage() {
       <Stack spacing={2}>
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-            ZATCA Data Entry &amp; Onboarding
+            <T>ZATCA Data Entry &amp; Onboarding</T>
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Fill in the seller and device identity below and save it before requesting a Compliance
+            <T>Fill in the seller and device identity below and save it before requesting a Compliance
             CSID. The same stored identity is used for the CSR, the certificate and every signed
-            invoice - a mismatch here is the usual reason ZATCA rejects onboarding.
+            invoice - a mismatch here is the usual reason ZATCA rejects onboarding.</T>
           </Typography>
           <Alert severity="info" sx={{ mb: 2 }}>
-            All values must match the business's ZATCA/Fatoora registration. Changing the identity
-            after a CSID exists clears the CSID and the invoice chain, so enter them carefully.
+            <T>All values must match the business's ZATCA/Fatoora registration. Changing the identity
+            after a CSID exists clears the CSID and the invoice chain, so enter them carefully.</T>
           </Alert>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Required data checklist</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}><T>Required data checklist</T></Typography>
           <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 0.75 }}>
             {REQUIRED_FIELDS.map(([label, help]) => (
               <Typography component="li" variant="body2" key={label}>

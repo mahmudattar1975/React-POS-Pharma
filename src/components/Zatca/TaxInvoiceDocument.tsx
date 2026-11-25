@@ -23,6 +23,7 @@ import { groupVatByRate, round2 } from '../../utils/vat';
 import { zatcaStatusLabel } from '../../utils/zatcaInvoice';
 import { formatMoney, formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   invoice: SaleHeader | null;
@@ -90,6 +91,7 @@ const TH = { fontSize: 11, fontWeight: 700, borderBottom: '1px solid #333', py: 
 const TD = { fontSize: 11, borderBottom: '1px solid #ddd', py: 0.6, px: 0.5, verticalAlign: 'top' } as const;
 
 export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onClose }: Props) {
+  const tr = useT();
   const settings = useSettingsStore((s) => s.settings);
   // Keyed by the QR payload: the rendered image is only trusted when it belongs to the invoice on
   // screen, so switching between two invoices can never flash the previous one's QR.
@@ -142,10 +144,10 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
             <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{settings.storeNameAr}</Typography>
             <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{settings.storeNameEn}</Typography>
             <Typography sx={{ fontSize: 10.5 }}>
-              الرقم الضريبي / VAT No: {settings.vatRegistrationNo}
+              <T>الرقم الضريبي / VAT No:</T> {settings.vatRegistrationNo}
             </Typography>
             <Typography sx={{ fontSize: 10.5 }}>
-              السجل التجاري / CR No: {settings.crNumber}
+              <T>السجل التجاري / CR No:</T> {settings.crNumber}
             </Typography>
             <Typography sx={{ fontSize: 10.5 }}>{settings.address}</Typography>
           </Box>
@@ -174,27 +176,27 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
         {/* ---- identity of the DOCUMENT (Phase 2), not just of the sale ---- */}
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 3, py: 1, fontSize: 10.5 }}>
           <Box>
-            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>Invoice No / رقم الفاتورة</Typography>
-            <Typography sx={{ fontSize: 11 }}>{invoice.invoiceNo}</Typography>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}><T>Invoice No / رقم الفاتورة</T></Typography>
+            <Typography sx={{ fontSize: 11, direction: 'ltr', unicodeBidi: 'isolate' }}>{invoice.invoiceNo}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>Issue date / تاريخ الإصدار</Typography>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}><T>Issue date / تاريخ الإصدار</T></Typography>
             <Typography sx={{ fontSize: 11 }}>
               {invoice.date.slice(0, 10)} {invoice.date.slice(11, 19)}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>UUID</Typography>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}><T>UUID</T></Typography>
             <Typography sx={{ fontSize: 10, fontFamily: 'monospace' }}>
               {invoice.zatcaUuid ?? '—'}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>ICV</Typography>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}><T>ICV</T></Typography>
             <Typography sx={{ fontSize: 11 }}>{invoice.zatcaIcv ?? '—'}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}>Payment / الدفع</Typography>
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700 }}><T>Payment / الدفع</T></Typography>
             <Typography sx={{ fontSize: 11 }}>
               {invoice.payments.map((p) => PAYMENT_LABEL[p.method]).join(' + ')}
             </Typography>
@@ -204,19 +206,19 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
         {/* ---- buyer ---- */}
         <Box sx={{ border: '1px solid #333', borderRadius: 0.5, p: 1, mb: 1.5 }}>
           <Typography sx={{ fontSize: 10.5, fontWeight: 700, mb: 0.25 }}>
-            Buyer / المشتري
+            <T>Buyer / المشتري</T>
           </Typography>
           <Typography sx={{ fontSize: 11 }}>
-            {invoice.customerNameAr || invoice.customerNameEn || 'عميل نقدي / Walk-in Customer'}
+            {invoice.customerNameAr || invoice.customerNameEn || tr("عميل نقدي / Walk-in Customer")}
           </Typography>
           {invoice.customerVatNumber && (
             <Typography sx={{ fontSize: 10.5 }}>
-              الرقم الضريبي / VAT No: {invoice.customerVatNumber}
+              <T>الرقم الضريبي / VAT No:</T> {invoice.customerVatNumber}
             </Typography>
           )}
           {invoice.invoiceType === 'standard' && !invoice.customerVatNumber && (
             <Typography sx={{ fontSize: 10.5, color: '#b00020' }}>
-              VAT number missing on a standard invoice - complete it before sending to the buyer.
+              <T>VAT number missing on a standard invoice - complete it before sending to the buyer.</T>
             </Typography>
           )}
         </Box>
@@ -225,14 +227,14 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
         <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
           <Box component="thead">
             <Box component="tr">
-              <Box component="th" sx={{ ...TH, textAlign: 'left', width: '38%' }}>Item / الصنف</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>Qty</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>Unit</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>Discount</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>Net</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>VAT %</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>VAT</Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'right' }}>Total</Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'left', width: '38%' }}><T>Item / الصنف</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>Qty</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>Unit</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>Discount</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>Net</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>VAT %</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>VAT</T></Box>
+              <Box component="th" sx={{ ...TH, textAlign: 'right' }}><T>Total</T></Box>
             </Box>
           </Box>
           <Box component="tbody">
@@ -260,38 +262,38 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
         <Stack direction="row" spacing={2} sx={{ mt: 1.5, alignItems: 'flex-start' }}>
           <Box sx={{ flex: 1 }}>
             <Stack direction="row" sx={{ justifyContent: 'space-between', fontSize: 11, py: 0.25 }}>
-              <Typography sx={{ fontSize: 11 }}>الإجمالي قبل الضريبة / Subtotal (excl. VAT)</Typography>
+              <Typography sx={{ fontSize: 11 }}><T>الإجمالي قبل الضريبة / Subtotal (excl. VAT)</T></Typography>
               <Typography sx={{ fontSize: 11 }}>{formatMoney(invoice.subtotalExclVat)}</Typography>
             </Stack>
             {invoice.totalDiscount > 0 && (
               <Stack direction="row" sx={{ justifyContent: 'space-between', fontSize: 11, py: 0.25 }}>
-                <Typography sx={{ fontSize: 11 }}>الخصم / Discount</Typography>
+                <Typography sx={{ fontSize: 11 }}><T>الخصم / Discount</T></Typography>
                 <Typography sx={{ fontSize: 11 }}>-{formatMoney(invoice.totalDiscount)}</Typography>
               </Stack>
             )}
             {vatBuckets.map((b) => (
               <Stack key={b.rate} direction="row" sx={{ justifyContent: 'space-between', fontSize: 11, py: 0.25 }}>
                 <Typography sx={{ fontSize: 11 }}>
-                  ضريبة القيمة المضافة / VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}
+                  <T>ضريبة القيمة المضافة / VAT</T> {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr("(zero-rated)")}
                 </Typography>
                 <Typography sx={{ fontSize: 11 }}>{formatMoney(b.vatAmount)}</Typography>
               </Stack>
             ))}
             <Divider sx={{ my: 0.5, borderColor: '#333' }} />
             <Stack direction="row" sx={{ justifyContent: 'space-between', py: 0.25 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700 }}>الإجمالي / Total (SAR)</Typography>
+              <Typography sx={{ fontSize: 12, fontWeight: 700 }}><T>الإجمالي / Total (SAR)</T></Typography>
               <Typography sx={{ fontSize: 12, fontWeight: 700 }}>{formatMoney(invoice.totalInclVat)}</Typography>
             </Stack>
           </Box>
 
           <Box sx={{ width: 120, textAlign: 'center' }}>
             {qrDataUrl ? (
-              <img src={qrDataUrl} width={110} height={110} alt="ZATCA invoice QR" />
+              <img src={qrDataUrl} width={110} height={110} alt={tr('ZATCA invoice QR')} />
             ) : (
               <Box sx={{ width: 110, height: 110, border: '1px dashed #999', mx: 'auto' }} />
             )}
             <Typography sx={{ fontSize: 9.5, color: '#444', mt: 0.5 }}>
-              رمز الاستجابة / ZATCA QR
+              <T>رمز الاستجابة / ZATCA QR</T>
             </Typography>
           </Box>
         </Stack>
@@ -300,25 +302,25 @@ export default function TaxInvoiceDocument({ open, invoice, onPrintReceipt, onCl
         <Box sx={{ mt: 1.5, pt: 1, borderTop: '1px solid #ccc' }}>
           <Typography sx={{ fontSize: 9.5, color: '#444' }}>
             {stamped
-              ? `Cryptographically stamped and ${invoice.zatcaStatus === 'phase2_cleared' ? 'cleared' : 'reported'} by ZATCA${invoice.zatcaSubmittedAt ? ` on ${invoice.zatcaSubmittedAt.slice(0, 10)}` : ''}. Invoice hash: ${invoice.zatcaInvoiceHashBase64 ?? '—'}`
-              : `NOT YET STAMPED BY ZATCA (${zatcaStatusLabel(invoice.zatcaStatus).label}). This document is not a valid Phase 2 tax invoice until it is submitted and accepted - see Point of Sale > ZATCA Sales Invoices.`}
+              ? `${tr('Cryptographically stamped and ')}${invoice.zatcaStatus === 'phase2_cleared' ? tr('cleared') : tr('reported')}${tr(' by ZATCA')}${invoice.zatcaSubmittedAt ? ` on ${invoice.zatcaSubmittedAt.slice(0, 10)}` : ''}${tr('. Invoice hash: ')}${invoice.zatcaInvoiceHashBase64 ?? '—'}`
+              : `${tr("NOT YET STAMPED BY ZATCA (")}${zatcaStatusLabel(invoice.zatcaStatus).label}${tr("). This document is not a valid Phase 2 tax invoice until it is submitted and accepted - see Point of Sale > ZATCA Sales Invoices.")}`}
           </Typography>
           <Typography sx={{ fontSize: 9.5, color: '#444', mt: 0.25 }}>
-            {settings.storeNameEn} · {settings.address} · VAT {settings.vatRegistrationNo}
+            {settings.storeNameEn} · {settings.address} <T>· VAT</T> {settings.vatRegistrationNo}
           </Typography>
         </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-          Print A4
+          <T>Print A4</T>
         </Button>
         {onPrintReceipt && (
           <Button variant="outlined" startIcon={<ReceiptIcon />} onClick={onPrintReceipt}>
-            Print Receipt
+            <T>Print Receipt</T>
           </Button>
         )}
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}><T>Close</T></Button>
       </DialogActions>
     </Dialog>
   );

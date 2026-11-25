@@ -26,7 +26,9 @@ import * as wasfatyApi from '../../api/wasfatyApi';
 import WasfatyClaimsPrintDialog from './WasfatyClaimsPrintDialog';
 import WasfatyClaimReconcileDialog, { type ReconcileInput } from './WasfatyClaimReconcileDialog';
 
+import { T, useT } from '../../i18n';
 export default function WasfatyClaimsPage() {
+  const tr = useT();
   const invoices = useSalesStore((s) => s.invoices);
   const centers = useCostCenterStore((s) => s.centers);
   const [month, setMonth] = useState('');
@@ -203,20 +205,20 @@ export default function WasfatyClaimsPage() {
     <Box sx={{ p: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 1.5, mb: 1 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Wasfaty / NUPCO claims</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Wasfaty / NUPCO claims</T></Typography>
           <Typography variant="caption" color="text.secondary">
-            One row per covered sale line, from the issued invoice — never recomputed from today’s item master
+            <T>One row per covered sale line, from the issued invoice — never recomputed from today’s item master</T>
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Button variant="outlined" startIcon={<DownloadIcon />} onClick={downloadCsv} disabled={rows.length === 0}>
-            CSV
+            <T>CSV</T>
           </Button>
           <Button variant="outlined" startIcon={<GridOnIcon />} onClick={downloadExcel} disabled={rows.length === 0}>
-            Excel
+            <T>Excel</T>
           </Button>
           <Button variant="outlined" startIcon={<PrintIcon />} onClick={openPrint} disabled={rows.length === 0}>
-            Print
+            <T>Print</T>
           </Button>
         </Stack>
       </Stack>
@@ -236,7 +238,7 @@ export default function WasfatyClaimsPage() {
 
       {summary.exceptions > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Exceptions are exported as rows, not silently zeroed:{' '}
+          <T>Exceptions are exported as rows, not silently zeroed:</T>{' '}
           {Object.entries(summary.byException).map(([reason, count]) => `${reason} (${count})`).join(' · ')}
         </Alert>
       )}
@@ -245,23 +247,23 @@ export default function WasfatyClaimsPage() {
         <TextField
           select
           size="small"
-          label="Claim month"
+          label={tr('Claim month')}
           value={month}
           onChange={(e) => setMonth(e.target.value)}
           sx={{ minWidth: 180 }}
         >
-          <MenuItem value="">All months</MenuItem>
+          <MenuItem value=""><T>All months</T></MenuItem>
           {months.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
         </TextField>
         <TextField
           select
           size="small"
-          label="Branch"
+          label={tr('Branch')}
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
           sx={{ minWidth: 220 }}
         >
-          <MenuItem value="">All branches</MenuItem>
+          <MenuItem value=""><T>All branches</T></MenuItem>
           {centers.map((c) => <MenuItem key={c.id} value={c.id}>{c.nameEn || c.nameAr}</MenuItem>)}
         </TextField>
       </Stack>
@@ -270,15 +272,15 @@ export default function WasfatyClaimsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Invoice / date</TableCell>
-              <TableCell>Prescription / auth</TableCell>
-              <TableCell>Item</TableCell>
-              <TableCell>NUPCO code</TableCell>
-              <TableCell align="right">Qty</TableCell>
-              <TableCell align="right">Claim</TableCell>
-              <TableCell align="right">Patient share</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Exception</TableCell>
+              <TableCell><T>Invoice / date</T></TableCell>
+              <TableCell><T>Prescription / auth</T></TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>NUPCO code</T></TableCell>
+              <TableCell align="right"><T>Qty</T></TableCell>
+              <TableCell align="right"><T>Claim</T></TableCell>
+              <TableCell align="right"><T>Patient share</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell><T>Exception</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -286,7 +288,7 @@ export default function WasfatyClaimsPage() {
               <TableRow>
                 <TableCell colSpan={9}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No Wasfaty sales in this view yet. Complete a dispense from the POS to see it here.
+                    <T>No Wasfaty sales in this view yet. Complete a dispense from the POS to see it here.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -299,11 +301,11 @@ export default function WasfatyClaimsPage() {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">{row.prescriptionNo || '—'}</Typography>
-                  <Typography variant="caption" color="text.secondary">{row.authorizationNo || 'No authorization'}</Typography>
+                  <Typography variant="caption" color="text.secondary">{row.authorizationNo || tr("No authorization")}</Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">{row.itemNameEn}</Typography>
-                  <Typography variant="caption" color="text.secondary">{row.itemNameAr} · batch {row.batchNo}</Typography>
+                  <Typography variant="caption" color="text.secondary">{row.itemNameAr} <T>· batch</T> {row.batchNo}</Typography>
                 </TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.nupcoCode || '—'}</TableCell>
                 <TableCell align="right">{formatQty(row.qty)} {row.unit}</TableCell>
@@ -321,9 +323,9 @@ export default function WasfatyClaimsPage() {
 
       <Box sx={{ mt: 3 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Server claim ledger</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}><T>Server claim ledger</T></Typography>
           <Button size="small" startIcon={<RefreshIcon />} onClick={loadServerClaims} disabled={serverClaims.loading}>
-            {serverClaims.loading ? 'Loading…' : 'Refresh'}
+            {serverClaims.loading ? tr("Loading…") : tr("Refresh")}
           </Button>
         </Stack>
         {claimActionNotice && (
@@ -338,8 +340,8 @@ export default function WasfatyClaimsPage() {
         )}
         {!canSubmitClaims && (
           <Alert severity="info" sx={{ mb: 1 }}>
-            Manual Wasfaty mode: dispenses are recorded locally, but claims cannot be submitted to
-            NUPCO until a live provider is configured in Settings.
+            <T>Manual Wasfaty mode: dispenses are recorded locally, but claims cannot be submitted to
+            NUPCO until a live provider is configured in Settings.</T>
           </Alert>
         )}
         {serverClaims.error ? (
@@ -349,15 +351,15 @@ export default function WasfatyClaimsPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Claim</TableCell>
-                  <TableCell>Dispense</TableCell>
-                  <TableCell>Invoice</TableCell>
-                  <TableCell>Month</TableCell>
-                  <TableCell align="right">Expected</TableCell>
-                  <TableCell align="right">Reported</TableCell>
-                  <TableCell align="right">Paid</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell><T>Claim</T></TableCell>
+                  <TableCell><T>Dispense</T></TableCell>
+                  <TableCell><T>Invoice</T></TableCell>
+                  <TableCell><T>Month</T></TableCell>
+                  <TableCell align="right"><T>Expected</T></TableCell>
+                  <TableCell align="right"><T>Reported</T></TableCell>
+                  <TableCell align="right"><T>Paid</T></TableCell>
+                  <TableCell><T>Status</T></TableCell>
+                  <TableCell align="right"><T>Actions</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -365,7 +367,7 @@ export default function WasfatyClaimsPage() {
                   <TableRow>
                     <TableCell colSpan={9}>
                       <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-                        No claims recorded on the server yet. A dispense is mirrored there automatically after checkout.
+                        <T>No claims recorded on the server yet. A dispense is mirrored there automatically after checkout.</T>
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -397,7 +399,7 @@ export default function WasfatyClaimsPage() {
                             disabled={!canSubmitClaims || !!claimAction}
                             onClick={() => submitClaim(claim)}
                           >
-                            {busy ? 'Submitting…' : 'Submit'}
+                            {busy ? tr("Submitting…") : tr("Submit")}
                           </Button>
                         ) : canReconcile ? (
                           <Button
@@ -408,7 +410,7 @@ export default function WasfatyClaimsPage() {
                               setReconcileTarget(claim);
                             }}
                           >
-                            Reconcile
+                            <T>Reconcile</T>
                           </Button>
                         ) : (
                           <Typography variant="caption" color="text.secondary">—</Typography>

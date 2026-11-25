@@ -47,6 +47,7 @@ import { CONTROLLED_STATUS_LABEL, CONTROLLED_STATUS_OPTIONS } from '../../utils/
 import { formatMoney, formatQty } from '../../utils/format';
 import DosageLinkEditor from './DosageLinkEditor';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   item: Item | null; // null = creating a new item
@@ -77,6 +78,7 @@ const PAIR_GRID = {
 export default function ItemMasterFormDialog({
   open, item, items, vendors, manufacturers, batches, receivingLog, saleLines, onSave, onClose, error,
 }: Props) {
+  const tr = useT();
   const [values, setValues] = useState<ItemMasterFormValues>(() => (item ? itemToForm(item) : EMPTY_ITEM_FORM));
   const [submitted, setSubmitted] = useState(false);
   const theme = useTheme();
@@ -218,31 +220,31 @@ export default function ItemMasterFormDialog({
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="h6" noWrap sx={{ lineHeight: 1.2 }}>
-              {item ? 'Edit item' : 'New item'}
+              {item ? tr("Edit item") : tr("New item")}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
               {item
                 ? `${item.nameEn} · ${itemNumberOf(item) ?? item.id} · ${codeCount} code${codeCount === 1 ? '' : 's'}`
-                : 'Item master · item number is assigned on save'}
+                : tr("Item master · item number is assigned on save")}
             </Typography>
           </Box>
           {item ? (
             <Chip
               size="small"
-              label={values.isActive ? 'Active' : 'Discontinued'}
+              label={values.isActive ? tr("Active") : tr("Discontinued")}
               color={values.isActive ? 'success' : 'default'}
               variant={values.isActive ? 'outlined' : 'filled'}
               sx={{ flexShrink: 0 }}
             />
           ) : (
-            <Chip size="small" label="New" variant="outlined" sx={{ flexShrink: 0 }} />
+            <Chip size="small" label={tr('New')} variant="outlined" sx={{ flexShrink: 0 }} />
           )}
         </Stack>
         <IconButton
-          aria-label="Close"
+          aria-label={tr('Close')}
           onClick={onClose}
           size="small"
-          sx={{ position: 'absolute', right: 12, top: 12 }}
+          sx={{ position: 'absolute', insetInlineEnd: 12, top: 12 }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -254,7 +256,7 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<QrCode2RoundedIcon />}
-            title="Identification"
+            title={tr('Identification')}
             caption="Every code this pack prints — scanning any of them finds the item"
           >
             <Stack spacing={1.25}>
@@ -266,15 +268,15 @@ export default function ItemMasterFormDialog({
                   formError ??
                   (index === 0
                     ? code.trim() === ''
-                      ? 'Main scannable code — usually the box barcode'
+                      ? tr("Main scannable code — usually the box barcode")
                       : isValidBarcode(code)
-                        ? 'Available — no other item uses this code.'
-                        : 'Use 4-32 letters, digits, dots, dashes or underscores.'
+                        ? tr("Available — no other item uses this code.")
+                        : tr("Use 4-32 letters, digits, dots, dashes or underscores.")
                     : undefined);
                 return (
                   <TextField
                     key={index}
-                    label={index === 0 ? 'Barcode / GTIN 1 (main)' : `Barcode / GTIN ${index + 1}`}
+                    label={index === 0 ? tr("Barcode / GTIN 1 (main)") : `${tr("Barcode / GTIN ")}${index + 1}`}
                     value={code}
                     onChange={(e) => updateBarcodeRow(index, e.target.value)}
                     error={!!issue || !!formError}
@@ -288,13 +290,13 @@ export default function ItemMasterFormDialog({
                         endAdornment: (
                           <InputAdornment position="end">
                             {index === 0 ? (
-                              <Chip size="small" label="Main" variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+                              <Chip size="small" label={tr('Main')} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
                             ) : (
                               <IconButton
                                 size="small"
                                 edge="end"
                                 onClick={() => removeBarcodeRow(index)}
-                                title="Remove barcode"
+                                title={tr('Remove barcode')}
                                 aria-label={`Remove barcode ${index + 1}`}
                               >
                                 <DeleteOutlineIcon fontSize="small" />
@@ -320,18 +322,18 @@ export default function ItemMasterFormDialog({
                     '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
                   }}
                 >
-                  Add another barcode / GTIN
+                  <T>Add another barcode / GTIN</T>
                 </Button>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-                  Barcode and GTIN are the same key here, so one item can carry as many codes as its
-                  pack prints — box, strip, carton or old packaging.
+                  <T>Barcode and GTIN are the same key here, so one item can carry as many codes as its
+                  pack prints — box, strip, carton or old packaging.</T>
                 </Typography>
               </Box>
             </Stack>
 
             <Box sx={{ ...PAIR_GRID, mt: 2 }}>
               <TextField
-                label="Item No"
+                label={tr('Item No')}
                 value={item ? (itemNumberOf(item) ?? '—') : 'Assigned on save'}
                 size="small"
                 disabled
@@ -339,7 +341,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Registration No"
+                label={tr('Registration No')}
                 value={values.registrationNo}
                 onChange={(e) => patch('registrationNo', e.target.value)}
                 error={!!errorFor('registrationNo')}
@@ -348,7 +350,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Customs No"
+                label={tr('Customs No')}
                 value={values.customsNo}
                 onChange={(e) => patch('customsNo', e.target.value)}
                 error={!!errorFor('customsNo')}
@@ -357,7 +359,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Scientific Name"
+                label={tr('Scientific Name')}
                 value={values.scientificName}
                 onChange={(e) => patch('scientificName', e.target.value)}
                 error={!!errorFor('scientificName')}
@@ -370,12 +372,12 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<BadgeOutlinedIcon />}
-            title="Names"
+            title={tr('Names')}
             caption="Shown on receipts, the POS search and every printed document"
           >
             <Box sx={PAIR_GRID}>
               <TextField
-                label="Name (English)"
+                label={tr('Name (English)')}
                 value={values.nameEn}
                 onChange={(e) => patch('nameEn', e.target.value)}
                 error={!!errorFor('nameEn')}
@@ -385,11 +387,11 @@ export default function ItemMasterFormDialog({
                 required
               />
               <TextField
-                label="Name (Arabic - عربي)"
+                label={tr('Name (Arabic - عربي)')}
                 value={values.nameAr}
                 onChange={(e) => patch('nameAr', e.target.value)}
                 size="small"
-                helperText="Optional, but shown on receipts and the POS search"
+                helperText={tr('Optional, but shown on receipts and the POS search')}
                 fullWidth
                 slotProps={{ htmlInput: { dir: 'rtl', style: { textAlign: 'right' } } }}
               />
@@ -398,28 +400,28 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<CategoryOutlinedIcon />}
-            title="Classification & ordering"
+            title={tr('Classification & ordering')}
             caption="How the item is grouped, stored and sourced"
           >
             <Box sx={FIELD_GRID}>
               <TextField
-                label="Category"
+                label={tr('Category')}
                 value={values.category}
                 onChange={(e) => patch('category', e.target.value)}
                 size="small"
-                helperText="e.g. Analgesics, Antibiotics"
+                helperText={tr('e.g. Analgesics, Antibiotics')}
                 fullWidth
               />
               <TextField
-                label="Unit"
+                label={tr('Unit')}
                 value={values.unit}
                 onChange={(e) => patch('unit', e.target.value)}
                 size="small"
-                helperText="e.g. Box, Strip, Bottle"
+                helperText={tr('e.g. Box, Strip, Bottle')}
                 fullWidth
               />
               <TextField
-                label="Carton Qty"
+                label={tr('Carton Qty')}
                 type="number"
                 value={values.cartonQty}
                 onChange={(e) => patch('cartonQty', e.target.value)}
@@ -430,19 +432,19 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <FormControl fullWidth size="small">
-                <InputLabel id="item-manufacturer-label">Manufacturer / company</InputLabel>
+                <InputLabel id="item-manufacturer-label"><T>Manufacturer / company</T></InputLabel>
                 <Select
                   labelId="item-manufacturer-label"
-                  label="Manufacturer / company"
+                  label={tr('Manufacturer / company')}
                   value={values.manufacturerNo}
                   onChange={(e) => patch('manufacturerNo', e.target.value)}
                 >
                   <MenuItem value="">
-                    <em>None</em>
+                    <em><T>None</T></em>
                   </MenuItem>
                   {manufacturerMissing && (
                     <MenuItem value={values.manufacturerNo}>
-                      {values.manufacturerNo} (not in company master)
+                      {values.manufacturerNo} <T>(not in company master)</T>
                     </MenuItem>
                   )}
                   {[...manufacturers]
@@ -450,45 +452,45 @@ export default function ItemMasterFormDialog({
                     .map((m) => (
                       <MenuItem key={m.id} value={String(m.companyNo)}>
                         {m.companyNo} — {m.nameEn}
-                        {m.isActive === false ? ' (inactive)' : ''}
+                        {m.isActive === false ? tr("(inactive)") : ''}
                       </MenuItem>
                     ))}
                 </Select>
                 <FormHelperText error={!!errorFor('manufacturerNo')}>
                   {errorFor('manufacturerNo') ??
                     (manufacturerMissing
-                      ? 'This number is not in the company master.'
-                      : 'Picked from Companies (Manufacturers) — رقم الشركة')}
+                      ? tr("This number is not in the company master.")
+                      : tr("Picked from Companies (Manufacturers) — رقم الشركة"))}
                 </FormHelperText>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel id="item-vendor-label">Preferred vendor</InputLabel>
+                <InputLabel id="item-vendor-label"><T>Preferred vendor</T></InputLabel>
                 <Select
                   labelId="item-vendor-label"
-                  label="Preferred vendor"
+                  label={tr('Preferred vendor')}
                   value={values.vendorNo}
                   onChange={(e) => patch('vendorNo', e.target.value)}
                 >
                   <MenuItem value="">
-                    <em>None</em>
+                    <em><T>None</T></em>
                   </MenuItem>
                   {vendorMissing && (
-                    <MenuItem value={values.vendorNo}>{values.vendorNo} (not in vendor master)</MenuItem>
+                    <MenuItem value={values.vendorNo}>{values.vendorNo} <T>(not in vendor master)</T></MenuItem>
                   )}
                   {vendors.map((v) => (
                     <MenuItem key={v.id} value={v.vendorNo}>
                       {v.vendorNo} — {v.nameEn}
-                      {v.isActive === false ? ' (inactive)' : ''}
+                      {v.isActive === false ? tr("(inactive)") : ''}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <TextField
-                label="Location"
+                label={tr('Location')}
                 value={values.location}
                 onChange={(e) => patch('location', e.target.value)}
                 size="small"
-                helperText="Shelf / store location"
+                helperText={tr('Shelf / store location')}
                 fullWidth
               />
             </Box>
@@ -496,17 +498,17 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<LayersOutlinedIcon />}
-            title="Pack ladder (optional)"
+            title={tr('Pack ladder (optional)')}
             caption="Leave blank for a product sold as one unit — fill it and stock is counted in tablets"
             action={
               packPreview ? (
-                <Chip size="small" color="primary" variant="outlined" label="Multi-level" />
+                <Chip size="small" color="primary" variant="outlined" label={tr('Multi-level')} />
               ) : undefined
             }
           >
             <Box sx={FIELD_GRID}>
               <TextField
-                label="Boxes per carton (optional)"
+                label={tr('Boxes per carton (optional)')}
                 type="number"
                 value={values.packCarton}
                 onChange={(e) => patch('packCarton', e.target.value)}
@@ -517,7 +519,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Strips per box"
+                label={tr('Strips per box')}
                 type="number"
                 value={values.packBox}
                 onChange={(e) => patch('packBox', e.target.value)}
@@ -528,7 +530,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Tablets per strip"
+                label={tr('Tablets per strip')}
                 type="number"
                 value={values.packStrip}
                 onChange={(e) => patch('packStrip', e.target.value)}
@@ -560,13 +562,13 @@ export default function ItemMasterFormDialog({
                     {describePack(packPreview)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Prices VAT-exclusive, split exactly from the box price
+                    <T>Prices VAT-exclusive, split exactly from the box price</T>
                   </Typography>
                 </Stack>
                 <Box sx={{ display: 'grid', gap: 1.25, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', mt: 1 }}>
-                  <LadderTile label="Box" price={boxPrice} hint="base price" highlight />
-                  <LadderTile label="Strip" price={stripPrice} hint={`${packPreview.boxSize} per box`} />
-                  <LadderTile label="Tablet" price={tabletPrice} hint={`${packPreview.stripSize} per strip`} />
+                  <LadderTile label={tr('Box')} price={boxPrice} hint="base price" highlight />
+                  <LadderTile label={tr('Strip')} price={stripPrice} hint={`${packPreview.boxSize} per box`} />
+                  <LadderTile label={tr('Tablet')} price={tabletPrice} hint={`${packPreview.stripSize} per strip`} />
                 </Box>
               </Box>
             )}
@@ -579,15 +581,15 @@ export default function ItemMasterFormDialog({
                   sx={{ alignItems: { sm: 'center' } }}
                 >
                   <FormControl size="small" sx={{ minWidth: 210 }}>
-                    <InputLabel id="item-stock-unit-label">Current stock is counted in</InputLabel>
+                    <InputLabel id="item-stock-unit-label"><T>Current stock is counted in</T></InputLabel>
                     <Select
                       labelId="item-stock-unit-label"
-                      label="Current stock is counted in"
+                      label={tr('Current stock is counted in')}
                       value={values.stockUnit}
                       onChange={(e) => patch('stockUnit', e.target.value as ItemMasterFormValues['stockUnit'])}
                     >
                       <MenuItem value="">
-                        <em>Don&apos;t convert</em>
+                        <em><T>Don&apos;t convert</T></em>
                       </MenuItem>
                       {PACK_LEVELS.map((level) => (
                         <MenuItem key={level} value={level}>
@@ -599,19 +601,19 @@ export default function ItemMasterFormDialog({
                   <Typography variant="caption">
                     {values.stockUnit === '' ? (
                       <>
-                        {onHandBefore} on-hand unit{onHandBefore === 1 ? '' : 's'} are currently counted in
-                        the old unit. Pick it here or they will simply be read as tablets.
+                        {onHandBefore} <T>on-hand unit</T>{onHandBefore === 1 ? '' : 's'} <T>are currently counted in
+                        the old unit. Pick it here or they will simply be read as tablets.</T>
                       </>
                     ) : stockFactor <= 1 ? (
-                      <>On hand is already {onHandBefore} tablets — nothing to convert.</>
+                      <><T>On hand is already</T> {onHandBefore} <T>tablets — nothing to convert.</T></>
                     ) : (
                       <>
                         <strong>
                           {onHandBefore} {PACK_LEVEL_LABEL_PLURAL[values.stockUnit].toLowerCase()}
                         </strong>{' '}
-                        × {stockFactor} = <strong>{convertedQty.toLocaleString()} tablets</strong> on save.
-                        Batch cost is divided by {stockFactor}, so the stock value does not change.
-                        Reorder / max levels are <strong>not</strong> rescaled — they will read as tablets.
+                        × {stockFactor} = <strong>{convertedQty.toLocaleString()} <T>tablets</T></strong> <T>on save.
+                        Batch cost is divided by</T> {stockFactor}<T>, so the stock value does not change.
+                        Reorder / max levels are</T> <strong><T>not</T></strong> <T>rescaled — they will read as tablets.</T>
                       </>
                     )}
                   </Typography>
@@ -622,7 +624,7 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<SellOutlinedIcon />}
-            title="Pricing & tax"
+            title={tr('Pricing & tax')}
             caption="The price is VAT-exclusive; with a pack ladder it is the price of one box"
           >
             <Box sx={FIELD_GRID}>
@@ -640,38 +642,38 @@ export default function ItemMasterFormDialog({
                 required
                 slotProps={{
                   htmlInput: { min: 0, step: 'any' },
-                  input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> },
+                  input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> },
                 }}
                 fullWidth
               />
               <FormControl fullWidth size="small">
-                <InputLabel id="item-vat-label">VAT rate</InputLabel>
+                <InputLabel id="item-vat-label"><T>VAT rate</T></InputLabel>
                 <Select
                   labelId="item-vat-label"
-                  label="VAT rate"
+                  label={tr('VAT rate')}
                   value={values.vatRate}
                   onChange={(e) => patch('vatRate', e.target.value)}
                 >
                   {ITEM_VAT_RATES.map((rate) => (
                     <MenuItem key={rate} value={String(rate)}>
-                      {rate === 0 ? '0% — zero-rated (medicines)' : `${Math.round(rate * 100)}% — standard-rated`}
+                      {rate === 0 ? '0% — zero-rated (medicines)' : `${Math.round(rate * 100)}${tr("% — standard-rated")}`}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <FormControl fullWidth size="small">
-                <InputLabel id="item-controlled-label">Controlled substance</InputLabel>
+                <InputLabel id="item-controlled-label"><T>Controlled substance</T></InputLabel>
                 <Select
                   labelId="item-controlled-label"
-                  label="Controlled substance"
+                  label={tr('Controlled substance')}
                   value={values.controlledStatus}
                   onChange={(e) => patch('controlledStatus', e.target.value as ItemMasterFormValues['controlledStatus'])}
                 >
                   <MenuItem value="">
-                    <em>None</em>
+                    <em><T>None</T></em>
                   </MenuItem>
                   {CONTROLLED_STATUS_OPTIONS.map((s) => (
-                    <MenuItem key={s} value={s}>{CONTROLLED_STATUS_LABEL[s]}</MenuItem>
+                    <MenuItem key={s} value={s}>{tr(CONTROLLED_STATUS_LABEL[s])}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -680,7 +682,7 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<MedicationOutlinedIcon />}
-            title="Dosage instructions (optional)"
+            title={tr('Dosage instructions (optional)')}
             caption="Reusable bilingual directions the pharmacist can choose per sale line"
             action={
               values.dosageIds.length > 0 ? (
@@ -699,7 +701,7 @@ export default function ItemMasterFormDialog({
 
           <Section
             icon={<Inventory2OutlinedIcon />}
-            title="Stock control"
+            title={tr('Stock control')}
             caption={
               showPackLimits
                 ? 'Limits are stored in tablets — the helper under each field shows the pack meaning'
@@ -708,7 +710,7 @@ export default function ItemMasterFormDialog({
           >
             <Box sx={FIELD_GRID}>
               <TextField
-                label="Balance (on hand)"
+                label={tr('Balance (on hand)')}
                 value={totals ? String(totals.onHandQty) : '0'}
                 size="small"
                 disabled
@@ -720,7 +722,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Order limit (reorder level)"
+                label={tr('Order limit (reorder level)')}
                 type="number"
                 value={values.reorderLevel}
                 onChange={(e) => patch('reorderLevel', e.target.value)}
@@ -742,7 +744,7 @@ export default function ItemMasterFormDialog({
                 fullWidth
               />
               <TextField
-                label="Max limit (optional)"
+                label={tr('Max limit (optional)')}
                 type="number"
                 value={values.maxLevel}
                 onChange={(e) => patch('maxLevel', e.target.value)}
@@ -772,9 +774,9 @@ export default function ItemMasterFormDialog({
                 sx={{ flex: 1, px: 1.75, py: 1.25, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Batch / expiry tracking</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}><T>Batch / expiry tracking</T></Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Required for pharmacy stock
+                    <T>Required for pharmacy stock</T>
                   </Typography>
                 </Box>
                 <Switch
@@ -788,11 +790,11 @@ export default function ItemMasterFormDialog({
                 sx={{ flex: 1, px: 1.75, py: 1.25, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Has expiry date</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}><T>Has expiry date</T></Typography>
                   <Typography variant="caption" color="text.secondary">
                     {values.hasExpiry
-                      ? 'Receiving asks for the batch expiry'
-                      : 'No expiry — stock is received with a blank date'}
+                      ? tr("Receiving asks for the batch expiry")
+                      : tr("No expiry — stock is received with a blank date")}
                   </Typography>
                 </Box>
                 <Switch
@@ -807,10 +809,10 @@ export default function ItemMasterFormDialog({
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {values.isActive ? 'Active for sale' : 'Discontinued'}
+                    {values.isActive ? tr("Active for sale") : tr("Discontinued")}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {values.isActive ? 'Visible in POS and purchasing' : 'Sells remaining stock only, never reordered'}
+                    {values.isActive ? tr("Visible in POS and purchasing") : tr("Sells remaining stock only, never reordered")}
                   </Typography>
                 </Box>
                 <Switch
@@ -821,14 +823,14 @@ export default function ItemMasterFormDialog({
               </Paper>
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Delete is only offered once nothing is left on hand.
+              <T>Delete is only offered once nothing is left on hand.</T>
             </Typography>
           </Section>
 
           {totals && (
             <Section
               icon={<InsightsOutlinedIcon />}
-              title="Movement totals"
+              title={tr('Movement totals')}
               caption="Read-only — always derived from batches and posted movements"
             >
               <Box
@@ -838,13 +840,13 @@ export default function ItemMasterFormDialog({
                   gap: 1.25,
                 }}
               >
-                <Stat label="Total purchased" value={`${formatQty(totals.purchasedQty)} ${movementUnit}`} hint={`incl. ${formatQty(totals.bonusReceivedQty)} bonus`} />
-                <Stat label="Total sold" value={`${formatQty(totals.soldQty)} ${movementUnit}`} />
-                <Stat label="Sales returns" value={`${formatQty(totals.salesReturnQty)} ${movementUnit}`} />
-                <Stat label="Stock cost value" value={`SAR ${formatMoney(totals.stockCostValue)}`} />
-                <Stat label="Stock retail value" value={`SAR ${formatMoney(totals.stockRetailValue)}`} />
+                <Stat label={tr('Total purchased')} value={`${formatQty(totals.purchasedQty)} ${movementUnit}`} hint={`incl. ${formatQty(totals.bonusReceivedQty)} bonus`} />
+                <Stat label={tr('Total sold')} value={`${formatQty(totals.soldQty)} ${movementUnit}`} />
+                <Stat label={tr('Sales returns')} value={`${formatQty(totals.salesReturnQty)} ${movementUnit}`} />
+                <Stat label={tr('Stock cost value')} value={`SAR ${formatMoney(totals.stockCostValue)}`} />
+                <Stat label={tr('Stock retail value')} value={`SAR ${formatMoney(totals.stockRetailValue)}`} />
                 <Stat
-                  label="On hand"
+                  label={tr('On hand')}
                   value={`${formatQty(totals.onHandQty)} ${movementUnit}`}
                   hint={
                     showPackLimits && packPreview
@@ -854,8 +856,8 @@ export default function ItemMasterFormDialog({
                 />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25 }}>
-                Purchase returns, reserved quantities and on-order quantities are not tracked by this
-                app yet, so they are omitted rather than shown as a misleading zero.
+                <T>Purchase returns, reserved quantities and on-order quantities are not tracked by this
+                app yet, so they are omitted rather than shown as a misleading zero.</T>
               </Typography>
             </Section>
           )}
@@ -875,16 +877,16 @@ export default function ItemMasterFormDialog({
         <Box sx={{ mr: 'auto', minWidth: 0, display: { xs: 'none', sm: 'block' } }}>
           {submitted && hasErrors ? (
             <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
-              Fix the highlighted field{errorCount === 1 ? '' : 's'} before saving.
+              <T>Fix the highlighted field</T>{errorCount === 1 ? '' : 's'} <T>before saving.</T>
             </Typography>
           ) : (
             <Typography variant="caption" color="text.secondary">
-              Fields marked * are required
+              <T>Fields marked * are required</T>
             </Typography>
           )}
         </Box>
         <Button onClick={onClose} color="inherit" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-          Cancel
+          <T>Cancel</T>
         </Button>
         <Button
           variant="contained"
@@ -892,7 +894,7 @@ export default function ItemMasterFormDialog({
           startIcon={<SaveOutlinedIcon />}
           sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         >
-          {item ? 'Save Changes' : 'Create Item'}
+          {item ? tr("Save Changes") : tr("Create Item")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -968,7 +970,7 @@ function LadderTile({
         {label}
       </Typography>
       <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
-        {formatUnitPrice(price)} <Typography component="span" variant="caption" color="text.secondary">SAR</Typography>
+        {formatUnitPrice(price)} <Typography component="span" variant="caption" color="text.secondary"><T>SAR</T></Typography>
       </Typography>
       <Typography variant="caption" color="text.secondary">{hint}</Typography>
     </Box>

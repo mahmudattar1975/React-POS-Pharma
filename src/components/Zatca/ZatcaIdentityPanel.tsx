@@ -14,6 +14,7 @@ import {
   identityDraftErrors, vatNumberError,
 } from '../../utils/zatcaIdentity';
 
+import { T, useT } from '../../i18n';
 const ENV_LABEL: Record<ZatcaEnv, string> = {
   sandbox: 'Test mode (sandbox)',
   simulation: 'Simulation',
@@ -21,11 +22,12 @@ const ENV_LABEL: Record<ZatcaEnv, string> = {
 };
 
 function CsidRow({ title, info }: { title: string; info?: ZatcaCsidSummary }) {
+  const tr = useT();
   if (!info) {
     return (
       <Box sx={{ flex: 1 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>{title}</Typography>
-        <Typography variant="caption" color="text.secondary">Not issued yet.</Typography>
+        <Typography variant="caption" color="text.secondary"><T>Not issued yet.</T></Typography>
       </Box>
     );
   }
@@ -38,8 +40,8 @@ function CsidRow({ title, info }: { title: string; info?: ZatcaCsidSummary }) {
         <Chip size="small" color={status.color} label={status.label} />
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        Issued {new Date(info.issuedAt).toLocaleDateString()}
-        {info.expiresAt && ` · expires ${new Date(info.expiresAt).toLocaleDateString()} (${csidExpiryText(info.daysUntilExpiry)})`}
+        <T>Issued</T> {new Date(info.issuedAt).toLocaleDateString()}
+        {info.expiresAt && `${tr(" · expires ")}${new Date(info.expiresAt).toLocaleDateString()} (${csidExpiryText(info.daysUntilExpiry)})`}
       </Typography>
     </Box>
   );
@@ -50,6 +52,7 @@ function CsidRow({ title, info }: { title: string; info?: ZatcaCsidSummary }) {
 // server/src/store/identity.ts. The panel is deliberately explicit about what is derived vs typed, so
 // nobody tries to edit a Common Name that the server would overwrite.
 export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: StoreSettings }) {
+  const tr = useT();
   const [settings, setSettings] = useState<ZatcaSettings | null>(null);
   const [seller, setSeller] = useState<ZatcaSellerIdentity | null>(null);
   const [device, setDevice] = useState<ZatcaDeviceIdentity | null>(null);
@@ -102,7 +105,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <CircularProgress size={20} />
-          <Typography variant="body2" color="text.secondary">Reading the stored ZATCA identity…</Typography>
+          <Typography variant="body2" color="text.secondary"><T>Reading the stored ZATCA identity…</T></Typography>
         </Stack>
       </Paper>
     );
@@ -112,8 +115,8 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
     return (
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Alert severity="error">
-          The ZATCA server isn't reachable, so the company/device identity cannot be read or saved.
-          Start it with <code>npm run dev</code> in <code>Pharmacy-App/server</code>, then reopen this tab.
+          <T>The ZATCA server isn't reachable, so the company/device identity cannot be read or saved.
+          Start it with</T> <code><T>npm run dev</T></code> <T>in</T> <code><T>Pharmacy-App/server</T></code><T>, then reopen this tab.</T>
         </Alert>
       </Paper>
     );
@@ -125,7 +128,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
             <CircularProgress size={20} />
-            <Typography variant="body2" color="text.secondary">Reading the stored ZATCA identity…</Typography>
+            <Typography variant="body2" color="text.secondary"><T>Reading the stored ZATCA identity…</T></Typography>
           </Stack>
         </Paper>
       );
@@ -133,7 +136,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
     return (
       <Stack spacing={1}>
         <Alert severity="error">{error}</Alert>
-        <Button variant="outlined" onClick={() => { setError(null); load(); }}>Retry</Button>
+        <Button variant="outlined" onClick={() => { setError(null); load(); }}><T>Retry</T></Button>
       </Stack>
     );
   }
@@ -203,37 +206,37 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>Company &amp; Device Identity</Typography>
-          <Chip size="small" label={ENV_LABEL[settings?.environment ?? 'sandbox']} />
-          {settings?.source === 'env' && <Chip size="small" color="warning" label="seeded from .env - review & save" />}
+          <Typography variant="h6" sx={{ fontWeight: 700 }}><T>Company &amp; Device Identity</T></Typography>
+          <Chip size="small" label={tr(ENV_LABEL[settings?.environment ?? 'sandbox'])} />
+          {settings?.source === 'env' && <Chip size="small" color="warning" label={tr('seeded from .env - review & save')} />}
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          These are the values inside the CSR, the ZATCA certificate and every signed invoice. They
-          must match the business's VAT registration. Stored on the ZATCA server, not in this browser.
+          <T>These are the values inside the CSR, the ZATCA certificate and every signed invoice. They
+          must match the business's VAT registration. Stored on the ZATCA server, not in this browser.</T>
         </Typography>
 
         {settings && !configured && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Not ready for onboarding yet. Still missing: {settings.missing.join(', ')}.
+            <T>Not ready for onboarding yet. Still missing:</T> {settings.missing.join(', ')}.
           </Alert>
         )}
 
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Seller</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}><T>Seller</T></Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           <TextField
-            label="Legal Seller Name (English)"
+            label={tr('Legal Seller Name (English)')}
             {...sellerField('nameEn')}
-            helperText="Exactly as registered for VAT - used as the CSR organization and UBL supplier name."
+            helperText={tr('Exactly as registered for VAT - used as the CSR organization and UBL supplier name.')}
             fullWidth
           />
           <TextField
-            label="Legal Seller Name (Arabic)"
+            label={tr('Legal Seller Name (Arabic)')}
             {...sellerField('nameAr')}
-            helperText="Registered Arabic legal name - required before ZATCA onboarding."
+            helperText={tr('Registered Arabic legal name - required before ZATCA onboarding.')}
             fullWidth
           />
           <TextField
-            label="VAT Registration Number"
+            label={tr('VAT Registration Number')}
             {...sellerField('vatNumber')}
             // Hard stop at 15 characters - a legal tax field must not accept a 16th digit, by
             // typing or by paste. Blank is allowed until the business is registered.
@@ -246,51 +249,51 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
             fullWidth
           />
           <TextField
-            label="Commercial Registration (CR) No."
+            label={tr('Commercial Registration (CR) No.')}
             {...sellerField('crNumber')}
-            helperText="Required. Signed into every invoice as the supplier CompanyID."
+            helperText={tr('Required. Signed into every invoice as the supplier CompanyID.')}
             fullWidth
           />
           <TextField
-            label="Organization Unit / Branch"
+            label={tr('Organization Unit / Branch')}
             {...sellerField('organizationUnit')}
-            helperText="The ZATCA-registered branch name used as the CSR OU."
+            helperText={tr('The ZATCA-registered branch name used as the CSR OU.')}
             fullWidth
           />
           <TextField
-            label="Industry (business category)"
+            label={tr('Industry (business category)')}
             {...sellerField('industry')}
-            helperText="e.g. Pharmacy Retail - goes into the CSR businessCategory."
+            helperText={tr('e.g. Pharmacy Retail - goes into the CSR businessCategory.')}
             fullWidth
           />
           <TextField
-            label="Street"
+            label={tr('Street')}
             {...sellerField('street')}
-            helperText="Full registered address: street, district, city, postal code and country are combined for the CSR registeredAddress."
+            helperText={tr('Full registered address: street, district, city, postal code and country are combined for the CSR registeredAddress.')}
             fullWidth
           />
-          <TextField label="District" {...sellerField('district')} fullWidth />
-          <TextField label="City" {...sellerField('city')} fullWidth />
-          <TextField label="Postal Code" {...sellerField('postalCode')} fullWidth />
-          <TextField label="Country (ISO code)" {...sellerField('country')} fullWidth slotProps={{ htmlInput: { maxLength: 2 } }} />
+          <TextField label={tr('District')} {...sellerField('district')} fullWidth />
+          <TextField label={tr('City')} {...sellerField('city')} fullWidth />
+          <TextField label={tr('Postal Code')} {...sellerField('postalCode')} fullWidth />
+          <TextField label={tr('Country (ISO code)')} {...sellerField('country')} fullWidth slotProps={{ htmlInput: { maxLength: 2 } }} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
           <Button size="small" variant="outlined" onClick={fillFromStore} disabled={busy || !storeSettings}>
-            Copy from store settings
+            <T>Copy from store settings</T>
           </Button>
         </Stack>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Device</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}><T>Device</T></Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          This register's identity. Common Name and EGS serial are derived from the fields below -
-          they are shown read-only because ZATCA expects exactly these formats.
+          <T>This register's identity. Common Name and EGS serial are derived from the fields below -
+          they are shown read-only because ZATCA expects exactly these formats.</T>
         </Typography>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           <TextField
-            label="Terminal No."
+            label={tr('Terminal No.')}
             type="number"
             value={device.terminalNo}
             onChange={(e) =>
@@ -299,26 +302,26 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
               )
             }
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
-            helperText="1 = the only/default terminal. Each additional register gets its own number."
+            helperText={tr('1 = the only/default terminal. Each additional register gets its own number.')}
             fullWidth
           />
           <TextField
-            label="Solution Name"
+            label={tr('Solution Name')}
             {...deviceField('solutionName')}
-            helperText="The EGS solution name registered with ZATCA, e.g. POS PHARMA."
+            helperText={tr('The EGS solution name registered with ZATCA, e.g. POS PHARMA.')}
             fullWidth
           />
           <TextField
-            label="Solution Release"
+            label={tr('Solution Release')}
             {...deviceField('solutionRelease')}
-            helperText="Version of the solution used for this device, e.g. 1.0."
+            helperText={tr('Version of the solution used for this device, e.g. 1.0.')}
             fullWidth
           />
           <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
             <TextField
-              label="Device UUID (EGS UUID)"
+              label={tr('Device UUID (EGS UUID)')}
               {...deviceField('egUuid')}
-              helperText="Unique ID for this register. It is the third part of the EGS serial; keep it stable after onboarding."
+              helperText={tr('Unique ID for this register. It is the third part of the EGS serial; keep it stable after onboarding.')}
               fullWidth
             />
             <Button
@@ -332,17 +335,17 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
                 )
               }
             >
-              Generate
+              <T>Generate</T>
             </Button>
           </Stack>
           <TextField
-            label="Common Name (derived)"
+            label={tr('Common Name (derived)')}
             value={deriveCommonName(device)}
             slotProps={{ input: { readOnly: true } }}
             fullWidth
           />
           <TextField
-            label="EGS Serial (derived)"
+            label={tr('EGS Serial (derived)')}
             value={deriveEgsSerial(device)}
             slotProps={{ input: { readOnly: true } }}
             fullWidth
@@ -350,7 +353,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
         </Box>
 
         <FormControl sx={{ mt: 2 }}>
-          <FormLabel sx={{ fontWeight: 600 }}>Invoice type</FormLabel>
+          <FormLabel sx={{ fontWeight: 600 }}><T>Invoice type</T></FormLabel>
           <RadioGroup
             value={device.invoiceType}
             onChange={(e) =>
@@ -366,7 +369,7 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
                 key={choice.value}
                 value={choice.value}
                 control={<Radio size="small" />}
-                sx={{ alignItems: 'flex-start', mb: 0.5 }}
+                sx={{ alignItems: tr("flex-start"), mb: 0.5 }}
                 label={
                   <Box>
                     <Typography variant="body2">{choice.label}</Typography>
@@ -380,15 +383,15 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>CSID status</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}><T>CSID status</T></Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-          <CsidRow title="Compliance CSID" info={settings?.csid.compliance} />
-          <CsidRow title="Production CSID" info={settings?.csid.production} />
+          <CsidRow title={tr('Compliance CSID')} info={settings?.csid.compliance} />
+          <CsidRow title={tr('Production CSID')} info={settings?.csid.production} />
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Expiry is read from the issued certificate. Changing any identity field above after a CSID
+          <T>Expiry is read from the issued certificate. Changing any identity field above after a CSID
           exists clears it (and the invoice chain), because the certificate would no longer describe
-          this business/device - onboard again afterwards.
+          this business/device - onboard again afterwards.</T>
         </Typography>
       </Paper>
 
@@ -400,9 +403,9 @@ export default function ZatcaIdentityPanel({ storeSettings }: { storeSettings?: 
 
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <Button variant="contained" onClick={save} disabled={busy || draftErrors.length > 0}>
-          {busy ? <CircularProgress size={20} /> : 'Save Company & Device'}
+          {busy ? <CircularProgress size={20} /> : tr("Save Company & Device")}
         </Button>
-        <Button variant="text" onClick={() => { setError(null); load(); }} disabled={busy}>Reload</Button>
+        <Button variant="text" onClick={() => { setError(null); load(); }} disabled={busy}><T>Reload</T></Button>
       </Stack>
     </Stack>
   );

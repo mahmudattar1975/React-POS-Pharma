@@ -12,6 +12,7 @@ import { PACK_LEVELS, PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL } from '../../ut
 import { zatcaStatusLabel } from '../../utils/zatcaInvoice';
 import { hasDosages } from '../../utils/dosages';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   invoice: SaleHeader | null;
@@ -107,6 +108,7 @@ function paymentLabel(p: Payment): string {
 export default function ReceiptView({
   open, invoice, onOpenDosages, onOpenPrescriptionLabel, closeLabel = 'New Sale', onClose,
 }: Props) {
+  const tr = useT();
   const settings = useSettingsStore((s) => s.settings);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   // On by default when the sale carries directions: the counter wants the invoice and the patient
@@ -183,7 +185,7 @@ export default function ReceiptView({
              work, confirmed at exactly 80.1x80.1mm - hence computing an explicit height instead. */}
       <style ref={pageSizeStyleRef} />
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        Invoice {invoice.invoiceNo}
+        <T>Invoice</T> {invoice.invoiceNo}
         <Chip size="small" color={zatcaStatusLabel(invoice.zatcaStatus).color} label={`ZATCA: ${zatcaStatusLabel(invoice.zatcaStatus).label}`} />
       </DialogTitle>
       <DialogContent id="receipt-print-area" ref={printAreaRef}>
@@ -191,7 +193,7 @@ export default function ReceiptView({
           <Typography sx={{ fontWeight: 700 }}>{settings.storeNameAr}</Typography>
           <Typography sx={{ fontWeight: 700 }} color="text.secondary">{settings.storeNameEn}</Typography>
           <Typography variant="caption" color="text.secondary">
-            الرقم الضريبي VAT {settings.vatRegistrationNo} · السجل التجاري CR {settings.crNumber}
+            <T>الرقم الضريبي VAT</T> {settings.vatRegistrationNo} <T>· السجل التجاري CR</T> {settings.crNumber}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {new Date(invoice.date).toLocaleString()}
@@ -199,17 +201,17 @@ export default function ReceiptView({
           {/* ZATCA requires the Arabic invoice-type term on every tax invoice - this is a legal
               KSA document, not just an English receipt with Arabic as decoration. */}
           <Typography variant="caption" sx={{ fontWeight: 600 }}>
-            {invoice.invoiceType === 'simplified' ? 'فاتورة ضريبية مبسطة (Simplified Tax Invoice)' : 'فاتورة ضريبية (Standard Tax Invoice)'}
+            {invoice.invoiceType === 'simplified' ? tr("فاتورة ضريبية مبسطة (Simplified Tax Invoice)") : tr("فاتورة ضريبية (Standard Tax Invoice)")}
           </Typography>
           {(invoice.customerNameAr || invoice.customerNameEn) && (
             <Typography variant="caption">
-              العميل / Customer: {invoice.customerNameAr}{invoice.customerNameAr && invoice.customerNameEn ? ' / ' : ''}{invoice.customerNameEn}
+              <T>العميل / Customer:</T> {invoice.customerNameAr}{invoice.customerNameAr && invoice.customerNameEn ? ' / ' : ''}{invoice.customerNameEn}
             </Typography>
           )}
           {invoice.wasfaty && (
             <Typography variant="caption" color="text.secondary">
-              وصفة / Rx {invoice.wasfaty.prescriptionNo}
-              {invoice.wasfaty.authorizationNo ? ` · Auth ${invoice.wasfaty.authorizationNo}` : ''}
+              <T>وصفة / Rx</T> {invoice.wasfaty.prescriptionNo}
+              {invoice.wasfaty.authorizationNo ? `${tr(" · Auth ")}${invoice.wasfaty.authorizationNo}` : ''}
             </Typography>
           )}
 
@@ -220,12 +222,12 @@ export default function ReceiptView({
               <Typography variant="body2">{g.itemNameAr}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {g.itemNameEn}
-                {g.controlledStatus ? ` ℞ (${CONTROLLED_STATUS_LABEL[g.controlledStatus]})` : ''}
+                {g.controlledStatus ? ` ℞ (${tr(CONTROLLED_STATUS_LABEL[g.controlledStatus])})` : ''}
               </Typography>
               <Stack direction="row" sx={ROW_SX}>
                 <Typography variant="caption" color="text.secondary">
-                  Qty {formatQty(g.qty)}{g.unit ? ` ${printedUnit(g.unit, g.qty)}` : ''}
-                  {g.discountAmount > 0 ? ` · discount -${formatMoney(g.discountAmount)}` : ''}
+                  <T>Qty</T> {formatQty(g.qty)}{g.unit ? ` ${printedUnit(g.unit, g.qty)}` : ''}
+                  {g.discountAmount > 0 ? `${tr(" · discount -")}${formatMoney(g.discountAmount)}` : ''}
                 </Typography>
                 <Typography variant="caption">{formatMoney(g.totalInclVat)}</Typography>
               </Stack>
@@ -234,43 +236,43 @@ export default function ReceiptView({
 
           {hasDosages(invoice.lines) && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              إرشادات الاستخدام في ملصق منفصل · Directions are on a separate label.
+              <T>إرشادات الاستخدام في ملصق منفصل · Directions are on a separate label.</T>
             </Typography>
           )}
 
           <Divider sx={{ my: 1 }} />
 
           <Stack direction="row" sx={ROW_SX}>
-            <Typography variant="body2">الإجمالي قبل الضريبة / Subtotal (excl. VAT)</Typography>
+            <Typography variant="body2"><T>الإجمالي قبل الضريبة / Subtotal (excl. VAT)</T></Typography>
             <Typography variant="body2">{formatMoney(invoice.subtotalExclVat)}</Typography>
           </Stack>
           {invoice.totalDiscount > 0 && (
             <Stack direction="row" sx={ROW_SX}>
-              <Typography variant="body2">الخصم / Discount</Typography>
+              <Typography variant="body2"><T>الخصم / Discount</T></Typography>
               <Typography variant="body2">-{formatMoney(invoice.totalDiscount)}</Typography>
             </Stack>
           )}
           {groupVatByRate(invoice.lines).map((b) => (
             <Stack key={b.rate} direction="row" sx={ROW_SX}>
               <Typography variant="body2">
-                ضريبة القيمة المضافة / VAT {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(معفاة / zero-rated)'}
+                <T>ضريبة القيمة المضافة / VAT</T> {b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr("(معفاة / zero-rated)")}
               </Typography>
               <Typography variant="body2">{formatMoney(b.vatAmount)}</Typography>
             </Stack>
           ))}
           {(invoice.totalIncentive ?? 0) > 0 && (
             <Stack direction="row" sx={ROW_SX}>
-              <Typography variant="body2" color="success.main">حافز بيع / Sales incentive</Typography>
+              <Typography variant="body2" color="success.main"><T>حافز بيع / Sales incentive</T></Typography>
               <Typography variant="body2" color="success.main">{formatMoney(invoice.totalIncentive ?? 0)}</Typography>
             </Stack>
           )}
           <Stack direction="row" sx={ROW_SX}>
-            <Typography sx={{ fontWeight: 700 }}>الإجمالي / Total (SAR)</Typography>
+            <Typography sx={{ fontWeight: 700 }}><T>الإجمالي / Total (SAR)</T></Typography>
             <Typography sx={{ fontWeight: 700 }}>{formatMoney(invoice.totalInclVat)}</Typography>
           </Stack>
 
           <Divider sx={{ my: 1 }} />
-          <Typography variant="body2">طريقة الدفع / Paid via</Typography>
+          <Typography variant="body2"><T>طريقة الدفع / Paid via</T></Typography>
           {invoice.payments.map((p, i) => (
             <Stack key={i} direction="row" sx={ROW_SX}>
               <Typography variant="body2" color="text.secondary">{paymentLabel(p)}</Typography>
@@ -283,13 +285,13 @@ export default function ReceiptView({
               <Divider sx={{ my: 1 }} />
               {invoice.pointsRedeemed ? (
                 <Stack direction="row" sx={ROW_SX}>
-                  <Typography variant="caption" color="text.secondary">Points redeemed</Typography>
+                  <Typography variant="caption" color="text.secondary"><T>Points redeemed</T></Typography>
                   <Typography variant="caption">-{invoice.pointsRedeemed}</Typography>
                 </Stack>
               ) : null}
               {invoice.pointsEarned ? (
                 <Stack direction="row" sx={ROW_SX}>
-                  <Typography variant="caption" color="text.secondary">Points earned</Typography>
+                  <Typography variant="caption" color="text.secondary"><T>Points earned</T></Typography>
                   <Typography variant="caption">+{invoice.pointsEarned}</Typography>
                 </Stack>
               ) : null}
@@ -300,22 +302,22 @@ export default function ReceiptView({
             <>
               <Divider sx={{ my: 1 }} />
               <Typography variant="body2">
-                {invoice.prescription.source === 'wasfaty' ? 'وصفتي / Wasfaty Prescription' : 'وصفة طبية / Prescription Record'}
+                {invoice.prescription.source === 'wasfaty' ? tr("وصفتي / Wasfaty Prescription") : tr("وصفة طبية / Prescription Record")}
               </Typography>
               {invoice.prescription.wasfatyReferenceNo && (
                 <Typography variant="caption" color="text.secondary">
-                  Wasfaty Ref: {invoice.prescription.wasfatyReferenceNo}
+                  <T>Wasfaty Ref:</T> {invoice.prescription.wasfatyReferenceNo}
                 </Typography>
               )}
               <Typography variant="caption" color="text.secondary">
-                Rx #{invoice.prescription.prescriptionId} · {invoice.prescription.prescriptionDate}
+                <T>Rx #</T>{invoice.prescription.prescriptionId} · {invoice.prescription.prescriptionDate}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Prescriber: {invoice.prescription.prescriberName}
+                <T>Prescriber:</T> {invoice.prescription.prescriberName}
                 {invoice.prescription.prescriberId ? ` (${invoice.prescription.prescriberId})` : ''}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Patient ID: {invoice.prescription.patientNationalId}
+                <T>Patient ID:</T> {invoice.prescription.patientNationalId}
               </Typography>
             </>
           )}
@@ -323,13 +325,13 @@ export default function ReceiptView({
 
         {qrDataUrl && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <img src={qrDataUrl} width={160} height={160} alt="ZATCA invoice QR" />
+            <img src={qrDataUrl} width={160} height={160} alt={tr("ZATCA invoice QR")} />
           </Box>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
           {invoice.zatcaStatus === 'phase2_cleared' || invoice.zatcaStatus === 'phase2_reported'
-            ? 'ZATCA QR (Phase 2 - cryptographically stamped and submitted)'
-            : 'ZATCA QR (Phase 1 fields only - not yet cryptographically stamped/reported)'}
+            ? tr("ZATCA QR (Phase 2 - cryptographically stamped and submitted)")
+            : tr("ZATCA QR (Phase 1 fields only - not yet cryptographically stamped/reported)")}
         </Typography>
       </DialogContent>
       {hasDosages(invoice.lines) && onOpenDosages && (
@@ -344,9 +346,9 @@ export default function ReceiptView({
             }
             label={
               <Box>
-                <Typography variant="body2">Print directions after the invoice</Typography>
+                <Typography variant="body2"><T>Print directions after the invoice</T></Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Sends the separate patient direction label as soon as the receipt is printed.
+                  <T>Sends the separate patient direction label as soon as the receipt is printed.</T>
                 </Typography>
               </Box>
             }
@@ -355,16 +357,16 @@ export default function ReceiptView({
       )}
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
-          Print receipt
+          <T>Print receipt</T>
         </Button>
         {hasDosages(invoice.lines) && onOpenDosages && (
           <Button variant="outlined" color="secondary" startIcon={<MedicationOutlinedIcon />} onClick={() => onOpenDosages(false)}>
-            Directions label
+            <T>Directions label</T>
           </Button>
         )}
         {onOpenPrescriptionLabel && (
           <Button variant="outlined" color="secondary" startIcon={<MedicationOutlinedIcon />} onClick={onOpenPrescriptionLabel}>
-            Rx label
+            <T>Rx label</T>
           </Button>
         )}
         <Button variant="contained" onClick={onClose} fullWidth>

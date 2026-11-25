@@ -10,7 +10,9 @@ import { itemCodes } from '../../utils/itemMaster';
 import { formatDiscountPercent } from '../../utils/purchasing';
 import { formatQty, formatUnitPrice } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export default function InventoryPage() {
+  const tr = useT();
   const { items, batches, setControlledStatus } = useCatalogStore();
   const [filter, setFilter] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,14 +38,14 @@ export default function InventoryPage() {
         <Chip
           color="warning"
           sx={{ mb: 2 }}
-          label={`${nearExpiryCount} batch(es) expiring within 60 days`}
+          label={`${nearExpiryCount}${tr(" batch(es) expiring within 60 days")}`}
         />
       )}
       <TextField
         inputRef={inputRef}
         autoFocus
         fullWidth
-        label="Scan barcode or type item name / SKU"
+        label={tr('Scan barcode or type item name / SKU')}
         size="small"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
@@ -53,16 +55,16 @@ export default function InventoryPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Batch No.</TableCell>
-              <TableCell>Expiry Date</TableCell>
-              <TableCell align="right">Qty on Hand</TableCell>
-              <TableCell align="right">Purchase Price</TableCell>
-              <TableCell align="right">Discount</TableCell>
-              <TableCell align="right">Cost Price</TableCell>
-              <TableCell align="right">Sales Price</TableCell>
-              <TableCell>Controlled</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Batch No.</T></TableCell>
+              <TableCell><T>Expiry Date</T></TableCell>
+              <TableCell align="right"><T>Qty on Hand</T></TableCell>
+              <TableCell align="right"><T>Purchase Price</T></TableCell>
+              <TableCell align="right"><T>Discount</T></TableCell>
+              <TableCell align="right"><T>Cost Price</T></TableCell>
+              <TableCell align="right"><T>Sales Price</T></TableCell>
+              <TableCell><T>Controlled</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -79,7 +81,7 @@ export default function InventoryPage() {
                     <>
                       <Typography variant="body2">{formatPackShort(item.pack, batch.qtyOnHand)}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {formatQty(batch.qtyOnHand)} tablets
+                        {formatQty(batch.qtyOnHand)} <T>tablets</T>
                       </Typography>
                     </>
                   ) : (
@@ -92,7 +94,7 @@ export default function InventoryPage() {
                   {formatUnitPrice(batch.costPrice ?? 0)}
                   {item.pack && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      per tablet
+                      <T>per tablet</T>
                     </Typography>
                   )}
                 </TableCell>
@@ -100,7 +102,7 @@ export default function InventoryPage() {
                   {formatUnitPrice(resolveSalePrice(item, batch))}
                   {item.pack && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      box · {formatUnitPrice(item.basePrice / tabletsPerBox(item.pack))}/tab
+                      <T>box ·</T> {formatUnitPrice(item.basePrice / tabletsPerBox(item.pack))}<T>/tab</T>
                     </Typography>
                   )}
                 </TableCell>
@@ -113,23 +115,23 @@ export default function InventoryPage() {
                     onChange={(e) => setControlledStatus(item.id, (e.target.value as ControlledStatus) || undefined)}
                     sx={{ minWidth: 160, fontSize: 13 }}
                   >
-                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value=""><T>None</T></MenuItem>
                     {CONTROLLED_STATUS_OPTIONS.map((s) => (
-                      <MenuItem key={s} value={s}>{CONTROLLED_STATUS_LABEL[s]}</MenuItem>
+                      <MenuItem key={s} value={s}>{tr(CONTROLLED_STATUS_LABEL[s])}</MenuItem>
                     ))}
                   </Select>
                 </TableCell>
                 <TableCell>
                   {isExpired(batch.expiryDate) ? (
-                    <Chip size="small" color="error" label="Expired" />
+                    <Chip size="small" color="error" label={tr('Expired')} />
                   ) : isNearExpiry(batch.expiryDate) ? (
-                    <Chip size="small" color="warning" label={`${daysUntil(batch.expiryDate)}d left`} />
+                    <Chip size="small" color="warning" label={`${daysUntil(batch.expiryDate)}${tr("d left")}`} />
                   ) : batch.expiryDate === null ? (
-                    <Chip size="small" variant="outlined" label="No expiry" />
+                    <Chip size="small" variant="outlined" label={tr('No expiry')} />
                   ) : batch.qtyOnHand <= item.reorderLevel ? (
-                    <Chip size="small" color="info" label="Reorder soon" />
+                    <Chip size="small" color="info" label={tr('Reorder soon')} />
                   ) : (
-                    <Chip size="small" label="OK" />
+                    <Chip size="small" label={tr('OK')} />
                   )}
                 </TableCell>
               </TableRow>

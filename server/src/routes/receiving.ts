@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../db/prisma.js';
+import { terminalBranch } from '../branch.js';
 
 // Best-effort backup of a receiving event (vendor or head-office) - mirrors what
 // store/catalogStore.ts's receiveStock() already did to the browser's local copy. Without this,
@@ -56,13 +57,21 @@ receivingRouter.post('/', async (req, res) => {
     // Same "top up an existing batch number, else create a new row" rule catalogStore.receiveStock
     // uses locally, re-derived independently here rather than trusted from the client, since this
     // DB's own batches table may already differ from the browser's view of which batch is "new".
-    const existing = await prisma.batch.findFirst({ where: { itemId: body.itemId, batchNo: body.batchNo } });
+    const existing = await prisma.batch.findFirst({
+      where: { branchId: terminalBranch.id, itemId: body.itemId, batchNo: body.batchNo },
+    });
     if (existing) {
       await prisma.batch.update({ where: { id: existing.id }, data: { qtyOnHand: { increment: body.qty } } });
     } else {
+      // ERP batch ids are deterministic per item+batchNo, so two branches can generate the same
+      // id. Keep the browser's id when it is free; otherwise namespace it by branch.
+      let newId = body.batchId;
+      const idOwner = await prisma.batch.findUnique({ where: { id: body.batchId }, select: { branchId: true } });
+      if (idOwner && idOwner.branchId !== terminalBranch.id) newId = `${terminalBranch.id}:${body.batchId}`;
       await prisma.batch.create({
         data: {
-          id: body.batchId,
+          id: newId,
+          branchId: terminalBranch.id,
           itemId: body.itemId,
           batchNo: body.batchNo,
           expiryDate: new Date(body.expiryDate),
@@ -86,7 +95,9 @@ receivingRouter.post('/', async (req, res) => {
 receivingRouter.post('/reverse', async (req, res) => {
   const body = req.body as { itemId: string; batchNo: string; qty: number };
   try {
-    const existing = await prisma.batch.findFirst({ where: { itemId: body.itemId, batchNo: body.batchNo } });
+    const existing = await prisma.batch.findFirst({
+      where: { branchId: terminalBranch.id, itemId: body.itemId, batchNo: body.batchNo },
+    });
     if (existing) {
       await prisma.batch.update({
         where: { id: existing.id },

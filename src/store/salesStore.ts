@@ -7,6 +7,7 @@ import { backupSale, backupReturn } from '../api/salesApi';
 import { usePendingSyncStore } from './pendingSyncStore';
 import { useRsdOutboxStore } from './rsdOutboxStore';
 import { useSettingsStore } from './settingsStore';
+import { branchNumberPrefix } from '../utils/invoiceNumber';
 
 // Only these fields may be changed by a ZATCA submission/retry. The rest of a sale is a frozen
 // legal record; a retry must never be able to touch prices, lines, the customer or the tender.
@@ -56,9 +57,9 @@ export const useSalesStore = create<SalesState>()(
       standardCounter: 0,
 
       nextInvoiceNo: (invoiceType) => {
-        const prefix = invoiceType === 'simplified' ? 'SIM' : 'STD';
+        const typePrefix = invoiceType === 'simplified' ? 'SIM' : 'STD';
         const n = invoiceType === 'simplified' ? get().simplifiedCounter + 1 : get().standardCounter + 1;
-        return `${prefix}-${String(n).padStart(6, '0')}`;
+        return `${branchNumberPrefix()}${typePrefix}-${String(n).padStart(6, '0')}`;
       },
 
       recordSale: (invoice) => {

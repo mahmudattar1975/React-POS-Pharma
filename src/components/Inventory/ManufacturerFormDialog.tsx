@@ -17,6 +17,7 @@ import ToggleOnOutlinedIcon from '@mui/icons-material/ToggleOnOutlined';
 import type { Manufacturer } from '../../types/manufacturer';
 import { isCompanyNoTaken, maxCompanyNumber } from '../../utils/manufacturers';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   manufacturer: Manufacturer | null; // null = creating
@@ -45,6 +46,7 @@ const DETAILS_MAX = 2000;
 export default function ManufacturerFormDialog({
   open, manufacturer, manufacturers, onSave, onClose, error,
 }: Props) {
+  const tr = useT();
   const [values, setValues] = useState<FormValues>(() => ({
     companyNo: String(manufacturer?.companyNo ?? maxCompanyNumber(manufacturers) + 1),
     nameAr: manufacturer?.nameAr ?? '',
@@ -135,27 +137,27 @@ export default function ManufacturerFormDialog({
           </Box>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="h6" noWrap sx={{ lineHeight: 1.2 }}>
-              {manufacturer ? 'Edit company' : 'New company'}
+              {manufacturer ? tr("Edit company") : tr("New company")}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
               {manufacturer
-                ? `Company no ${manufacturer.companyNo} · last number ${maxCompanyNumber(manufacturers)}`
-                : `Last number ${maxCompanyNumber(manufacturers) || '—'} · next number ${values.companyNo || '—'}`}
+                ? `${tr("Company no ")}${manufacturer.companyNo}${tr(" · last number ")}${maxCompanyNumber(manufacturers)}`
+                : `${tr("Last number ")}${maxCompanyNumber(manufacturers) || '—'}${tr(" · next number ")}${values.companyNo || '—'}`}
             </Typography>
           </Box>
           {manufacturer ? (
             <Chip
               size="small"
-              label={values.isActive ? 'Active' : 'Inactive'}
+              label={values.isActive ? tr("Active") : tr("Inactive")}
               color={values.isActive ? 'success' : 'default'}
               variant={values.isActive ? 'outlined' : 'filled'}
               sx={{ flexShrink: 0 }}
             />
           ) : (
-            <Chip size="small" label="New" variant="outlined" sx={{ flexShrink: 0 }} />
+            <Chip size="small" label={tr('New')} variant="outlined" sx={{ flexShrink: 0 }} />
           )}
         </Stack>
-        <IconButton aria-label="Close" onClick={onClose} size="small" sx={{ position: 'absolute', right: 12, top: 12 }}>
+        <IconButton aria-label={tr('Close')} onClick={onClose} size="small" sx={{ position: 'absolute', insetInlineEnd: 12, top: 12 }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
@@ -166,12 +168,12 @@ export default function ManufacturerFormDialog({
 
           <Section
             icon={<BadgeOutlinedIcon />}
-            title="Company identity"
+            title={tr('Company identity')}
             caption="بيانات الشركة — the number is fixed once the company is saved"
           >
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
               <TextField
-                label="Company No"
+                label={tr('Company No')}
                 type="number"
                 value={values.companyNo}
                 onChange={(e) => patch('companyNo', e.target.value)}
@@ -189,7 +191,7 @@ export default function ManufacturerFormDialog({
                 fullWidth
               />
               <TextField
-                label="Name (Arabic - عربي)"
+                label={tr('Name (Arabic - عربي)')}
                 value={values.nameAr}
                 onChange={(e) => patch('nameAr', e.target.value)}
                 error={!!errorFor('nameAr')}
@@ -200,7 +202,7 @@ export default function ManufacturerFormDialog({
                 slotProps={{ htmlInput: { dir: 'rtl', style: { textAlign: 'right' } } }}
               />
               <TextField
-                label="Name (English)"
+                label={tr('Name (English)')}
                 value={values.nameEn}
                 onChange={(e) => patch('nameEn', e.target.value)}
                 error={!!errorFor('nameEn')}
@@ -215,11 +217,11 @@ export default function ManufacturerFormDialog({
 
           <Section
             icon={<NotesOutlinedIcon />}
-            title="Detailed data"
+            title={tr('Detailed data')}
             caption="بيانات تفصيلية — address, contact person, phone, SFDA licence, notes"
           >
             <TextField
-              label="Detailed data"
+              label={tr('Detailed data')}
               value={values.details}
               onChange={(e) => patch('details', e.target.value)}
               error={!!errorFor('details')}
@@ -228,13 +230,13 @@ export default function ManufacturerFormDialog({
               fullWidth
               multiline
               minRows={4}
-              placeholder="e.g. Plant: Tabuk · SFDA licence 1024 · Contact: Mr. Ali · 011 000 0001"
+              placeholder={tr('e.g. Plant: Tabuk · SFDA licence 1024 · Contact: Mr. Ali · 011 000 0001')}
             />
           </Section>
 
           <Section
             icon={<ToggleOnOutlinedIcon />}
-            title="Status"
+            title={tr('Status')}
             caption="Inactive companies stay in the master and on old items, but are not offered for new items"
           >
             <FormControlLabel
@@ -259,16 +261,16 @@ export default function ManufacturerFormDialog({
         <Box sx={{ mr: 'auto', minWidth: 0, display: { xs: 'none', sm: 'block' } }}>
           {submitted && hasErrors ? (
             <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
-              Fix the highlighted field{errorCount === 1 ? '' : 's'} before saving.
+              <T>Fix the highlighted field</T>{errorCount === 1 ? '' : 's'} <T>before saving.</T>
             </Typography>
           ) : (
             <Typography variant="caption" color="text.secondary">
-              Fields marked * are required
+              <T>Fields marked * are required</T>
             </Typography>
           )}
         </Box>
         <Button onClick={onClose} color="inherit" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-          Cancel
+          <T>Cancel</T>
         </Button>
         <Button
           variant="contained"
@@ -276,7 +278,7 @@ export default function ManufacturerFormDialog({
           startIcon={<SaveOutlinedIcon />}
           sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         >
-          {manufacturer ? 'Save Changes' : 'Create Company'}
+          {manufacturer ? tr("Save Changes") : tr("Create Company")}
         </Button>
       </DialogActions>
     </Dialog>

@@ -4,10 +4,12 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, T
 import { useShiftStore } from '../../store/shiftStore';
 import { useAuthStore } from '../../store/authStore';
 
+import { T, useT } from '../../i18n';
 // Blocks the whole app behind having an open drawer for the logged-in cashier - mirrors the
 // backend rule (PosController/PosReturnController both reject a sale/return with no open shift).
 // Not dismissible: there's no "skip" because every sale needs a shift to attach to.
 export default function OpenDrawerDialog() {
+  const tr = useT();
   const [openingFloat, setOpeningFloat] = useState('0');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -35,14 +37,14 @@ export default function OpenDrawerDialog() {
 
   return (
     <Dialog open fullWidth maxWidth="xs">
-      <DialogTitle>Open Drawer</DialogTitle>
+      <DialogTitle><T>Open Drawer</T></DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {cashierName}, enter the starting cash float to begin your shift.
+          {cashierName}<T>, enter the starting cash float to begin your shift.</T>
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <TextField
-          label="Opening Float (SAR)"
+          label={tr('Opening Float (SAR)')}
           type="number"
           value={openingFloat}
           onChange={(e) => setOpeningFloat(e.target.value)}
@@ -53,7 +55,7 @@ export default function OpenDrawerDialog() {
       </DialogContent>
       <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
         <Button variant="contained" onClick={handleOpen} disabled={submitting} fullWidth>
-          {submitting ? 'Opening...' : 'Open Drawer'}
+          {submitting ? tr("Opening...") : tr("Open Drawer")}
         </Button>
         {/* Without this, logging into the wrong account traps the cashier here - the dialog's
             backdrop blocks the sign-out button in the sidebar behind it. */}
@@ -66,7 +68,7 @@ export default function OpenDrawerDialog() {
             navigate('/login', { replace: true });
           }}
         >
-          Wrong account? Sign out
+          <T>Wrong account? Sign out</T>
         </Button>
       </DialogActions>
     </Dialog>

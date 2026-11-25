@@ -14,6 +14,7 @@ import { maskNationalId } from '../../utils/wasfaty';
 import { pointsToSar, sarToPoints } from '../../utils/loyalty';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   // What the PATIENT has to pay now. On a Wasfaty sale this is the non-covered part only; the
@@ -60,6 +61,7 @@ const EPSILON = 0.005;
 export default function PaymentDialog({
   open, totalDue, pointsBalance, wasfaty, isSubmitting, onCancel, onConfirm,
 }: Props) {
+  const tr = useT();
   const fullyCovered = totalDue <= EPSILON;
   const [rows, setRows] = useState<PaymentRow[]>(fullyCovered ? [] : [newRow(totalDue)]);
   const pointsAvailableSar = round2(pointsToSar(pointsBalance));
@@ -132,7 +134,7 @@ export default function PaymentDialog({
 
   return (
     <Dialog open={open} onClose={onCancel} fullWidth maxWidth="xs">
-      <DialogTitle>{wasfaty ? 'Wasfaty dispense - payment' : 'Payment'}</DialogTitle>
+      <DialogTitle>{wasfaty ? tr("Wasfaty dispense - payment") : tr("Payment")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           {wasfaty && (
@@ -143,44 +145,44 @@ export default function PaymentDialog({
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
                 <LocalPharmacyOutlinedIcon fontSize="small" color="primary" />
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  Wasfaty / وصفتي
+                  <T>Wasfaty / وصفتي</T>
                 </Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="caption" color="text.secondary">Prescription</Typography>
+                <Typography variant="caption" color="text.secondary"><T>Prescription</T></Typography>
                 <Typography variant="caption">{wasfaty.session.prescriptionNo}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="caption" color="text.secondary">Patient</Typography>
+                <Typography variant="caption" color="text.secondary"><T>Patient</T></Typography>
                 <Typography variant="caption">{maskNationalId(wasfaty.session.patientNationalId)}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="caption" color="text.secondary">NUPCO coverage</Typography>
+                <Typography variant="caption" color="text.secondary"><T>NUPCO coverage</T></Typography>
                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                  SAR {formatMoney(wasfaty.coveredAmount)}
+                  <T>SAR</T> {formatMoney(wasfaty.coveredAmount)}
                 </Typography>
               </Stack>
               <Divider sx={{ my: 0.75 }} />
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Patient share</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}><T>Patient share</T></Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  SAR {formatMoney(totalDue)}
+                  <T>SAR</T> {formatMoney(totalDue)}
                 </Typography>
               </Stack>
               {fullyCovered && (
                 <Alert severity="success" icon={false} sx={{ mt: 1, py: 0 }}>
-                  Fully covered by Wasfaty - the patient pays 0.00.
+                  <T>Fully covered by Wasfaty - the patient pays 0.00.</T>
                 </Alert>
               )}
             </Paper>
           )}
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            SAR {formatMoney(totalDue)}
+            <T>SAR</T> {formatMoney(totalDue)}
           </Typography>
           {wasfaty && wasfaty.invoiceTotal > totalDue + EPSILON && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-              Invoice total is SAR {formatMoney(wasfaty.invoiceTotal)}; the difference is the Wasfaty
-              coverage tender, recorded on the invoice automatically.
+              <T>Invoice total is SAR</T> {formatMoney(wasfaty.invoiceTotal)}<T>; the difference is the Wasfaty
+              coverage tender, recorded on the invoice automatically.</T>
             </Typography>
           )}
 
@@ -214,24 +216,24 @@ export default function PaymentDialog({
                         }
                       }}
                     >
-                      <ToggleButton value="cash">Cash</ToggleButton>
-                      <ToggleButton value="card">Card</ToggleButton>
-                      <ToggleButton value="insurance">Insurance</ToggleButton>
-                      <ToggleButton value="points" disabled={pointsAvailableSar <= EPSILON}>Points</ToggleButton>
+                      <ToggleButton value="cash"><T>Cash</T></ToggleButton>
+                      <ToggleButton value="card"><T>Card</T></ToggleButton>
+                      <ToggleButton value="insurance"><T>Insurance</T></ToggleButton>
+                      <ToggleButton value="points" disabled={pointsAvailableSar <= EPSILON}><T>Points</T></ToggleButton>
                       {/* Catch-all for a tender with no dedicated flow - store credit note, gift
                           certificate, etc. Behaves like cash for validation (plain amount); the
                           sale records it as method 'other' end to end. */}
-                      <ToggleButton value="other">Other</ToggleButton>
+                      <ToggleButton value="other"><T>Other</T></ToggleButton>
                     </ToggleButtonGroup>
                     {rows.length > 1 && (
-                      <IconButton size="small" onClick={() => removeRow(row.key)} aria-label="Remove payment method">
+                      <IconButton size="small" onClick={() => removeRow(row.key)} aria-label={tr('Remove payment method')}>
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     )}
                   </Stack>
 
                   <TextField
-                    label="Amount"
+                    label={tr('Amount')}
                     type="number"
                     size="small"
                     value={row.amount}
@@ -254,14 +256,14 @@ export default function PaymentDialog({
                   {row.method === 'insurance' && (
                     <Stack spacing={1}>
                       <TextField
-                        label="Insurance company"
+                        label={tr('Insurance company')}
                         size="small"
                         value={row.insuranceCompany}
                         onChange={(e) => updateRow(row.key, { insuranceCompany: e.target.value })}
                         fullWidth
                       />
                       <TextField
-                        label="Approval / authorization code (optional)"
+                        label={tr('Approval / authorization code (optional)')}
                         size="small"
                         value={row.insuranceApprovalCode}
                         onChange={(e) => updateRow(row.key, { insuranceApprovalCode: e.target.value })}
@@ -280,25 +282,25 @@ export default function PaymentDialog({
 
           {!fullyCovered && (
             <Button startIcon={<AddIcon />} onClick={addRow} size="small" sx={{ alignSelf: 'flex-start' }}>
-              Add payment method
+              <T>Add payment method</T>
             </Button>
           )}
 
           {stillOwing ? (
-            <Alert severity="warning">SAR {formatMoney(remaining)} still due.</Alert>
+            <Alert severity="warning"><T>SAR</T> {formatMoney(remaining)} <T>still due.</T></Alert>
           ) : changeDue > 0 ? (
             canGiveChange ? (
               <Typography variant="body2" color="text.secondary">
-                Change due: SAR {formatMoney(changeDue)}
+                <T>Change due: SAR</T> {formatMoney(changeDue)}
               </Typography>
             ) : (
-              <Alert severity="error">Change can only be given in cash - add a cash row or reduce the amount.</Alert>
+              <Alert severity="error"><T>Change can only be given in cash - add a cash row or reduce the amount.</T></Alert>
             )
           ) : null}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+        <Button onClick={onCancel} disabled={isSubmitting}><T>Cancel</T></Button>
         <Button
           variant="contained"
           disabled={confirmDisabled}
@@ -306,10 +308,10 @@ export default function PaymentDialog({
           onClick={confirm}
         >
           {isSubmitting
-            ? 'Submitting to ZATCA…'
+            ? tr("Submitting to ZATCA…")
             : wasfaty
-              ? 'Dispense & complete'
-              : 'Complete Sale'}
+              ? tr("Dispense & complete")
+              : tr("Complete Sale")}
         </Button>
       </DialogActions>
     </Dialog>

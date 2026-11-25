@@ -28,6 +28,7 @@ import ZatcaInvoicesPanel from '../Zatca/ZatcaInvoicesPanel';
 import RsdMonitorPage from '../Rsd/RsdMonitorPage';
 import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
+import { useT } from '../../i18n';
 // Each tab gets a semantic colour so the cashier can recognise the workspace at a glance.
 // Short on-screen labels keep the tab strip compact; ariaLabel gives screen readers (and the
 // accessibility-tree based E2E suite) the full name of the compliance workspaces.
@@ -42,6 +43,7 @@ const TABS = [
 ];
 
 export default function SalesHubPage() {
+  const tr = useT();
   const location = useLocation();
   const navigate = useNavigate();
   // Path-driven (not state) so a refresh on a tab keeps the cashier where they were.
@@ -69,8 +71,8 @@ export default function SalesHubPage() {
             key={entry.path}
             icon={entry.icon}
             iconPosition="start"
-            label={entry.label}
-            aria-label={entry.ariaLabel}
+            label={tr(entry.label)}
+            aria-label={tr(entry.ariaLabel)}
             sx={coloredTabSx(entry.color)}
           />
         ))}

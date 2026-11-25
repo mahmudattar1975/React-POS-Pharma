@@ -46,9 +46,11 @@ import TaxInvoiceDocument from './TaxInvoiceDocument';
 import DosagePrintView from '../POS/DosagePrintView';
 import ReceiptView from '../POS/ReceiptView';
 
+import { T, useT } from '../../i18n';
 type Filter = 'all' | 'needs' | 'failed' | 'accepted';
 
 export default function ZatcaInvoicesPanel() {
+  const tr = useT();
   const invoices = useSalesStore((s) => s.invoices);
   const updateInvoiceZatca = useSalesStore((s) => s.updateInvoiceZatca);
   const rsdQueue = useRsdOutboxStore((s) => s.queue);
@@ -192,9 +194,9 @@ export default function ZatcaInvoicesPanel() {
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Every sales invoice with the Fatoora state it was issued in. Standard invoices are cleared by
+        <T>Every sales invoice with the Fatoora state it was issued in. Standard invoices are cleared by
         ZATCA before issue; simplified ones are reported within 24 hours. An invoice that never got
-        through stays here until it is accepted.
+        through stays here until it is accepted.</T>
       </Typography>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -222,9 +224,9 @@ export default function ZatcaInvoicesPanel() {
 
       {summary.needsSubmission > 0 && (
         <Alert severity="warning" sx={{ mb: 1.5 }}>
-          {summary.needsSubmission} invoice{summary.needsSubmission === 1 ? '' : 's'} not yet accepted by
+          {summary.needsSubmission} <T>invoice</T>{summary.needsSubmission === 1 ? '' : 's'} <T>not yet accepted by
           ZATCA. These were sold while the signing server was unavailable or not onboarded - press
-          Retry once it is running. Nothing was lost: the sale, the QR and the totals are all stored.
+          Retry once it is running. Nothing was lost: the sale, the QR and the totals are all stored.</T>
         </Alert>
       )}
 
@@ -232,7 +234,7 @@ export default function ZatcaInvoicesPanel() {
         <Stack direction="row" spacing={2} sx={{ mb: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
             size="small"
-            label="Search invoice / customer / UUID"
+            label={tr('Search invoice / customer / UUID')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ minWidth: 280 }}
@@ -244,13 +246,13 @@ export default function ZatcaInvoicesPanel() {
             onChange={(e) => setFilter(e.target.value as Filter)}
             sx={{ minWidth: 200 }}
           >
-            <MenuItem value="all">All invoices</MenuItem>
-            <MenuItem value="needs">Awaiting submission</MenuItem>
-            <MenuItem value="failed">Rejected</MenuItem>
-            <MenuItem value="accepted">Accepted</MenuItem>
+            <MenuItem value="all"><T>All invoices</T></MenuItem>
+            <MenuItem value="needs"><T>Awaiting submission</T></MenuItem>
+            <MenuItem value="failed"><T>Rejected</T></MenuItem>
+            <MenuItem value="accepted"><T>Accepted</T></MenuItem>
           </Select>
           <Typography variant="caption" color="text.secondary">
-            {rows.length} shown
+            {rows.length} <T>shown</T>
           </Typography>
         </Stack>
 
@@ -258,15 +260,15 @@ export default function ZatcaInvoicesPanel() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Invoice</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell align="right">Total (SAR)</TableCell>
-                <TableCell>ZATCA</TableCell>
-                <TableCell>RSD</TableCell>
-                <TableCell>UUID</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell><T>Date</T></TableCell>
+                <TableCell><T>Invoice</T></TableCell>
+                <TableCell><T>Type</T></TableCell>
+                <TableCell><T>Customer</T></TableCell>
+                <TableCell align="right"><T>Total (SAR)</T></TableCell>
+                <TableCell><T>ZATCA</T></TableCell>
+                <TableCell><T>RSD</T></TableCell>
+                <TableCell><T>UUID</T></TableCell>
+                <TableCell align="right"><T>Actions</T></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -274,7 +276,7 @@ export default function ZatcaInvoicesPanel() {
                 <TableRow>
                   <TableCell colSpan={9}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                      No invoices match this filter.
+                      <T>No invoices match this filter.</T>
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -295,8 +297,8 @@ export default function ZatcaInvoicesPanel() {
                   <TableRow key={inv.id} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{inv.date.slice(0, 10)}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{inv.invoiceNo}</TableCell>
-                    <TableCell>{inv.invoiceType === 'standard' ? 'Standard' : 'Simplified'}</TableCell>
-                    <TableCell>{inv.customerNameEn || inv.customerNameAr || 'Walk-in'}</TableCell>
+                    <TableCell>{inv.invoiceType === 'standard' ? tr("Standard") : tr("Simplified")}</TableCell>
+                    <TableCell>{inv.customerNameEn || inv.customerNameAr || tr("Walk-in")}</TableCell>
                     <TableCell align="right">{formatMoney(inv.totalInclVat)}</TableCell>
                     <TableCell>
                       <Chip size="small" color={label.color} label={label.label} title={label.help} />
@@ -313,7 +315,7 @@ export default function ZatcaInvoicesPanel() {
                           variant={rsd.state === 'sent' ? 'filled' : 'outlined'}
                           color={rsdColor}
                           label={`${rsd.sent}/${rsd.total}`}
-                          title={`${rsd.sent} of ${rsd.total} RSD packs reported${rsd.rejected ? ` · ${rsd.rejected} need attention` : ''}${rsd.pending ? ` · ${rsd.pending} queued` : ''}`}
+                          title={`${rsd.sent} ${tr('of')} ${rsd.total}${tr(' RSD packs reported')}${rsd.rejected ? ` · ${rsd.rejected} ${tr('need attention')}` : ''}${rsd.pending ? ` · ${rsd.pending} ${tr('queued')}` : ''}`}
                         />
                       ) : (
                         <Typography variant="caption" color="text.secondary">—</Typography>
@@ -326,10 +328,10 @@ export default function ZatcaInvoicesPanel() {
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <Button size="small" startIcon={<ReceiptLongIcon />} onClick={() => setPrintInvoice(inv)}>
-                        Invoice
+                        <T>Invoice</T>
                       </Button>
                       <Button size="small" startIcon={<PrintIcon />} onClick={() => setPrintReceipt(inv)}>
-                        Print Receipt
+                        <T>Print Receipt</T>
                       </Button>
                       {hasDosages(inv.lines) && (
                         <Button
@@ -337,7 +339,7 @@ export default function ZatcaInvoicesPanel() {
                           startIcon={<MedicationOutlinedIcon />}
                           onClick={() => setPrintDosages(inv)}
                         >
-                          Directions
+                          <T>Directions</T>
                         </Button>
                       )}
                       <Button
@@ -346,7 +348,7 @@ export default function ZatcaInvoicesPanel() {
                         onClick={() => viewXml(inv)}
                         disabled={!inv.zatcaUuid || xmlBusy}
                       >
-                        XML
+                        <T>XML</T>
                       </Button>
                       {canRetry && (
                         <Button
@@ -356,7 +358,7 @@ export default function ZatcaInvoicesPanel() {
                           onClick={() => retry(inv)}
                           disabled={busyId !== null}
                         >
-                          {busyId === inv.id ? 'Sending…' : 'Retry'}
+                          {busyId === inv.id ? tr("Sending…") : tr("Retry")}
                         </Button>
                       )}
                     </TableCell>
@@ -393,12 +395,12 @@ export default function ZatcaInvoicesPanel() {
 
       <Dialog open={xml !== null} onClose={() => setXml(null)} fullWidth maxWidth="md">
         <DialogTitle>
-          Signed XML — {xml?.invoice.invoiceNo}
+          <T>Signed XML —</T> {xml?.invoice.invoiceNo}
         </DialogTitle>
         <DialogContent>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            This is the exact signed UBL 2.1 document kept by the ZATCA server for this UUID. ZATCA
-            requires the seller to retain it; it is not re-generated from the sale.
+            <T>This is the exact signed UBL 2.1 document kept by the ZATCA server for this UUID. ZATCA
+            requires the seller to retain it; it is not re-generated from the sale.</T>
           </Typography>
           <Box
             component="pre"
@@ -412,8 +414,8 @@ export default function ZatcaInvoicesPanel() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={downloadXml}>Download .xml</Button>
-          <Button onClick={() => setXml(null)}>Close</Button>
+          <Button onClick={downloadXml}><T>Download .xml</T></Button>
+          <Button onClick={() => setXml(null)}><T>Close</T></Button>
         </DialogActions>
       </Dialog>
     </Box>

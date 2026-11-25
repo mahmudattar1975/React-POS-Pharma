@@ -20,6 +20,9 @@ datasource db {
 model Sale {
   id          String   @id @default(uuid())
   invoiceNo   String   @unique
+  // Terminal that issued this document. Set explicitly by routes/sales.ts from this PC's
+  // branch.json; the default only covers rows written before branch tagging existed.
+  branchId    String   @default("cc-br-001")
   invoiceType String // 'simplified' | 'standard'
   date        DateTime
   createdAt   DateTime @default(now())
@@ -59,6 +62,7 @@ model Sale {
   returns   ReturnRecord[]
   incentiveRecords IncentiveRecord[]
 
+  @@index([branchId])
   @@map("sales")
 }
 
@@ -117,6 +121,7 @@ model Payment {
 model ReturnRecord {
   id                String @id @default(uuid())
   returnNo          String @unique
+  branchId          String @default("cc-br-001")
   date              DateTime
   originalInvoiceId String
   sale              Sale   @relation(fields: [originalInvoiceId], references: [id])
@@ -126,6 +131,7 @@ model ReturnRecord {
 
   lines ReturnLine[]
 
+  @@index([branchId])
   @@map("return_records")
 }
 
@@ -141,6 +147,28 @@ model ReturnLine {
   refundAmount Decimal @db.Decimal(12, 3)
 
   @@map("return_lines")
+}
+
+// The shared branch master: ONE list in PharmaDB, editable from Settings > Branches on any
+// terminal. A terminal's OWN branch is selected by server/config/branch.json (gitignored) - never
+// by this table alone, so a cashier cannot accidentally post a sale to another pharmacy.
+// Deactivate instead of deleting: invoice prefixes and history still reference the code.
+model Branch {
+  id           String   @id           // system id, e.g. cc-br-001
+  code         String   @unique       // short prefix used on invoices, e.g. RIY
+  nameEn       String
+  nameAr       String
+  address      String?
+  phone        String?
+  vatNumber    String?
+  crNumber     String?
+  glnNo        String?                // GS1 location number for RSD
+  costCenterId String?                // links to the app's branch cost center for reporting
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([isActive])
+  @@map("branches")
 }
 
 // Mirrors src/types/catalog.ts's Item. id is kept exactly as the app already assigns it elsewhere
@@ -170,6 +198,9 @@ model Item {
 // Mirrors Batch.
 model Batch {
   id                      String   @id
+  // Stock is owned by one branch. Two branches can hold the same item/batchNo independently, so
+  // every stock lookup (and the "top up vs create" decision) must filter on branchId as well.
+  branchId                String   @default("cc-br-001")
   itemId                  String
   item                    Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   batchNo                 String
@@ -182,6 +213,7 @@ model Batch {
   gtin                    String?
   salePriceOverride       Decimal? @db.Decimal(12, 3)
 
+  @@index([branchId, itemId, batchNo])
   @@map("batches")
 }
 

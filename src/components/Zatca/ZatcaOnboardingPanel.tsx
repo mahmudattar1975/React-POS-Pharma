@@ -8,6 +8,7 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import * as zatcaApi from '../../api/zatcaApi';
 import type { OnboardingStatus, ZatcaEnv } from '../../api/zatcaApi';
 
+import { T, useT } from '../../i18n';
 type StepState = 'done' | 'active' | 'pending';
 
 function StepIcon({ state }: { state: StepState }) {
@@ -32,6 +33,7 @@ const ENV_INFO: Record<ZatcaEnv, { label: string; help: string; suggestedOtp?: s
 };
 
 export default function ZatcaOnboardingPanel() {
+  const tr = useT();
   const [serverUp, setServerUp] = useState<boolean | null>(null);
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [otp, setOtp] = useState(ENV_INFO.sandbox.suggestedOtp ?? '');
@@ -89,15 +91,15 @@ export default function ZatcaOnboardingPanel() {
 
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>ZATCA Phase 2 Onboarding</Typography>
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}><T>ZATCA Phase 2 Onboarding</T></Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        One-time setup that lets this device cryptographically sign and submit real invoices to
-        ZATCA. Runs against the <code>{import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300'}</code> server
-        (see <code>server/README.md</code>) - it holds the private key, this page never sees it.
+        <T>One-time setup that lets this device cryptographically sign and submit real invoices to
+        ZATCA. Runs against the</T> <code>{import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300'}</code> <T>server
+        (see</T> <code><T>server/README.md</T></code><T>) - it holds the private key, this page never sees it.</T>
       </Typography>
 
       <Box sx={{ mb: 2 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Environment</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}><T>Environment</T></Typography>
         <ToggleButtonGroup
           exclusive
           size="small"
@@ -116,7 +118,7 @@ export default function ZatcaOnboardingPanel() {
 
       {serverUp === false && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          ZATCA server isn't reachable. Start it with <code>npm run dev</code> in <code>Pharmacy-App/server</code> first.
+          <T>ZATCA server isn't reachable. Start it with</T> <code><T>npm run dev</T></code> <T>in</T> <code><T>Pharmacy-App/server</T></code> <T>first.</T>
         </Alert>
       )}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -125,18 +127,18 @@ export default function ZatcaOnboardingPanel() {
         <Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
             <StepIcon state={complianceState} />
-            <Typography sx={{ fontWeight: 600 }}>1. Compliance CSID</Typography>
+            <Typography sx={{ fontWeight: 600 }}><T>1. Compliance CSID</T></Typography>
             {status?.compliance && <Chip size="small" label={`issued ${new Date(status.compliance.issuedAt).toLocaleDateString()}`} />}
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Get an OTP from your Fatoora portal account (Onboard New Solution Unit), enter it below,
+            <T>Get an OTP from your Fatoora portal account (Onboard New Solution Unit), enter it below,
             and this generates a fresh key + CSR from the Company &amp; Device identity and exchanges
-            it for a Compliance CSID.
+            it for a Compliance CSID.</T>
           </Typography>
           <Stack direction="row" spacing={1}>
             <TextField
               size="small"
-              label="OTP from Fatoora portal"
+              label={tr('OTP from Fatoora portal')}
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
               disabled={complianceState === 'done'}
@@ -146,7 +148,7 @@ export default function ZatcaOnboardingPanel() {
               disabled={!otp || complianceState === 'done' || busy !== null || serverUp === false}
               onClick={() => run('compliance', async () => { await zatcaApi.requestComplianceCsid(otp); })}
             >
-              {busy === 'compliance' ? <CircularProgress size={20} /> : 'Get Compliance CSID'}
+              {busy === 'compliance' ? <CircularProgress size={20} /> : tr("Get Compliance CSID")}
             </Button>
           </Stack>
         </Box>
@@ -156,11 +158,11 @@ export default function ZatcaOnboardingPanel() {
         <Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
             <StepIcon state={checkState} />
-            <Typography sx={{ fontWeight: 600 }}>2. Compliance checks</Typography>
+            <Typography sx={{ fontWeight: 600 }}><T>2. Compliance checks</T></Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Submits 6 sample invoices (standard/simplified × invoice/credit note/debit note) so
-            ZATCA can validate this integration before issuing a Production CSID.
+            <T>Submits 6 sample invoices (standard/simplified × invoice/credit note/debit note) so
+            ZATCA can validate this integration before issuing a Production CSID.</T>
           </Typography>
           <Button
             variant="outlined"
@@ -171,7 +173,7 @@ export default function ZatcaOnboardingPanel() {
               if (!result.passed) throw new Error('Compliance checks did not all pass - fix the failures before requesting a Production CSID.');
             })}
           >
-            {busy === 'check' ? <CircularProgress size={20} /> : 'Run Compliance Checks'}
+            {busy === 'check' ? <CircularProgress size={20} /> : tr("Run Compliance Checks")}
           </Button>
           {checkResults && (
             <Stack spacing={0.5} sx={{ mt: 1 }}>
@@ -190,24 +192,24 @@ export default function ZatcaOnboardingPanel() {
         <Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
             <StepIcon state={productionState} />
-            <Typography sx={{ fontWeight: 600 }}>3. Production CSID</Typography>
+            <Typography sx={{ fontWeight: 600 }}><T>3. Production CSID</T></Typography>
             {status?.production && <Chip size="small" color="success" label={`issued ${new Date(status.production.issuedAt).toLocaleDateString()}`} />}
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            The CSID actually used to sign and submit real invoices from this device going forward.
+            <T>The CSID actually used to sign and submit real invoices from this device going forward.</T>
           </Typography>
           <Button
             variant="contained"
             disabled={productionState !== 'active' || busy !== null}
             onClick={() => run('production', async () => { await zatcaApi.requestProductionCsid(); })}
           >
-            {busy === 'production' ? <CircularProgress size={20} /> : 'Get Production CSID'}
+            {busy === 'production' ? <CircularProgress size={20} /> : tr("Get Production CSID")}
           </Button>
         </Box>
 
         {status?.step === 'production_issued' && (
           <Alert severity="success">
-            Onboarding complete - checkout now signs and submits real invoices to ZATCA ({ENV_INFO[env].label} environment).
+            <T>Onboarding complete - checkout now signs and submits real invoices to ZATCA (</T>{ENV_INFO[env].label} <T>environment).</T>
           </Alert>
         )}
       </Stack>

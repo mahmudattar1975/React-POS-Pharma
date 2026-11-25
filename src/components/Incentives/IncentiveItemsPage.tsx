@@ -16,7 +16,9 @@ import { discountInputToFraction, formatDiscountInput, formatDiscountPercent } f
 import { itemCodes } from '../../utils/itemMaster';
 import DiscountInput from '../common/DiscountInput';
 
+import { T, useT } from '../../i18n';
 export default function IncentiveItemsPage() {
+  const tr = useT();
   const { items: catalogItems } = useCatalogStore();
   const { items, loading, error, refresh, addItem, updateItem, removeItem } = useIncentiveStore();
   const [dialog, setDialog] = useState<{ open: boolean; item: IncentiveItem | null }>({ open: false, item: null });
@@ -110,25 +112,25 @@ export default function IncentiveItemsPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Incentive Items (حافز)</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Incentive Items (حافز)</T></Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialog({ open: true, item: null })}>
-          Add Item
+          <T>Add Item</T>
         </Button>
       </Stack>
 
       {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
-      {loading && <Typography color="text.secondary" sx={{ mb: 2 }}>Loading…</Typography>}
+      {loading && <Typography color="text.secondary" sx={{ mb: 2 }}><T>Loading…</T></Typography>}
 
       <Paper variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Rate</TableCell>
-              <TableCell>Active From</TableCell>
-              <TableCell>Active To</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Type</T></TableCell>
+              <TableCell><T>Rate</T></TableCell>
+              <TableCell><T>Active From</T></TableCell>
+              <TableCell><T>Active To</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -137,7 +139,7 @@ export default function IncentiveItemsPage() {
               <TableRow>
                 <TableCell colSpan={7}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No incentive items yet — add one to start granting profit on sales.
+                    <T>No incentive items yet — add one to start granting profit on sales.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -151,7 +153,7 @@ export default function IncentiveItemsPage() {
                   <TableCell>{it.incentiveType === 'percent' ? formatDiscountPercent(it.rate) : formatMoney(it.rate)}</TableCell>
                   <TableCell>{it.activeFrom}</TableCell>
                   <TableCell>{it.activeTo}</TableCell>
-                  <TableCell><Chip size="small" color={st.color} label={st.label} /></TableCell>
+                  <TableCell><Chip size="small" color={st.color} label={tr(st.label)} /></TableCell>
                   <TableCell align="right">
                     <IconButton size="small" aria-label={`Edit incentive for ${itemName(it.itemId)}`} onClick={() => setDialog({ open: true, item: it })}>
                       <EditOutlinedIcon fontSize="small" />
@@ -168,17 +170,17 @@ export default function IncentiveItemsPage() {
       </Paper>
 
       <Dialog open={dialog.open} onClose={() => setDialog({ open: false, item: null })} maxWidth="sm" fullWidth>
-        <DialogTitle>{dialog.item ? 'Edit Incentive Item' : 'Add Incentive Item'}</DialogTitle>
+        <DialogTitle>{dialog.item ? tr("Edit Incentive Item") : tr("Add Incentive Item")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Search item (name or barcode)"
+              label={tr('Search item (name or barcode)')}
               value={itemQuery}
               onChange={(e) => {
                 setItemQuery(e.target.value);
                 setForm({ ...form, itemId: '' });
               }}
-              placeholder="Type name, Arabic name, or barcode"
+              placeholder={tr('Type name, Arabic name, or barcode')}
               size="small"
               fullWidth
             />
@@ -216,21 +218,21 @@ export default function IncentiveItemsPage() {
             )}
             {existingRule && (
               <Alert severity="warning">
-                This item has an Incentive ({existingRule.incentiveType === 'percent'
+                <T>This item has an Incentive (</T>{existingRule.incentiveType === 'percent'
                   ? formatDiscountPercent(existingRule.rate)
-                  : formatMoney(existingRule.rate)}). Pick it from the list above to edit it.
+                  : formatMoney(existingRule.rate)}<T>). Pick it from the list above to edit it.</T>
               </Alert>
             )}
             <FormControl fullWidth size="small">
-              <InputLabel>Type</InputLabel>
-              <Select value={form.incentiveType} label="Type" onChange={(e) => setForm({ ...form, incentiveType: e.target.value as IncentiveType })}>
-                <MenuItem value="percent">Percent of net sales (excl. VAT)</MenuItem>
-                <MenuItem value="amount">Fixed amount per unit</MenuItem>
+              <InputLabel><T>Type</T></InputLabel>
+              <Select value={form.incentiveType} label={tr('Type')} onChange={(e) => setForm({ ...form, incentiveType: e.target.value as IncentiveType })}>
+                <MenuItem value="percent"><T>Percent of net sales (excl. VAT)</T></MenuItem>
+                <MenuItem value="amount"><T>Fixed amount per unit</T></MenuItem>
               </Select>
             </FormControl>
             {form.incentiveType === 'percent' ? (
               <DiscountInput
-                label="Rate"
+                label={tr('Rate')}
                 value={percentInput}
                 onChange={setPercentInput}
                 size="small"
@@ -238,7 +240,7 @@ export default function IncentiveItemsPage() {
               />
             ) : (
               <TextField
-                label="Amount (SAR per unit)"
+                label={tr('Amount (SAR per unit)')}
                 type="number"
                 value={form.rate}
                 onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })}
@@ -246,14 +248,14 @@ export default function IncentiveItemsPage() {
                 fullWidth
               />
             )}
-            <TextField label="Active From" type="date" value={form.activeFrom} onChange={(e) => setForm({ ...form, activeFrom: e.target.value })} size="small" fullWidth />
-            <TextField label="Active To" type="date" value={form.activeTo} onChange={(e) => setForm({ ...form, activeTo: e.target.value })} size="small" fullWidth />
-            <FormControlLabel control={<Checkbox checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />} label="Active" />
+            <TextField label={tr('Active From')} type="date" value={form.activeFrom} onChange={(e) => setForm({ ...form, activeFrom: e.target.value })} size="small" fullWidth />
+            <TextField label={tr('Active To')} type="date" value={form.activeTo} onChange={(e) => setForm({ ...form, activeTo: e.target.value })} size="small" fullWidth />
+            <FormControlLabel control={<Checkbox checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />} label={tr('Active')} />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialog({ open: false, item: null })}>Cancel</Button>
-          <Button variant="contained" onClick={save} disabled={!form.itemId || !!existingRule}>Save</Button>
+          <Button onClick={() => setDialog({ open: false, item: null })}><T>Cancel</T></Button>
+          <Button variant="contained" onClick={save} disabled={!form.itemId || !!existingRule}><T>Save</T></Button>
         </DialogActions>
       </Dialog>
     </Box>

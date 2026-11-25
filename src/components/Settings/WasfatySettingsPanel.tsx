@@ -16,7 +16,9 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { wasfatyCoverage } from '../../utils/wasfaty';
 import * as wasfatyApi from '../../api/wasfatyApi';
 
+import { T, useT } from '../../i18n';
 export default function WasfatySettingsPanel() {
+  const tr = useT();
   const items = useCatalogStore((s) => s.items);
   const coverage = wasfatyCoverage(items);
   const [health, setHealth] = useState<wasfatyApi.WasfatyHealth | null>(null);
@@ -54,25 +56,25 @@ export default function WasfatySettingsPanel() {
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
           <LocalPharmacyOutlinedIcon color="primary" />
           <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Wasfaty / NUPCO connector</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}><T>Wasfaty / NUPCO connector</T></Typography>
             <Typography variant="caption" color="text.secondary">
-              Provider-neutral adapter: manual (Phase 0) · NUPCO simulator · direct · approved hub
+              <T>Provider-neutral adapter: manual (Phase 0) · NUPCO simulator · direct · approved hub</T>
             </Typography>
           </Box>
           <Button size="small" startIcon={<RefreshIcon />} onClick={check} disabled={state.loading}>
-            {state.loading ? 'Checking…' : 'Check connection'}
+            {state.loading ? tr("Checking…") : tr("Check connection")}
           </Button>
         </Stack>
 
         {state.error ? (
           <Alert severity="warning">
-            Wasfaty server not reachable: {state.error}. The POS still records manual dispenses
-            locally, and they queue for retry.
+            <T>Wasfaty server not reachable:</T> {state.error}<T>. The POS still records manual dispenses
+            locally, and they queue for retry.</T>
           </Alert>
         ) : !health ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">Checking the Wasfaty adapter…</Typography>
+            <Typography variant="body2" color="text.secondary"><T>Checking the Wasfaty adapter…</T></Typography>
           </Box>
         ) : (
           <Stack spacing={1.5}>
@@ -90,8 +92,8 @@ export default function WasfatySettingsPanel() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Capability</TableCell>
-                  <TableCell align="right">Available</TableCell>
+                  <TableCell><T>Capability</T></TableCell>
+                  <TableCell align="right"><T>Available</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -107,15 +109,15 @@ export default function WasfatySettingsPanel() {
             </Table>
             {health.contract && health.contract.source !== 'none' && (
               <Typography variant="caption" color="text.secondary">
-                Contract: {health.contract.source}
-                {health.contract.version ? ` · v${health.contract.version}` : ''}
+                <T>Contract:</T> {health.contract.source}
+                {health.contract.version ? `${tr(" · v")}${health.contract.version}` : ''}
                 {health.contract.baseUrl ? ` · ${health.contract.baseUrl}` : ''}
               </Typography>
             )}
             {health.contract?.missingOperations && health.contract.missingOperations.length > 0 && (
               <Alert severity="info">
-                The contract is missing: {health.contract.missingOperations.join(', ')}. Live
-                dispense/claim submission stays disabled until NUPCO supplies them.
+                <T>The contract is missing:</T> {health.contract.missingOperations.join(', ')}<T>. Live
+                dispense/claim submission stays disabled until NUPCO supplies them.</T>
               </Alert>
             )}
           </Stack>
@@ -123,10 +125,10 @@ export default function WasfatySettingsPanel() {
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Catalogue coverage</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}><T>Catalogue coverage</T></Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-          Only mapped items can be dispensed. An eligible-but-unmapped item is blocked at the POS
-          with a link to Inventory → Wasfaty mapping.
+          <T>Only mapped items can be dispensed. An eligible-but-unmapped item is blocked at the POS
+          with a link to Inventory → Wasfaty mapping.</T>
         </Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <Chip size="small" variant="outlined" label={`${coverage.total} active items`} />
@@ -143,29 +145,29 @@ export default function WasfatySettingsPanel() {
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>What NUPCO still has to provide</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}><T>What NUPCO still has to provide</T></Typography>
         <Typography variant="body2" color="text.secondary" component="div">
-          NUPCO publishes no public Wasfaty API contract, sandbox or self-service credentials, so
-          the live adapter is contract-file driven and fails closed. Before switching to
-          <code> direct </code>or<code> hub</code>, obtain and record:
+          <T>NUPCO publishes no public Wasfaty API contract, sandbox or self-service credentials, so
+          the live adapter is contract-file driven and fails closed. Before switching to</T>
+          <code> <T>direct</T> </code><T>or</T><code> <T>hub</T></code><T>, obtain and record:</T>
         </Typography>
         <Box component="ol" sx={{ pl: 2.5, my: 1 }}>
           {[
-            'Base URL per environment (test / production), with an approved IP allow-list.',
-            'Authentication scheme (OAuth2 client credentials, mutual TLS, or API key), token lifetime and rotation.',
-            'Prescription lookup operation: path, method, request fields, response fields and error codes.',
-            'Authorization operation (request + status) and the meaning of partial/rejected lines.',
-            'Dispense submission/cancellation operations, including idempotency keys and duplicate handling.',
-            'Claim submission and month-close reconciliation operations, plus the paid/variance fields.',
-            'Rate limits, retry/backoff rules, and the supported Saudi business calendar for claim cut-offs.',
-            'Written confirmation of patient-data handling under PDPL and of the 13-digit item-code list.',
+            tr("Base URL per environment (test / production), with an approved IP allow-list."),
+            tr("Authentication scheme (OAuth2 client credentials, mutual TLS, or API key), token lifetime and rotation."),
+            tr("Prescription lookup operation: path, method, request fields, response fields and error codes."),
+            tr("Authorization operation (request + status) and the meaning of partial/rejected lines."),
+            tr("Dispense submission/cancellation operations, including idempotency keys and duplicate handling."),
+            tr("Claim submission and month-close reconciliation operations, plus the paid/variance fields."),
+            tr("Rate limits, retry/backoff rules, and the supported Saudi business calendar for claim cut-offs."),
+            tr("Written confirmation of patient-data handling under PDPL and of the 13-digit item-code list."),
           ].map((line) => (
             <Typography key={line} component="li" variant="body2" sx={{ mb: 0.5 }}>{line}</Typography>
           ))}
         </Box>
         <Typography variant="caption" color="text.secondary">
-          Full contract checklist and the complete API surface: see <strong>Wasfaty-API.md</strong> and
-          <strong> Wasfaty.md</strong> in the <code>.mdfile/</code> folder.
+          <T>Full contract checklist and the complete API surface: see</T> <strong><T>Wasfaty-API.md</T></strong> <T>and</T>
+          <strong> <T>Wasfaty.md</T></strong> <T>in the</T> <code><T>.mdfile/</T></code> <T>folder.</T>
         </Typography>
       </Paper>
     </Stack>

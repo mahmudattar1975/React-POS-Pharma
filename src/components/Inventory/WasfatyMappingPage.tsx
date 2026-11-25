@@ -22,6 +22,7 @@ import { itemNumberOf } from '../../utils/itemMaster';
 import WasfatyImportDialog from './WasfatyImportDialog';
 import WasfatyMappingHistory from './WasfatyMappingHistory';
 
+import { T, useT } from '../../i18n';
 type Filter = 'all' | 'mapped' | 'unmapped-eligible' | 'not-eligible';
 
 const FILTERS: { value: Filter; label: string }[] = [
@@ -32,6 +33,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 ];
 
 export default function WasfatyMappingPage() {
+  const tr = useT();
   const items = useCatalogStore((s) => s.items);
   const setWasfatyMapping = useCatalogStore((s) => s.setWasfatyMapping);
   const applyWasfatyMappings = useCatalogStore((s) => s.applyWasfatyMappings);
@@ -79,25 +81,25 @@ export default function WasfatyMappingPage() {
           startIcon={<UploadFileIcon />}
           onClick={() => setImportOpen(true)}
         >
-          Import NUPCO list
+          <T>Import NUPCO list</T>
         </Button>
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        A NUPCO code is 13 digits and belongs to exactly one local item. A covered line is invoiced at
+        <T>A NUPCO code is 13 digits and belongs to exactly one local item. A covered line is invoiced at
         the approved price and settled by the Wasfaty tender; an eligible item without a code is
-        blocked at checkout instead of being charged to the patient.
+        blocked at checkout instead of being charged to the patient.</T>
       </Typography>
 
       {importedCount > 0 && (
         <Alert severity="success" onClose={() => setImportedCount(0)} sx={{ mb: 2 }}>
-          {importedCount} item(s) mapped from the NUPCO list.
+          {importedCount} <T>item(s) mapped from the NUPCO list.</T>
         </Alert>
       )}
 
       {coverage.unmappedEligible > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          {coverage.unmappedEligible} item(s) are marked as Wasfaty-eligible but have no NUPCO code.
-          A Wasfaty basket containing them cannot be completed until they are mapped.
+          {coverage.unmappedEligible} <T>item(s) are marked as Wasfaty-eligible but have no NUPCO code.
+          A Wasfaty basket containing them cannot be completed until they are mapped.</T>
         </Alert>
       )}
 
@@ -105,7 +107,7 @@ export default function WasfatyMappingPage() {
         <TextField
           fullWidth
           size="small"
-          label="Search item, item no, barcode or NUPCO code"
+          label={tr('Search item, item no, barcode or NUPCO code')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           slotProps={{
@@ -115,7 +117,7 @@ export default function WasfatyMappingPage() {
         <TextField
           select
           size="small"
-          label="Show"
+          label={tr('Show')}
           value={filter}
           onChange={(e) => setFilter(e.target.value as Filter)}
           sx={{ minWidth: 210 }}
@@ -130,11 +132,11 @@ export default function WasfatyMappingPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>NUPCO code</TableCell>
-              <TableCell>NUPCO-approved price</TableCell>
-              <TableCell align="center">On Wasfaty list</TableCell>
-              <TableCell align="right">Status</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>NUPCO code</T></TableCell>
+              <TableCell><T>NUPCO-approved price</T></TableCell>
+              <TableCell align="center"><T>On Wasfaty list</T></TableCell>
+              <TableCell align="right"><T>Status</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -142,7 +144,7 @@ export default function WasfatyMappingPage() {
               <TableRow>
                 <TableCell colSpan={5}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No items match this view.
+                    <T>No items match this view.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -187,6 +189,7 @@ function MappingRow({
   items: Item[];
   onSave: (itemId: string, input: { nupcoCode?: string; wasfatyPrice?: number; wasfatyEligible?: boolean }) => void;
 }) {
+  const tr = useT();
   const [code, setCode] = useState(item.nupcoCode ?? '');
   const [price, setPrice] = useState(item.wasfatyPrice === undefined ? '' : String(item.wasfatyPrice));
   const [eligible, setEligible] = useState(item.wasfatyEligible === true || !!item.nupcoCode);
@@ -228,7 +231,7 @@ function MappingRow({
       <TableCell sx={{ minWidth: 260 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.nameEn}</Typography>
         <Typography variant="caption" color="text.secondary">
-          #{itemNumberOf(item) ?? '—'} · {item.nameAr || '—'} · {item.barcode}
+          #{itemNumberOf(item) ?? '—'} · {item.nameAr || '—'} · <Box component="span" sx={{ direction: 'ltr', unicodeBidi: 'isolate' }}>{item.barcode}</Box>
         </Typography>
       </TableCell>
       <TableCell sx={{ minWidth: 180 }}>
@@ -236,7 +239,7 @@ function MappingRow({
           size="small"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(null); }}
-          placeholder="13-digit NUPCO code"
+          placeholder={tr('13-digit NUPCO code')}
           error={!!rowError}
           helperText={rowError ?? ' '}
           slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 18, style: { fontFamily: 'monospace' } } }}
@@ -250,10 +253,10 @@ function MappingRow({
           value={price}
           onChange={(e) => { setPrice(e.target.value); setError(null); }}
           placeholder={item.basePrice.toFixed(2)}
-          helperText="Blank = normal sale price"
+          helperText={tr('Blank = normal sale price')}
           slotProps={{
             htmlInput: { min: 0, step: '0.01' },
-            input: { endAdornment: <InputAdornment position="end">SAR</InputAdornment> },
+            input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> },
           }}
           fullWidth
         />
@@ -272,21 +275,21 @@ function MappingRow({
               }}
             />
           }
-          label={<Typography variant="caption">{eligible ? 'Yes' : 'No'}</Typography>}
+          label={<Typography variant="caption">{eligible ? tr("Yes") : tr("No")}</Typography>}
         />
       </TableCell>
       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
         {saved ? (
-          <Chip size="small" color="success" label="Saved" />
+          <Chip size="small" color="success" label={tr('Saved')} />
         ) : item.nupcoCode ? (
-          <Chip size="small" color="success" variant="outlined" label="Mapped" />
+          <Chip size="small" color="success" variant="outlined" label={tr('Mapped')} />
         ) : item.wasfatyEligible ? (
-          <Chip size="small" color="warning" variant="outlined" label="Needs code" />
+          <Chip size="small" color="warning" variant="outlined" label={tr('Needs code')} />
         ) : (
-          <Chip size="small" variant="outlined" label="Private" />
+          <Chip size="small" variant="outlined" label={tr('Private')} />
         )}
         <Button size="small" onClick={save} disabled={!dirty || !!rowError} sx={{ ml: 1 }}>
-          Save
+          <T>Save</T>
         </Button>
       </TableCell>
     </TableRow>

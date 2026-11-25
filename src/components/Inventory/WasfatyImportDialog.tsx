@@ -23,6 +23,7 @@ import {
 } from '../../utils/wasfatyImport';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   items: Item[];
@@ -51,6 +52,7 @@ const PLACEHOLDER = [
 ].join('\n');
 
 export default function WasfatyImportDialog({ open, items, onClose, onApply }: Props) {
+  const tr = useT();
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileError, setFileError] = useState<string | undefined>();
@@ -103,24 +105,24 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
 
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="md">
-      <DialogTitle>Import the NUPCO approved item list</DialogTitle>
+      <DialogTitle><T>Import the NUPCO approved item list</T></DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
-            Paste the list (comma, tab or semicolon separated) or choose a CSV/Excel file. Each row
+            <T>Paste the list (comma, tab or semicolon separated) or choose a CSV/Excel file. Each row
             is matched to a local item by barcode, GTIN, alias barcode or item number. Nothing is
-            written until you press Apply, and the whole batch is refused if any row has an error.
+            written until you press Apply, and the whole batch is refused if any row has an error.</T>
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Columns: <code>{WASFATY_IMPORT_COLUMNS.join('</code>, <code>')}</code>. Only{' '}
-            <code>nupco_code</code> is required; <code>barcode</code> defaults to the code itself,{' '}
-            <code>price</code> is optional (blank = normal sale price) and <code>eligible</code>{' '}
-            defaults to yes.
+            <T>Columns:</T> <code>{WASFATY_IMPORT_COLUMNS.join(tr("</code>, <code>"))}</code><T>. Only</T>{' '}
+            <code><T>nupco_code</T></code> <T>is required;</T> <code><T>barcode</T></code> <T>defaults to the code itself,</T>{' '}
+            <code><T>price</T></code> <T>is optional (blank = normal sale price) and</T> <code><T>eligible</T></code>{' '}
+            <T>defaults to yes.</T>
           </Typography>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
             <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} sx={{ flexShrink: 0 }}>
-              {fileName || 'Choose CSV / Excel file'}
+              {fileName || tr("Choose CSV / Excel file")}
               <input
                 type="file"
                 accept=".csv,.tsv,.txt,.xlsx,.xls"
@@ -133,8 +135,8 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
               />
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Or paste directly into the box below. Existing mappings not mentioned in the file are
-              left untouched.
+              <T>Or paste directly into the box below. Existing mappings not mentioned in the file are
+              left untouched.</T>
             </Typography>
           </Stack>
 
@@ -172,8 +174,8 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
 
               {preview.errors > 0 && (
                 <Alert severity="error">
-                  Fix or remove the {preview.errors} row(s) marked error. The import is all-or-nothing,
-                  so nothing will be applied while an error remains.
+                  <T>Fix or remove the</T> {preview.errors} <T>row(s) marked error. The import is all-or-nothing,
+                  so nothing will be applied while an error remains.</T>
                 </Alert>
               )}
 
@@ -182,12 +184,12 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
                   <Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ width: 56 }}>Row</TableCell>
-                        <TableCell sx={{ width: 130 }}>Status</TableCell>
-                        <TableCell>NUPCO code</TableCell>
-                        <TableCell>Local item</TableCell>
-                        <TableCell align="right">Price</TableCell>
-                        <TableCell>Note</TableCell>
+                        <TableCell sx={{ width: 56 }}><T>Row</T></TableCell>
+                        <TableCell sx={{ width: 130 }}><T>Status</T></TableCell>
+                        <TableCell><T>NUPCO code</T></TableCell>
+                        <TableCell><T>Local item</T></TableCell>
+                        <TableCell align="right"><T>Price</T></TableCell>
+                        <TableCell><T>Note</T></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -195,7 +197,7 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
                         <TableRow key={row.line} hover>
                           <TableCell>{row.line}</TableCell>
                           <TableCell>
-                            <Chip size="small" color={STATUS_COLOR[row.status]} label={STATUS_LABEL[row.status]} />
+                            <Chip size="small" color={STATUS_COLOR[row.status]} label={tr(STATUS_LABEL[row.status])} />
                           </TableCell>
                           <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                             {row.nupcoCode || '—'}
@@ -219,7 +221,7 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
                           </TableCell>
                           <TableCell>
                             <Typography variant="caption" color="text.secondary">
-                              {row.reason ?? 'Will be applied.'}
+                              {row.reason ?? tr("Will be applied.")}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -236,17 +238,17 @@ export default function WasfatyImportDialog({ open, items, onClose, onApply }: P
             <Box>
               <Divider sx={{ mb: 1.5 }} />
               <Typography variant="caption" color="text.secondary">
-                Tip: export NUPCO&apos;s list with the NUPCO code in the first column. A header row is
-                optional; without one the columns are read as code, barcode, price, eligible.
+                <T>Tip: export NUPCO&apos;s list with the NUPCO code in the first column. A header row is
+                optional; without one the columns are read as code, barcode, price, eligible.</T>
               </Typography>
             </Box>
           )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={close}>Cancel</Button>
+        <Button onClick={close}><T>Cancel</T></Button>
         <Button variant="contained" onClick={apply} disabled={!canApply}>
-          {preview.ready > 0 ? `Apply ${preview.ready} mapping${preview.ready === 1 ? '' : 's'}` : 'Apply'}
+          {preview.ready > 0 ? `${tr("Apply ")}${preview.ready} mapping${preview.ready === 1 ? '' : 's'}` : tr("Apply")}
         </Button>
       </DialogActions>
     </Dialog>

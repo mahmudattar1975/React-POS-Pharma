@@ -20,6 +20,7 @@ import { pointsToSar } from '../../utils/loyalty';
 import { formatMoney, formatQty, formatSar, formatUnitPrice } from '../../utils/format';
 import { summariseStagnant } from '../../utils/analytics';
 
+import { T, useT } from '../../i18n';
 // Each report gets its own name and a coloured icon, so the page reads as a set of separate
 // reports rather than one long table. The tint is the same hue at low opacity so the icon never
 // competes with the figures.
@@ -61,6 +62,7 @@ function SectionTitle({
 }
 
 export default function ReportsPage() {
+  const tr = useT();
   const navigate = useNavigate();
   const { invoices } = useSalesStore();
   const { customers } = useCustomerStore();
@@ -161,13 +163,13 @@ export default function ReportsPage() {
         }
       `}</style>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Reports</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Reports</T></Typography>
         <Box id="reports-print-hide" sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" onClick={() => navigate('/wasfaty-claims')}>
-            Wasfaty / NUPCO claims
+            <T>Wasfaty / NUPCO claims</T>
           </Button>
           <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-            Print
+            <T>Print</T>
           </Button>
         </Box>
       </Box>
@@ -215,23 +217,23 @@ export default function ReportsPage() {
       <SectionTitle
         icon={PointOfSaleIcon}
         color="#1565c0"
-        title="Sales Summary by Day"
+        title={tr('Sales Summary by Day')}
         subtitle="Invoices, subtotal, VAT and total for each selling day"
       />
       <Paper variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell align="right">Invoices</TableCell>
-              <TableCell align="right">Subtotal (excl. VAT)</TableCell>
-              <TableCell align="right">VAT</TableCell>
-              <TableCell align="right">Total (incl. VAT)</TableCell>
+              <TableCell><T>Date</T></TableCell>
+              <TableCell align="right"><T>Invoices</T></TableCell>
+              <TableCell align="right"><T>Subtotal (excl. VAT)</T></TableCell>
+              <TableCell align="right"><T>VAT</T></TableCell>
+              <TableCell align="right"><T>Total (incl. VAT)</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {byDate.length === 0 && (
-              <TableRow><TableCell colSpan={5}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No sales recorded yet.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}><T>No sales recorded yet.</T></Typography></TableCell></TableRow>
             )}
             {byDate.map(([day, row]) => (
               <TableRow key={day} hover>
@@ -249,22 +251,22 @@ export default function ReportsPage() {
       <SectionTitle
         icon={CardGiftcardIcon}
         color="#e65100"
-        title="Customer Loyalty Points"
+        title={tr('Customer Loyalty Points')}
         subtitle="Points still held by each customer and their value"
       />
       <Paper variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Customer</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell align="right">Points</TableCell>
-              <TableCell align="right">Value (SAR)</TableCell>
+              <TableCell><T>Customer</T></TableCell>
+              <TableCell><T>Phone</T></TableCell>
+              <TableCell align="right"><T>Points</T></TableCell>
+              <TableCell align="right"><T>Value (SAR)</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {customerBalances.length === 0 && (
-              <TableRow><TableCell colSpan={4}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No customer holds a points balance yet.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={4}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}><T>No customer holds a points balance yet.</T></Typography></TableCell></TableRow>
             )}
             {customerBalances.map((c) => (
               <TableRow key={c.id} hover>
@@ -281,19 +283,19 @@ export default function ReportsPage() {
       <SectionTitle
         icon={ReceiptLongIcon}
         color="#2e7d32"
-        title="Sales Invoices"
+        title={tr('Sales Invoices')}
         subtitle="Every posted sale with its type and status"
       />
       <Paper variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Invoice No.</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Total</TableCell>
+              <TableCell><T>Invoice No.</T></TableCell>
+              <TableCell><T>Date</T></TableCell>
+              <TableCell><T>Type</T></TableCell>
+              <TableCell><T>Customer</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell align="right"><T>Total</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -314,16 +316,16 @@ export default function ReportsPage() {
       <SectionTitle
         icon={Inventory2Icon}
         color="#5d4037"
-        title="Stock Received"
+        title={tr('Stock Received')}
         subtitle="Purchases and head-office deliveries that added units to the shelf"
       />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
         {[
-          { label: 'Receiving Events', value: stockReceived.events },
-          { label: 'Total Units Received', value: formatQty(stockReceived.units) },
-          { label: 'Total Cost Value', value: formatSar(stockReceived.cost) },
-          { label: 'From Vendors', value: stockReceived.vendorCount },
-          { label: 'From Head Office', value: stockReceived.headOfficeCount },
+          { label: tr("Receiving Events"), value: stockReceived.events },
+          { label: tr("Total Units Received"), value: formatQty(stockReceived.units) },
+          { label: tr("Total Cost Value"), value: formatSar(stockReceived.cost) },
+          { label: tr("From Vendors"), value: stockReceived.vendorCount },
+          { label: tr("From Head Office"), value: stockReceived.headOfficeCount },
         ].map((s) => (
           <Paper key={s.label} variant="outlined" sx={{ p: 2, flex: '1 1 180px' }}>
             <Typography variant="caption" color="text.secondary">{s.label}</Typography>
@@ -335,20 +337,20 @@ export default function ReportsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Item</TableCell>
-              <TableCell>Batch No.</TableCell>
-              <TableCell>Expiry</TableCell>
-              <TableCell align="right">Qty Received</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell>Transfer No.</TableCell>
-              <TableCell align="right">Cost/Unit</TableCell>
-              <TableCell align="right">Total Cost</TableCell>
+              <TableCell><T>Date</T></TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Batch No.</T></TableCell>
+              <TableCell><T>Expiry</T></TableCell>
+              <TableCell align="right"><T>Qty Received</T></TableCell>
+              <TableCell><T>Source</T></TableCell>
+              <TableCell><T>Transfer No.</T></TableCell>
+              <TableCell align="right"><T>Cost/Unit</T></TableCell>
+              <TableCell align="right"><T>Total Cost</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {stockReceived.rows.length === 0 && (
-              <TableRow><TableCell colSpan={9}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No stock has been received yet.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}><T>No stock has been received yet.</T></Typography></TableCell></TableRow>
             )}
             {stockReceived.rows.map((r) => (
               <TableRow key={r.id} hover>
@@ -376,14 +378,14 @@ export default function ReportsPage() {
       <SectionTitle
         icon={AssignmentReturnIcon}
         color="#c62828"
-        title="Purchase Returns"
+        title={tr('Purchase Returns')}
         subtitle="Units sent back to suppliers, shown separately with positive quantities"
       />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
         {[
-          { label: 'Return Events', value: purchaseReturns.events },
-          { label: 'Total Units Returned', value: formatQty(purchaseReturns.units) },
-          { label: 'Total Credit Value', value: formatSar(purchaseReturns.credit) },
+          { label: tr("Return Events"), value: purchaseReturns.events },
+          { label: tr("Total Units Returned"), value: formatQty(purchaseReturns.units) },
+          { label: tr("Total Credit Value"), value: formatSar(purchaseReturns.credit) },
         ].map((s) => (
           <Paper key={s.label} variant="outlined" sx={{ p: 2, flex: '1 1 180px' }}>
             <Typography variant="caption" color="text.secondary">{s.label}</Typography>
@@ -395,19 +397,19 @@ export default function ReportsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Item</TableCell>
-              <TableCell>Batch No.</TableCell>
-              <TableCell>Expiry</TableCell>
-              <TableCell align="right">Qty Returned</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell align="right">Cost/Unit</TableCell>
-              <TableCell align="right">Total Credit</TableCell>
+              <TableCell><T>Date</T></TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Batch No.</T></TableCell>
+              <TableCell><T>Expiry</T></TableCell>
+              <TableCell align="right"><T>Qty Returned</T></TableCell>
+              <TableCell><T>Source</T></TableCell>
+              <TableCell align="right"><T>Cost/Unit</T></TableCell>
+              <TableCell align="right"><T>Total Credit</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {purchaseReturns.rows.length === 0 && (
-              <TableRow><TableCell colSpan={8}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No purchase returns posted yet.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}><T>No purchase returns posted yet.</T></Typography></TableCell></TableRow>
             )}
             {purchaseReturns.rows.map((r) => (
               <TableRow key={r.id} hover>
@@ -417,7 +419,7 @@ export default function ReportsPage() {
                 <TableCell>{r.expiryDate ?? '—'}</TableCell>
                 <TableCell align="right">{formatQty(Math.abs(r.qty))}</TableCell>
                 <TableCell>
-                  <Chip size="small" label="Vendor return" color="error" variant="outlined" />
+                  <Chip size="small" label={tr('Vendor return')} color="error" variant="outlined" />
                 </TableCell>
                 <TableCell align="right">{formatUnitPrice(r.costPrice)}</TableCell>
                 <TableCell align="right">{formatMoney(Math.abs(r.qty * r.costPrice))}</TableCell>
@@ -430,15 +432,15 @@ export default function ReportsPage() {
       <SectionTitle
         icon={HourglassEmptyIcon}
         color="#b8862c"
-        title="Stagnant Items"
+        title={tr('Stagnant Items')}
         subtitle="Stock still on the shelf with no sale in the last 90 days"
       />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
         {[
           { label: 'Stagnant Items', value: stagnant.count },
-          { label: 'Units Tied Up', value: formatQty(stagnant.units) },
-          { label: 'Cost Value', value: formatSar(stagnant.costValue) },
-          { label: 'Retail Value', value: formatSar(stagnant.retailValue) },
+          { label: tr("Units Tied Up"), value: formatQty(stagnant.units) },
+          { label: tr("Cost Value"), value: formatSar(stagnant.costValue) },
+          { label: tr("Retail Value"), value: formatSar(stagnant.retailValue) },
         ].map((s) => (
           <Paper key={s.label} variant="outlined" sx={{ p: 2, flex: '1 1 180px' }}>
             <Typography variant="caption" color="text.secondary">{s.label}</Typography>
@@ -450,18 +452,18 @@ export default function ReportsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell align="right">Qty on Hand</TableCell>
-              <TableCell align="right">Cost Value</TableCell>
-              <TableCell align="right">Retail Value</TableCell>
-              <TableCell>Last Sold</TableCell>
-              <TableCell align="right">Days Idle</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Category</T></TableCell>
+              <TableCell align="right"><T>Qty on Hand</T></TableCell>
+              <TableCell align="right"><T>Cost Value</T></TableCell>
+              <TableCell align="right"><T>Retail Value</T></TableCell>
+              <TableCell><T>Last Sold</T></TableCell>
+              <TableCell align="right"><T>Days Idle</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {stagnant.rows.length === 0 && (
-              <TableRow><TableCell colSpan={7}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>Every item in stock has sold within the last 90 days.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7}><Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}><T>Every item in stock has sold within the last 90 days.</T></Typography></TableCell></TableRow>
             )}
             {stagnant.rows.map((row) => (
               <TableRow key={row.itemId} hover>
@@ -470,7 +472,7 @@ export default function ReportsPage() {
                 <TableCell align="right">{formatQty(row.qtyOnHand)}</TableCell>
                 <TableCell align="right">{formatMoney(row.costValue)}</TableCell>
                 <TableCell align="right">{formatMoney(row.retailValue)}</TableCell>
-                <TableCell>{row.lastSoldDate ?? 'Never sold'}</TableCell>
+                <TableCell>{row.lastSoldDate ?? tr("Never sold")}</TableCell>
                 <TableCell align="right">{row.daysIdle === null ? '—' : formatQty(row.daysIdle)}</TableCell>
               </TableRow>
             ))}

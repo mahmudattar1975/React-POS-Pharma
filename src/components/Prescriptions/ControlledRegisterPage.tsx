@@ -26,6 +26,7 @@ import { formatQty } from '../../utils/format';
 import { itemCodes } from '../../utils/itemMaster';
 import { maskNationalId } from '../../utils/wasfaty';
 
+import { T, useT } from '../../i18n';
 const KIND_COLOR: Record<ControlledRegisterKind, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
   opening: 'default',
   dispense: 'primary',
@@ -41,6 +42,7 @@ function currentMonth(): string {
 }
 
 export default function ControlledRegisterPage() {
+  const tr = useT();
   const entries = useControlledRegisterStore((s) => s.entries);
   const recordMovement = useControlledRegisterStore((s) => s.recordMovement);
   const items = useCatalogStore((s) => s.items);
@@ -203,22 +205,22 @@ export default function ControlledRegisterPage() {
     <Box sx={{ p: 3, maxWidth: 1400 }}>
       <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <Box sx={{ flex: 1, minWidth: 260 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Controlled Drug Register</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Controlled Drug Register</T></Typography>
           <Typography variant="caption" color="text.secondary">
-            Immutable stock movements for controlled items, with a running balance per item and branch.
+            <T>Immutable stock movements for controlled items, with a running balance per item and branch.</T>
           </Typography>
         </Box>
         <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportCsv} disabled={monthEntries.length === 0}>
-          Export CSV
+          <T>Export CSV</T>
         </Button>
         <Button variant="contained" color="warning" startIcon={<DeleteSweepOutlinedIcon />} onClick={() => setWriteOffOpen(true)}>
-          Write off stock
+          <T>Write off stock</T>
         </Button>
       </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
         <TextField
-          label="Month"
+          label={tr('Month')}
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
@@ -227,14 +229,14 @@ export default function ControlledRegisterPage() {
           sx={{ width: 180 }}
         />
         <FormControl size="small" sx={{ minWidth: 240 }}>
-          <InputLabel id="register-branch-label">Branch</InputLabel>
+          <InputLabel id="register-branch-label"><T>Branch</T></InputLabel>
           <Select
             labelId="register-branch-label"
-            label="Branch"
+            label={tr('Branch')}
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
           >
-            <MenuItem value="">All branches</MenuItem>
+            <MenuItem value=""><T>All branches</T></MenuItem>
             {centers.map((center) => (
               <MenuItem key={center.id} value={center.id}>
                 {center.code} — {center.nameEn}
@@ -246,7 +248,7 @@ export default function ControlledRegisterPage() {
           <TextField
             inputRef={searchRef}
             fullWidth
-            label="Search item, Rx, invoice, batch or pharmacist"
+            label={tr('Search item, Rx, invoice, batch or pharmacist')}
             size="small"
             value={search}
             onChange={(e) => {
@@ -265,7 +267,7 @@ export default function ControlledRegisterPage() {
           {dropdownOpen && (
             <Paper
               elevation={4}
-              sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
+              sx={{ position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
             >
               <List dense disablePadding>
                 {suggestions.map((item, index) => (
@@ -309,30 +311,30 @@ export default function ControlledRegisterPage() {
             {itemCodes(selectedItem).join(' / ')} ·{' '}
             {selectedItem.controlledStatus
               ? CONTROLLED_STATUS_LABEL[selectedItem.controlledStatus]
-              : 'Not controlled'}
+              : tr("Not controlled")}
           </Typography>
         </Stack>
       )}
 
       <Paper variant="outlined" sx={{ mb: 2.5 }}>
         <Box sx={{ px: 2, pt: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Monthly reconciliation — {month}</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}><T>Monthly reconciliation —</T> {month}</Typography>
           <Typography variant="caption" color="text.secondary">
-            Closing balance should match stock on hand for every controlled item.
+            <T>Closing balance should match stock on hand for every controlled item.</T>
           </Typography>
         </Box>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Item</TableCell>
-                {!branchFilter && <TableCell>Branch</TableCell>}
-                <TableCell align="right">Opening</TableCell>
-                <TableCell align="right">In</TableCell>
-                <TableCell align="right">Out</TableCell>
-                <TableCell align="right">Closing</TableCell>
-                {branchFilter && <TableCell align="right">Stock on hand</TableCell>}
-                {branchFilter && <TableCell>Status</TableCell>}
+                <TableCell><T>Item</T></TableCell>
+                {!branchFilter && <TableCell><T>Branch</T></TableCell>}
+                <TableCell align="right"><T>Opening</T></TableCell>
+                <TableCell align="right"><T>In</T></TableCell>
+                <TableCell align="right"><T>Out</T></TableCell>
+                <TableCell align="right"><T>Closing</T></TableCell>
+                {branchFilter && <TableCell align="right"><T>Stock on hand</T></TableCell>}
+                {branchFilter && <TableCell><T>Status</T></TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -352,7 +354,7 @@ export default function ControlledRegisterPage() {
                     <Typography variant="caption" color="text.secondary">{row.itemNameAr}</Typography>
                   </TableCell>
                   {!branchFilter && (
-                    <TableCell>{row.branchId ? branchNames[row.branchId] ?? row.branchId : 'Unassigned'}</TableCell>
+                    <TableCell>{row.branchId ? branchNames[row.branchId] ?? row.branchId : tr("Unassigned")}</TableCell>
                   )}
                   <TableCell align="right">{formatQty(row.opening)}</TableCell>
                   <TableCell align="right">{formatQty(row.inQty)}</TableCell>
@@ -362,9 +364,9 @@ export default function ControlledRegisterPage() {
                   {branchFilter && (
                     <TableCell>
                       {row.variance === 0 ? (
-                        <Chip size="small" color="success" label="Balanced" />
+                        <Chip size="small" color="success" label={tr('Balanced')} />
                       ) : (
-                        <Chip size="small" color="error" label={`Variance ${formatQty(row.variance ?? 0)}`} />
+                        <Chip size="small" color="error" label={`${tr("Variance ")}${formatQty(row.variance ?? 0)}`} />
                       )}
                     </TableCell>
                   )}
@@ -375,23 +377,23 @@ export default function ControlledRegisterPage() {
         </TableContainer>
       </Paper>
 
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Register entries</Typography>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}><T>Register entries</T></Typography>
       <Paper variant="outlined">
         <TableContainer sx={{ maxHeight: 560 }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Date / time</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Item</TableCell>
-                <TableCell>Batch · expiry</TableCell>
-                <TableCell align="right">In</TableCell>
-                <TableCell align="right">Out</TableCell>
-                <TableCell align="right">Balance</TableCell>
-                <TableCell>Rx / invoice / return</TableCell>
-                <TableCell>Prescriber / patient</TableCell>
-                <TableCell>Pharmacist / witness</TableCell>
-                <TableCell>Reason</TableCell>
+                <TableCell><T>Date / time</T></TableCell>
+                <TableCell><T>Type</T></TableCell>
+                <TableCell><T>Item</T></TableCell>
+                <TableCell><T>Batch · expiry</T></TableCell>
+                <TableCell align="right"><T>In</T></TableCell>
+                <TableCell align="right"><T>Out</T></TableCell>
+                <TableCell align="right"><T>Balance</T></TableCell>
+                <TableCell><T>Rx / invoice / return</T></TableCell>
+                <TableCell><T>Prescriber / patient</T></TableCell>
+                <TableCell><T>Pharmacist / witness</T></TableCell>
+                <TableCell><T>Reason</T></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -412,7 +414,7 @@ export default function ControlledRegisterPage() {
                       size="small"
                       color={KIND_COLOR[entry.kind]}
                       variant={entry.kind === 'opening' ? 'outlined' : 'filled'}
-                      label={CONTROLLED_REGISTER_KIND_LABEL[entry.kind]}
+                      label={tr(CONTROLLED_REGISTER_KIND_LABEL[entry.kind])}
                     />
                   </TableCell>
                   <TableCell>
@@ -430,7 +432,7 @@ export default function ControlledRegisterPage() {
                       {[entry.prescriptionNo, entry.invoiceNo, entry.returnNo].filter(Boolean).join(' · ') || '—'}
                     </Typography>
                     {entry.reversalOf && (
-                      <Typography variant="caption" color="text.secondary">reverses {entry.reversalOf.slice(-8)}</Typography>
+                      <Typography variant="caption" color="text.secondary"><T>reverses</T> {entry.reversalOf.slice(-8)}</Typography>
                     )}
                   </TableCell>
                   <TableCell>
@@ -489,6 +491,7 @@ interface WriteOffProps {
 function WriteOffDialog({
   open, onClose, items, batches, centers, defaultBranchId, pharmacist, onConfirm,
 }: WriteOffProps) {
+  const tr = useT();
   const [itemId, setItemId] = useState('');
   const [batchId, setBatchId] = useState('');
   const [kind, setKind] = useState<'damage' | 'expiry'>('expiry');
@@ -539,19 +542,19 @@ function WriteOffDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Write off controlled stock</DialogTitle>
+      <DialogTitle><T>Write off controlled stock</T></DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 0.5 }}>
           <Alert severity="warning">
-            This removes the quantity from the batch and writes an immutable register row. Use it for
-            damaged or expired controlled stock — never to hide a dispensing error.
+            <T>This removes the quantity from the batch and writes an immutable register row. Use it for
+            damaged or expired controlled stock — never to hide a dispensing error.</T>
           </Alert>
 
           <FormControl fullWidth size="small">
-            <InputLabel id="writeoff-item-label">Controlled item</InputLabel>
+            <InputLabel id="writeoff-item-label"><T>Controlled item</T></InputLabel>
             <Select
               labelId="writeoff-item-label"
-              label="Controlled item"
+              label={tr('Controlled item')}
               value={itemId}
               onChange={(e) => {
                 setItemId(e.target.value);
@@ -567,16 +570,16 @@ function WriteOffDialog({
           </FormControl>
 
           <FormControl fullWidth size="small" disabled={!item}>
-            <InputLabel id="writeoff-batch-label">Batch</InputLabel>
+            <InputLabel id="writeoff-batch-label"><T>Batch</T></InputLabel>
             <Select
               labelId="writeoff-batch-label"
-              label="Batch"
+              label={tr('Batch')}
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}
             >
               {itemBatches.map((candidate) => (
                 <MenuItem key={candidate.id} value={candidate.id}>
-                  {candidate.batchNo} · {candidate.expiryDate ?? 'no expiry'} · {formatQty(candidate.qtyOnHand)} on hand
+                  {candidate.batchNo} · {candidate.expiryDate ?? tr("no expiry")} · {formatQty(candidate.qtyOnHand)} <T>on hand</T>
                 </MenuItem>
               ))}
             </Select>
@@ -584,19 +587,19 @@ function WriteOffDialog({
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <FormControl size="small" sx={{ minWidth: 170 }}>
-              <InputLabel id="writeoff-kind-label">Write-off type</InputLabel>
+              <InputLabel id="writeoff-kind-label"><T>Write-off type</T></InputLabel>
               <Select
                 labelId="writeoff-kind-label"
-                label="Write-off type"
+                label={tr('Write-off type')}
                 value={kind}
                 onChange={(e) => setKind(e.target.value as 'damage' | 'expiry')}
               >
-                <MenuItem value="expiry">Expired stock</MenuItem>
-                <MenuItem value="damage">Damaged / lost</MenuItem>
+                <MenuItem value="expiry"><T>Expired stock</T></MenuItem>
+                <MenuItem value="damage"><T>Damaged / lost</T></MenuItem>
               </Select>
             </FormControl>
             <TextField
-              label="Quantity (base units)"
+              label={tr('Quantity (base units)')}
               type="number"
               size="small"
               value={qty}
@@ -608,14 +611,14 @@ function WriteOffDialog({
           </Stack>
 
           <FormControl fullWidth size="small">
-            <InputLabel id="writeoff-branch-label">Branch</InputLabel>
+            <InputLabel id="writeoff-branch-label"><T>Branch</T></InputLabel>
             <Select
               labelId="writeoff-branch-label"
-              label="Branch"
+              label={tr('Branch')}
               value={branchId}
               onChange={(e) => setBranchId(e.target.value)}
             >
-              <MenuItem value="">Unassigned</MenuItem>
+              <MenuItem value=""><T>Unassigned</T></MenuItem>
               {centers.map((center) => (
                 <MenuItem key={center.id} value={center.id}>
                   {center.code} — {center.nameEn}
@@ -625,7 +628,7 @@ function WriteOffDialog({
           </FormControl>
 
           <TextField
-            label="Reason (required)"
+            label={tr('Reason (required)')}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             size="small"
@@ -633,7 +636,7 @@ function WriteOffDialog({
             fullWidth
           />
           <TextField
-            label="Witness (optional)"
+            label={tr('Witness (optional)')}
             value={witness}
             onChange={(e) => setWitness(e.target.value)}
             size="small"
@@ -642,9 +645,9 @@ function WriteOffDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}><T>Cancel</T></Button>
         <Button variant="contained" color="warning" disabled={!valid} onClick={submit}>
-          Write off
+          <T>Write off</T>
         </Button>
       </DialogActions>
     </Dialog>

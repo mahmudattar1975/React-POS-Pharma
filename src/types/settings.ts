@@ -20,6 +20,13 @@ export interface StoreSettings {
   // invoice header, not the POS. settingsStore's merge backfills this for sessions persisted
   // before the field existed (same backfill idea as purchasingStore's merge).
   costCenterId?: string;
+  // Which pharmacy this terminal belongs to. Set from /api/context at boot (the server reads this
+  // PC's gitignored config/branch.json). These are cached locally so an offline till keeps the
+  // same branch code on new invoices; they are never edited by the cashier.
+  branchId?: string;
+  branchCode?: string;
+  branchNameEn?: string;
+  branchNameAr?: string;
   // Opt-in for SFDA RSD (Drug Track & Trace) reporting. Off by default: a fresh register must not
   // send national movements until the pharmacy has confirmed its GLN/credentials in Settings > RSD.
   // Turning it off stops NEW units from being queued; already queued units are still sent, because

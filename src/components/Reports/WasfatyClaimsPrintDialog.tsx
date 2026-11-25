@@ -9,6 +9,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import type { WasfatyClaimRow, WasfatyClaimSummary } from '../../types/wasfaty';
 import { formatMoney, formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   rows: WasfatyClaimRow[];
@@ -48,6 +49,7 @@ export default function WasfatyClaimsPrintDialog({
   generatedAt,
   onClose,
 }: Props) {
+  const tr = useT();
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <style>{`
@@ -67,9 +69,9 @@ export default function WasfatyClaimsPrintDialog({
         }
       `}</style>
       <DialogTitle>
-        Wasfaty claim report
+        <T>Wasfaty claim report</T>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {month || 'All months'} · {branchLabel} · {summary.rows} line(s)
+          {month || tr("All months")} · {branchLabel} · {summary.rows} <T>line(s)</T>
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -77,24 +79,24 @@ export default function WasfatyClaimsPrintDialog({
           id="wasfaty-claims-print-area"
           sx={{ bgcolor: '#fff', color: '#000', p: 2, fontFamily: 'Arial, sans-serif' }}
         >
-          <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Wasfaty / NUPCO claim report</Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700 }}><T>Wasfaty / NUPCO claim report</T></Typography>
           <Typography sx={{ fontSize: 10, color: '#444', mb: 1 }}>
-            {month ? `Claim month ${month}` : 'All months'} · {branchLabel} · generated{' '}
+            {month ? `${tr("Claim month ")}${month}` : tr("All months")} · {branchLabel} <T>· generated</T>{' '}
             {generatedAt.replace('T', ' ').slice(0, 19)}
           </Typography>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, fontSize: 10, mb: 1.5 }}>
-            <span><strong>{summary.rows}</strong> lines</span>
-            <span><strong>{summary.invoices}</strong> invoices</span>
-            <span><strong>{money(summary.lineTotal)}</strong> SAR line total</span>
-            <span><strong>{money(summary.patientShare)}</strong> SAR patient share</span>
-            <span><strong>{money(summary.claimAmount)}</strong> SAR claim</span>
-            <span><strong>{summary.exceptions}</strong> exception line(s)</span>
+            <span><strong>{summary.rows}</strong> <T>lines</T></span>
+            <span><strong>{summary.invoices}</strong> <T>invoices</T></span>
+            <span><strong>{money(summary.lineTotal)}</strong> <T>SAR line total</T></span>
+            <span><strong>{money(summary.patientShare)}</strong> <T>SAR patient share</T></span>
+            <span><strong>{money(summary.claimAmount)}</strong> <T>SAR claim</T></span>
+            <span><strong>{summary.exceptions}</strong> <T>exception line(s)</T></span>
           </Box>
 
           {Object.keys(summary.byException).length > 0 && (
             <Typography sx={{ fontSize: 10, mb: 1.5 }}>
-              Exceptions: {Object.entries(summary.byException).map(([reason, count]) => `${reason} (${count})`).join(' · ')}
+              <T>Exceptions:</T> {Object.entries(summary.byException).map(([reason, count]) => `${reason} (${count})`).join(' · ')}
             </Typography>
           )}
 
@@ -115,7 +117,7 @@ export default function WasfatyClaimsPrintDialog({
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={HEADERS.length} style={{ padding: 12, textAlign: 'center' }}>
-                    No Wasfaty sales in this view.
+                    <T>No Wasfaty sales in this view.</T>
                   </td>
                 </tr>
               )}
@@ -129,7 +131,7 @@ export default function WasfatyClaimsPrintDialog({
                   <td style={{ borderBottom: '1px solid #ddd', padding: '2px 4px' }}>
                     {row.prescriptionNo || '—'}
                     <br />
-                    <span style={{ color: '#555' }}>{row.authorizationNo || 'No authorization'}</span>
+                    <span style={{ color: '#555' }}>{row.authorizationNo || tr("No authorization")}</span>
                   </td>
                   <td style={{ borderBottom: '1px solid #ddd', padding: '2px 4px', whiteSpace: 'nowrap' }}>
                     {row.patientIdMasked || '—'}
@@ -174,17 +176,17 @@ export default function WasfatyClaimsPrintDialog({
           </table>
 
           <Typography sx={{ fontSize: 8, color: '#555', mt: 1.5 }}>
-            Rows are built from the issued invoices, not from today&apos;s item master. Patient national
-            IDs are masked to the last four digits.
+            <T>Rows are built from the issued invoices, not from today&apos;s item master. Patient national
+            IDs are masked to the last four digits.</T>
           </Typography>
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-          Print
+          <T>Print</T>
         </Button>
         <Button variant="contained" onClick={onClose} sx={{ flex: 1, minWidth: 120 }}>
-          Done
+          <T>Done</T>
         </Button>
       </DialogActions>
     </Dialog>

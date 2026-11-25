@@ -31,9 +31,11 @@ import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { formatMoney, formatQty } from '../../utils/format';
 import ItemMasterFormDialog from './ItemMasterFormDialog';
 
+import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function ItemMasterPage() {
+  const tr = useT();
   const items = useCatalogStore((s) => s.items);
   const batches = useCatalogStore((s) => s.batches);
   const receivingLog = useCatalogStore((s) => s.receivingLog);
@@ -161,17 +163,17 @@ export default function ItemMasterPage() {
           <Chip size="small" variant="outlined" color="primary" label={`Next number ${nextNumber}`} />
         </Stack>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
-          Add Item
+          <T>Add Item</T>
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        بيانات المخزون — item number, names, price, pack, stock and movements
+        <T>بيانات المخزون — item number, names, price, pack, stock and movements</T>
       </Typography>
 
       {lowStockCount > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          {lowStockCount} item(s) at or below their reorder level in the current view.
+          {lowStockCount} <T>item(s) at or below their reorder level in the current view.</T>
         </Alert>
       )}
 
@@ -179,7 +181,7 @@ export default function ItemMasterPage() {
         <TextField
           fullWidth
           size="small"
-          label="Scan barcode or search item no / name / category / manufacturer / vendor"
+          label={tr('Scan barcode or search item no / name / category / manufacturer / vendor')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           slotProps={{
@@ -195,9 +197,9 @@ export default function ItemMasterPage() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 170 }}
         >
-          <MenuItem value="all">All items</MenuItem>
-          <MenuItem value="active">Active only</MenuItem>
-          <MenuItem value="inactive">Discontinued only</MenuItem>
+          <MenuItem value="all"><T>All items</T></MenuItem>
+          <MenuItem value="active"><T>Active only</T></MenuItem>
+          <MenuItem value="inactive"><T>Discontinued only</T></MenuItem>
         </Select>
       </Stack>
 
@@ -205,16 +207,16 @@ export default function ItemMasterPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Barcode / GTIN</TableCell>
-              <TableCell>Category / Unit</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell align="center">VAT</TableCell>
-              <TableCell align="right">Sale Price</TableCell>
-              <TableCell align="right">Balance</TableCell>
-              <TableCell align="right">Min / Max</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Barcode / GTIN</T></TableCell>
+              <TableCell><T>Category / Unit</T></TableCell>
+              <TableCell><T>Location</T></TableCell>
+              <TableCell align="center"><T>VAT</T></TableCell>
+              <TableCell align="right"><T>Sale Price</T></TableCell>
+              <TableCell align="right"><T>Balance</T></TableCell>
+              <TableCell align="right"><T>Min / Max</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
+              <TableCell align="right"><T>Actions</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -222,7 +224,7 @@ export default function ItemMasterPage() {
               <TableRow>
                 <TableCell colSpan={10}>
                   <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No items match this search. Add an item to start building the master file.
+                    <T>No items match this search. Add an item to start building the master file.</T>
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -239,7 +241,7 @@ export default function ItemMasterPage() {
                           size="small"
                           color="error"
                           variant="outlined"
-                          label={CONTROLLED_STATUS_LABEL[item.controlledStatus]}
+                          label={tr(CONTROLLED_STATUS_LABEL[item.controlledStatus])}
                         />
                       )}
                       {(item.dosageIds?.length ?? 0) > 0 && (
@@ -255,15 +257,16 @@ export default function ItemMasterPage() {
                       #{itemNo ?? '—'} · {item.nameAr || '—'}
                       {item.scientificName ? ` · ${item.scientificName}` : ''}
                       {item.manufacturerNo
-                        ? ` · Mfr ${manufacturerDisplayName(manufacturers, item.manufacturerNo)}`
+                        ? `${tr(" · Mfr ")}${manufacturerDisplayName(manufacturers, item.manufacturerNo)}`
                         : ''}
                       {item.vendorNo
-                        ? ` · Vendor ${vendors.find((v) => v.vendorNo === item.vendorNo)?.nameEn ?? item.vendorNo}`
+                        ? `${tr(" · Vendor ")}${vendors.find((v) => v.vendorNo === item.vendorNo)?.nameEn ?? item.vendorNo}`
                         : ''}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     {(() => {
+  const tr = useT();
                       const codes = itemCodes(item);
                       // Every code is listed, not just a "+N more" hint: the owner asked for several
                       // barcodes/GTINs per item, so they must be able to see them at a glance.
@@ -275,7 +278,7 @@ export default function ItemMasterPage() {
                           sx={{ fontFamily: 'monospace', display: 'block', lineHeight: 1.3 }}
                         >
                           {code}
-                          {idx === 0 && codes.length > 1 ? ' (main)' : ''}
+                          {idx === 0 && codes.length > 1 ? tr("(main)") : ''}
                         </Typography>
                       ));
                     })()}
@@ -295,12 +298,12 @@ export default function ItemMasterPage() {
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>
                           {formatPackShort(item.pack, totals.onHandQty)}
                         </Typography>
-                        {low && <Chip size="small" color="warning" label="Reorder" sx={{ mt: 0.25 }} />}
+                        {low && <Chip size="small" color="warning" label={tr('Reorder')} sx={{ mt: 0.25 }} />}
                       </>
                     ) : (
                       <>
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatQty(totals.onHandQty)}</Typography>
-                        {low && <Chip size="small" color="warning" label="Reorder" sx={{ mt: 0.25 }} />}
+                        {low && <Chip size="small" color="warning" label={tr('Reorder')} sx={{ mt: 0.25 }} />}
                       </>
                     )}
                   </TableCell>
@@ -317,22 +320,22 @@ export default function ItemMasterPage() {
                   </TableCell>
                   <TableCell>
                     {item.isActive === false ? (
-                      <Chip size="small" color="default" label="Discontinued" />
+                      <Chip size="small" color="default" label={tr('Discontinued')} />
                     ) : (
-                      <Chip size="small" color="success" variant="outlined" label="Active" />
+                      <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
                     )}
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton
                       size="small"
-                      title="Edit item"
+                      title={tr('Edit item')}
                       onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                     >
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
-                      title="Delete item"
+                      title={tr('Delete item')}
                       onClick={(e) => {
                         e.stopPropagation();
                         setDeleteError(null);
@@ -352,7 +355,7 @@ export default function ItemMasterPage() {
       {dialog.open && (
         <ItemMasterFormDialog
           // Remount per row so the form initialises from that item (no setState-in-effect reset).
-          key={dialog.item?.id ?? 'new-item'}
+          key={dialog.item?.id ?? tr("new-item")}
           open
           item={dialog.item}
           items={items}
@@ -368,25 +371,25 @@ export default function ItemMasterPage() {
       )}
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete item?</DialogTitle>
+        <DialogTitle><T>Delete item?</T></DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
             <DialogContentText>
-              This permanently removes <strong>{deleteTarget?.nameEn}</strong>{' '}
-              (#{deleteTarget ? (itemNumberOf(deleteTarget) ?? '—') : '—'}) and its zero-quantity
+              <T>This permanently removes</T> <strong>{deleteTarget?.nameEn}</strong>{' '}
+              (#{deleteTarget ? (itemNumberOf(deleteTarget) ?? '—') : '—'}<T>) and its zero-quantity
               batches from the local catalogue. Receiving history and issued invoices keep their own
-              snapshots and are not changed.
+              snapshots and are not changed.</T>
             </DialogContentText>
             <DialogContentText>
-              Items with stock on hand cannot be deleted - mark them discontinued instead so they
-              stop being reordered without breaking existing stock.
+              <T>Items with stock on hand cannot be deleted - mark them discontinued instead so they
+              stop being reordered without breaking existing stock.</T>
             </DialogContentText>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmDelete}>Delete Item</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete Item</T></Button>
         </DialogActions>
       </Dialog>
     </Box>

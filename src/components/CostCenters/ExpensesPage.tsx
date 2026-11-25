@@ -28,7 +28,9 @@ import {
   todayISO, unmappedCategoryRevenue,
 } from '../../utils/costCenters';
 
+import { T, useT } from '../../i18n';
 export default function ExpensesPage() {
+  const tr = useT();
   const centers = useCostCenterStore((s) => s.centers);
   const expenses = useCostCenterStore((s) => s.expenses);
   const addExpense = useCostCenterStore((s) => s.addExpense);
@@ -152,18 +154,18 @@ export default function ExpensesPage() {
       <Stack spacing={2}>
         {/* ---- entry form */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Record Expense</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Record Expense</T></Typography>
           <Stack spacing={2}>
             {formError && <Alert severity="error" onClose={() => setFormError(null)}>{formError}</Alert>}
             {entered && (
               <Alert severity="success" onClose={() => setEntered(null)}>
-                Expense {entered.id} - SAR {formatMoney(entered.amount)} ({entered.expenseAccount}) recorded on{' '}
+                <T>Expense</T> {entered.id} <T>- SAR</T> {formatMoney(entered.amount)} ({entered.expenseAccount}<T>) recorded on</T>{' '}
                 {centers.find((c) => c.id === entered.costCenterId)?.nameEn}.
               </Alert>
             )}
             <Stack direction="row" spacing={1.5}>
               <TextField
-                label="Date"
+                label={tr('Date')}
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -177,12 +179,12 @@ export default function ExpensesPage() {
                 ))}
               </Select>
               <TextField
-                label="Amount (SAR)"
+                label={tr('Amount (SAR)')}
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 size="small"
-                helperText="Incl. any VAT, as paid"
+                helperText={tr('Incl. any VAT, as paid')}
                 fullWidth
               />
             </Stack>
@@ -205,25 +207,25 @@ export default function ExpensesPage() {
                 size="small"
                 sx={{ maxWidth: 280 }}
               >
-                <MenuItem value="direct">Direct (stays on this center)</MenuItem>
-                <MenuItem value="allocatable">Allocatable (shared, awaits allocation)</MenuItem>
+                <MenuItem value="direct"><T>Direct (stays on this center)</T></MenuItem>
+                <MenuItem value="allocatable"><T>Allocatable (shared, awaits allocation)</T></MenuItem>
               </Select>
             </Stack>
             <TextField
-              label="Description"
+              label={tr('Description')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               size="small"
-              helperText="Defaults to the account label when left empty."
+              helperText={tr('Defaults to the account label when left empty.')}
               fullWidth
             />
             <Button variant="contained" size="small" disabled={!formValid} onClick={submit} sx={{ alignSelf: 'flex-start' }}>
-              Record expense
+              <T>Record expense</T>
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Direct expenses belong to exactly one branch/department. Allocatable ones (rent, IT,
+              <T>Direct expenses belong to exactly one branch/department. Allocatable ones (rent, IT,
               chain salaries) sit on their shared center until an allocation run distributes them -
-              marking them now prevents the double-count later.
+              marking them now prevents the double-count later.</T>
             </Typography>
           </Stack>
         </Paper>
@@ -231,24 +233,24 @@ export default function ExpensesPage() {
         {/* ---- recent entries */}
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-            Recorded Expenses ({expenses.length} · SAR {formatMoney(totalExpenses)} total · of which
-            allocatable SAR {formatMoney(totalAllocatable)})
+            <T>Recorded Expenses (</T>{expenses.length} <T>· SAR</T> {formatMoney(totalExpenses)} <T>total · of which
+            allocatable SAR</T> {formatMoney(totalAllocatable)})
           </Typography>
           {expenses.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No expenses recorded yet.
+              <T>No expenses recorded yet.</T>
             </Typography>
           ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Account</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Center</TableCell>
-                    <TableCell>Kind</TableCell>
-                    <TableCell align="right">Amount (SAR)</TableCell>
+                    <TableCell><T>Date</T></TableCell>
+                    <TableCell><T>Account</T></TableCell>
+                    <TableCell><T>Description</T></TableCell>
+                    <TableCell><T>Center</T></TableCell>
+                    <TableCell><T>Kind</T></TableCell>
+                    <TableCell align="right"><T>Amount (SAR)</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -260,7 +262,7 @@ export default function ExpensesPage() {
                         <TableCell>{e.expenseAccount}</TableCell>
                         <TableCell>{e.description}</TableCell>
                         <TableCell>
-                          {c ? `${c.code} — ${c.nameEn}` : '— (unknown center)'}
+                          {c ? `${c.code} — ${c.nameEn}` : tr("— (unknown center)")}
                         </TableCell>
                         <TableCell>{e.kind}</TableCell>
                         <TableCell align="right">{formatMoney(e.amount)}</TableCell>
@@ -275,23 +277,23 @@ export default function ExpensesPage() {
 
         {/* ---- flagship report: expenses by cost center */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Expenses by Cost Center</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}><T>Expenses by Cost Center</T></Typography>
           <Typography variant="caption" color="text.secondary">
-            Derived live from recorded expenses + tagged sales. Subtree = center plus all its
+            <T>Derived live from recorded expenses + tagged sales. Subtree = center plus all its
             children (head-office rows therefore show the whole chain). Allocation shares land in
-            a later phase, so allocatable amounts stay flagged where they are.
+            a later phase, so allocatable amounts stay flagged where they are.</T>
           </Typography>
           <TableContainer sx={{ mt: 1.5 }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Center</TableCell>
-                  <TableCell>Kind</TableCell>
-                  <TableCell align="right">Direct (SAR)</TableCell>
-                  <TableCell align="right">Allocatable (SAR)</TableCell>
-                  <TableCell align="right">Subtree total (SAR)</TableCell>
-                  <TableCell align="right">Tagged revenue (SAR)</TableCell>
-                  <TableCell align="right">Expense-to-revenue %</TableCell>
+                  <TableCell><T>Center</T></TableCell>
+                  <TableCell><T>Kind</T></TableCell>
+                  <TableCell align="right"><T>Direct (SAR)</T></TableCell>
+                  <TableCell align="right"><T>Allocatable (SAR)</T></TableCell>
+                  <TableCell align="right"><T>Subtree total (SAR)</T></TableCell>
+                  <TableCell align="right"><T>Tagged revenue (SAR)</T></TableCell>
+                  <TableCell align="right"><T>Expense-to-revenue %</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -308,7 +310,7 @@ export default function ExpensesPage() {
                       <TableCell>
                         {c.code} — {c.nameEn}
                         {!c.isActive && (
-                          <Typography variant="caption" color="text.secondary"> (inactive)</Typography>
+                          <Typography variant="caption" color="text.secondary"> <T>(inactive)</T></Typography>
                         )}
                       </TableCell>
                       <TableCell>{c.kind}</TableCell>
@@ -326,27 +328,27 @@ export default function ExpensesPage() {
 
           {/* ---- §8.4 criterion 1: exception block - nothing leaves the expense picture silently */}
           <Stack spacing={0.5} sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Assignment exceptions</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Assignment exceptions</T></Typography>
             <Typography variant="body2" color={report.danglingSales ? 'error' : 'text.secondary'}>
-              Sale lines stamped with a cost center that no longer exists: {report.danglingSales}
+              <T>Sale lines stamped with a cost center that no longer exists:</T> {report.danglingSales}
             </Typography>
             <Typography variant="body2" color={report.danglingPurchases ? 'error' : 'text.secondary'}>
-              Purchase invoices tagged to a cost center that no longer exists: {report.danglingPurchases}
+              <T>Purchase invoices tagged to a cost center that no longer exists:</T> {report.danglingPurchases}
             </Typography>
             <Typography variant="body2" color={report.unassignedSalesLines ? 'error' : 'text.secondary'}>
-              Sale lines with no cost-center tag at all (ex VAT): {report.unassignedSalesLines > 0
-                ? `${formatMoney(report.unassignedSalesRevenue)} SAR across ${report.unassignedSalesLines} line${report.unassignedSalesLines === 1 ? '' : 's'}`
+              <T>Sale lines with no cost-center tag at all (ex VAT):</T> {report.unassignedSalesLines > 0
+                ? `${formatMoney(report.unassignedSalesRevenue)}${tr(" SAR across ")}${report.unassignedSalesLines} line${report.unassignedSalesLines === 1 ? '' : 's'}`
                 : 'none'}
             </Typography>
             <Typography variant="body2" color={categoryCoverage.unmapped.length ? 'error' : 'text.secondary'}>
-              Categories with no cost-center rule: {categoryCoverage.unmapped.length} of{' '}
+              <T>Categories with no cost-center rule:</T> {categoryCoverage.unmapped.length} <T>of</T>{' '}
               {categoryCoverage.observed}
               {categoryCoverage.unmapped.length > 0
-                ? ` (${formatMoney(report.categoryRisk.revenue)} SAR of sales still on the branch default)`
+                ? ` (${formatMoney(report.categoryRisk.revenue)}${tr(" SAR of sales still on the branch default)")}`
                 : ''}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Purchases without a cost-center tag (informational - stock cost, not P&L expense):
+              <T>Purchases without a cost-center tag (informational - stock cost, not P&L expense):</T>
               {report.unassignedPurchases > 0 ? ` ${report.unassignedPurchases}` : ' none'}
             </Typography>
           </Stack>

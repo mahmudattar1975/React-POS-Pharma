@@ -3,6 +3,7 @@ import type { Item, Batch } from '../../types/catalog';
 import { isNearExpiry } from '../../utils/fefo';
 import { formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   item: Item | null;
@@ -12,10 +13,11 @@ interface Props {
 }
 
 export default function BatchPickerDialog({ open, item, batches, onPick, onClose }: Props) {
+  const tr = useT();
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>
-        Multiple batches available
+        <T>Multiple batches available</T>
         {item && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {item.nameEn}
@@ -31,8 +33,8 @@ export default function BatchPickerDialog({ open, item, batches, onPick, onClose
                 secondary={`${b.expiryDate ? `Expires ${b.expiryDate}` : 'No expiry'} · ${formatQty(b.qtyOnHand)} in stock`}
               />
               <Stack direction="row" spacing={1}>
-                {idx === 0 && <Chip size="small" color="primary" label="FEFO suggested" />}
-                {isNearExpiry(b.expiryDate) && <Chip size="small" color="warning" label="Near expiry" />}
+                {idx === 0 && <Chip size="small" color="primary" label={tr('FEFO suggested')} />}
+                {isNearExpiry(b.expiryDate) && <Chip size="small" color="warning" label={tr('Near expiry')} />}
               </Stack>
             </ListItemButton>
           ))}

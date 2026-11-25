@@ -13,6 +13,7 @@ import ReportsPage from '../Reports/ReportsPage';
 import IncentiveReportPage from '../Incentives/IncentiveReportPage';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
+import { useT } from '../../i18n';
 const TABS = [
   { path: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" />, color: '#1565c0' }, // overview
   { path: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" />, color: '#283593' }, // analysis
@@ -20,6 +21,7 @@ const TABS = [
 ];
 
 export default function InsightsHubPage() {
+  const tr = useT();
   const location = useLocation();
   const navigate = useNavigate();
   // Path-driven (not state) so a refresh on a tab keeps the owner where they were.
@@ -34,7 +36,7 @@ export default function InsightsHubPage() {
         sx={{ flex: 'none', px: 2, pt: 1, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[activeTab].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={tr(entry.label)} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

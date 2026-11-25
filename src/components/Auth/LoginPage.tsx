@@ -5,7 +5,9 @@ import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import * as posApi from '../../api/posApi';
 import { useAuthStore } from '../../store/authStore';
 
+import { T, useT } from '../../i18n';
 export default function LoginPage() {
+  const tr = useT();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,12 +39,12 @@ export default function LoginPage() {
           <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48, mb: 1.5 }}>
             <LocalPharmacyIcon />
           </Avatar>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>Cashier Login</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}><T>Cashier Login</T></Typography>
         </Box>
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
-            label="Username"
+            label={tr('Username')}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoFocus
@@ -50,7 +52,7 @@ export default function LoginPage() {
             disabled={submitting}
           />
           <TextField
-            label="Password"
+            label={tr('Password')}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -58,7 +60,7 @@ export default function LoginPage() {
             disabled={submitting}
           />
           <Button type="submit" variant="contained" size="large" disabled={submitting || !username || !password}>
-            {submitting ? 'Signing in...' : 'Sign In'}
+            {submitting ? tr("Signing in...") : tr("Sign In")}
           </Button>
         </Box>
       </Paper>

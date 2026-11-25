@@ -29,7 +29,9 @@ import { useCostCenterStore } from '../../store/costCenterStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import PurchaseInvoiceDocument from './PurchaseInvoiceDocument';
 
+import { T, useT } from '../../i18n';
 export default function ReturnPurchaseInvoicePage() {
+  const tr = useT();
   const {
     vendors,
     invoices,
@@ -315,29 +317,29 @@ export default function ReturnPurchaseInvoicePage() {
             onClose={() => setPosted(null)}
             action={
               <Button color="inherit" size="small" startIcon={<PrintIcon />} onClick={() => setPrinting(posted)}>
-                Print
+                <T>Print</T>
               </Button>
             }
           >
-            Return {posted.vendorInvoiceNo} saved for {posted.vendorNameEn}. Stock has been adjusted.
+            <T>Return</T> {posted.vendorInvoiceNo} <T>saved for</T> {posted.vendorNameEn}<T>. Stock has been adjusted.</T>
           </Alert>
         )}
 
         {editing && (
           <Alert
             severity="info"
-            action={<Button color="inherit" size="small" onClick={cancelEdit}>Cancel edit</Button>}
+            action={<Button color="inherit" size="small" onClick={cancelEdit}><T>Cancel edit</T></Button>}
           >
-            Editing return {editing.invoiceNo} · {editing.vendorInvoiceNo} · {editing.vendorNameEn}. Saving
+            <T>Editing return</T> {editing.invoiceNo} · {editing.vendorInvoiceNo} · {editing.vendorNameEn}<T>. Saving
             reverses this return's stock movement and posts the corrected lines; cancelling leaves it
-            untouched.
+            untouched.</T>
           </Alert>
         )}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <AssignmentReturnIcon sx={{ color: '#e65100' }} fontSize="small" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Purchase Return Details</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}><T>Purchase Return Details</T></Typography>
           </Stack>
           <Stack spacing={2}>
             <FormControlLabel
@@ -347,7 +349,7 @@ export default function ReturnPurchaseInvoicePage() {
                 setOriginalInvoice(null);
                 setLines([]);
               }} />}
-              label="Customer Return"
+              label={tr('Customer Return')}
             />
             <Stack direction="row" spacing={2}>
               <Autocomplete
@@ -378,8 +380,8 @@ export default function ReturnPurchaseInvoicePage() {
                       <Typography variant="caption" color="text.secondary">
                         {p.nameAr}
                         {p.phone ? ` · ${p.phone}` : ''}
-                        {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
-                        {p.glnNo ? ` · GLN ${p.glnNo}` : ''}
+                        {p.vatNumber ? `${tr(" · VAT ")}${p.vatNumber}` : ''}
+                        {p.glnNo ? `${tr(" · GLN ")}${p.glnNo}` : ''}
                       </Typography>
                     </Box>
                   </li>
@@ -389,7 +391,7 @@ export default function ReturnPurchaseInvoicePage() {
                   <TextField
                     {...params}
                     label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
-                    placeholder="Name, no, VAT, GLN or phone"
+                    placeholder={tr('Name, no, VAT, GLN or phone')}
                   />
                 )}
               />
@@ -411,52 +413,52 @@ export default function ReturnPurchaseInvoicePage() {
                 value={originalInvoice}
                 onChange={(_, v) => handleOriginalInvoiceSelect(v)}
                 renderInput={(params) => (
-                  <TextField {...params} label="Link to original invoice" placeholder="PUR-000001 or party doc. no" />
+                  <TextField {...params} label={tr('Link to original invoice')} placeholder={tr('PUR-000001 or party doc. no')} />
                 )}
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
-              <TextField label="Return seq." value={editing?.invoiceNo ?? nextReturnNo()} size="small" fullWidth slotProps={{ input: { readOnly: true } }} helperText={editing ? 'System number — fixed on modify' : 'System number — assigned when posted'} />
-              <TextField label="Return No" value={creditNoteNo} onChange={(e) => setCreditNoteNo(e.target.value)} size="small" fullWidth helperText="Party credit note no" />
-              <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+              <TextField label={tr('Return seq.')} value={editing?.invoiceNo ?? nextReturnNo()} size="small" fullWidth slotProps={{ input: { readOnly: true } }} helperText={editing ? 'System number — fixed on modify' : 'System number — assigned when posted'} />
+              <TextField label={tr('Return No')} value={creditNoteNo} onChange={(e) => setCreditNoteNo(e.target.value)} size="small" fullWidth helperText={tr('Party credit note no')} />
+              <TextField label={tr('Date')} type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
             </Stack>
-            <TextField label="Reason" value={returnReason} onChange={(e) => setReturnReason(e.target.value)} size="small" fullWidth multiline rows={2} />
+            <TextField label={tr('Reason')} value={returnReason} onChange={(e) => setReturnReason(e.target.value)} size="small" fullWidth multiline rows={2} />
           </Stack>
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Returned Items</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Returned Items</T></Typography>
           <Stack spacing={2}>
             {!originalInvoice && (
               <>
-                <Autocomplete options={items} value={selectedItem} onChange={(_, v) => setSelectedItem(v)} getOptionLabel={(o) => o.nameEn} renderInput={(params) => <TextField {...params} label="Search item" size="small" />} />
+                <Autocomplete options={items} value={selectedItem} onChange={(_, v) => setSelectedItem(v)} getOptionLabel={(o) => o.nameEn} renderInput={(params) => <TextField {...params} label={tr('Search item')} size="small" />} />
                 <Stack direction="row" spacing={2}>
-                  <TextField label="Qty" type="number" value={qty} onChange={(e) => setQty(e.target.value)} size="small" fullWidth />
-                  <TextField label="Bonus" type="number" value={bonusQty} onChange={(e) => setBonusQty(e.target.value)} size="small" fullWidth />
-                  <TextField label="Batch" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
-                  <TextField label="Price" type="number" value={unitPurchasePrice} onChange={(e) => setUnitPurchasePrice(e.target.value)} size="small" fullWidth />
+                  <TextField label={tr('Qty')} type="number" value={qty} onChange={(e) => setQty(e.target.value)} size="small" fullWidth />
+                  <TextField label={tr('Bonus')} type="number" value={bonusQty} onChange={(e) => setBonusQty(e.target.value)} size="small" fullWidth />
+                  <TextField label={tr('Batch')} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" fullWidth />
+                  <TextField label={tr('Price')} type="number" value={unitPurchasePrice} onChange={(e) => setUnitPurchasePrice(e.target.value)} size="small" fullWidth />
                 </Stack>
-                <Button variant="outlined" disabled={!lineValid} onClick={addLine}>Add line</Button>
+                <Button variant="outlined" disabled={!lineValid} onClick={addLine}><T>Add line</T></Button>
               </>
             )}
             {originalInvoice && (
               <Typography variant="body2" color="text.secondary">
-                Linked to {originalInvoice.invoiceNo} · party doc. {originalInvoice.vendorInvoiceNo}. Pick the
-                lines to send back, then edit only their paid/bonus quantity in the return list.
+                <T>Linked to</T> {originalInvoice.invoiceNo} <T>· party doc.</T> {originalInvoice.vendorInvoiceNo}<T>. Pick the
+                lines to send back, then edit only their paid/bonus quantity in the return list.</T>
               </Typography>
             )}
             {originalInvoice && (
               <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Original invoice lines</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Original invoice lines</T></Typography>
                 <TableContainer>
-                  <Table size="small" aria-label="Original invoice lines">
+                  <Table size="small" aria-label={tr('Original invoice lines')}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell>Batch</TableCell>
-                        <TableCell align="right">Purchased</TableCell>
-                        <TableCell align="right">Already returned</TableCell>
-                        <TableCell align="right">Still returnable</TableCell>
+                        <TableCell><T>Item</T></TableCell>
+                        <TableCell><T>Batch</T></TableCell>
+                        <TableCell align="right"><T>Purchased</T></TableCell>
+                        <TableCell align="right"><T>Already returned</T></TableCell>
+                        <TableCell align="right"><T>Still returnable</T></TableCell>
                         <TableCell />
                       </TableRow>
                     </TableHead>
@@ -471,9 +473,9 @@ export default function ReturnPurchaseInvoicePage() {
                           <TableRow key={line.id}>
                             <TableCell>{line.itemNameEn}</TableCell>
                             <TableCell>{line.batchNo}</TableCell>
-                            <TableCell align="right">{formatQty(line.qty)} + {formatQty(line.bonusQty || 0)} bonus</TableCell>
-                            <TableCell align="right">{formatQty(previous.qty)} + {formatQty(previous.bonusQty)} bonus</TableCell>
-                            <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} bonus</TableCell>
+                            <TableCell align="right">{formatQty(line.qty)} + {formatQty(line.bonusQty || 0)} <T>bonus</T></TableCell>
+                            <TableCell align="right">{formatQty(previous.qty)} + {formatQty(previous.bonusQty)} <T>bonus</T></TableCell>
+                            <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} <T>bonus</T></TableCell>
                             <TableCell align="right">
                               <Button
                                 size="small"
@@ -481,7 +483,7 @@ export default function ReturnPurchaseInvoicePage() {
                                 disabled={added || exhausted}
                                 onClick={() => addLinkedLine(line)}
                               >
-                                {added ? 'Added' : exhausted ? 'Fully returned' : 'Add to return'}
+                                {added ? tr("Added") : exhausted ? tr("Fully returned") : tr("Add to return")}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -490,27 +492,27 @@ export default function ReturnPurchaseInvoicePage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                {fullyReturned && <Alert severity="info">This invoice has already been fully returned.</Alert>}
+                {fullyReturned && <Alert severity="info"><T>This invoice has already been fully returned.</T></Alert>}
                 {!fullyReturned && lines.length === 0 && (
                   <Typography variant="body2" color="text.secondary">
-                    No return lines selected yet — use “Add to return” above.
+                    <T>No return lines selected yet — use “Add to return” above.</T>
                   </Typography>
                 )}
               </>
             )}
             {lines.length > 0 && (
               <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Selected return lines</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Selected return lines</T></Typography>
                 <TableContainer>
-                  <Table size="small" aria-label="Return lines">
+                  <Table size="small" aria-label={tr('Return lines')}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell align="right">Paid qty</TableCell>
-                        <TableCell align="right">Bonus qty</TableCell>
-                        <TableCell>Batch</TableCell>
-                        {originalInvoice && <TableCell align="right">Still returnable</TableCell>}
-                        <TableCell align="right">Total</TableCell>
+                        <TableCell><T>Item</T></TableCell>
+                        <TableCell align="right"><T>Paid qty</T></TableCell>
+                        <TableCell align="right"><T>Bonus qty</T></TableCell>
+                        <TableCell><T>Batch</T></TableCell>
+                        {originalInvoice && <TableCell align="right"><T>Still returnable</T></TableCell>}
+                        <TableCell align="right"><T>Total</T></TableCell>
                         <TableCell />
                       </TableRow>
                     </TableHead>
@@ -542,11 +544,11 @@ export default function ReturnPurchaseInvoicePage() {
                             </TableCell>
                             <TableCell>{l.batchNo}</TableCell>
                             {originalInvoice && (
-                              <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} bonus</TableCell>
+                              <TableCell align="right">{formatQty(remaining.qty)} + {formatQty(remaining.bonusQty)} <T>bonus</T></TableCell>
                             )}
                             <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                             <TableCell>
-                              <IconButton size="small" color="error" aria-label="Remove returned line" onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
+                              <IconButton size="small" color="error" aria-label={tr('Remove returned line')} onClick={() => setLines(ls => ls.filter(x => x.id !== l.id))}>
                                 <DeleteOutlineIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
@@ -560,43 +562,43 @@ export default function ReturnPurchaseInvoicePage() {
             )}
             {overReturnedLines.length > 0 && (
               <Alert severity="warning">
-                A return cannot exceed what was purchased and not already returned:{' '}
+                <T>A return cannot exceed what was purchased and not already returned:</T>{' '}
                 {overReturnedLines
                   .map((l) => {
                     const remaining = remainingFor(l);
-                    return `${l.itemNameEn} (max ${formatQty(remaining.qty)} paid + ${formatQty(remaining.bonusQty)} bonus)`;
+                    return `${l.itemNameEn}${tr(" (max ")}${formatQty(remaining.qty)}${tr("paid + ")}${formatQty(remaining.bonusQty)}${tr("bonus)")}`;
                   })
                   .join('; ')}
                 .
               </Alert>
             )}
-            {returnLines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong>Total Return: SAR {formatMoney(totals.totalInclVat)}</strong></Typography></Box>}
+            {returnLines.length > 0 && <Box sx={{ alignSelf: 'flex-end', minWidth: 200 }}><Typography variant="subtitle1"><strong><T>Total Return: SAR</T> {formatMoney(totals.totalInclVat)}</strong></Typography></Box>}
           </Stack>
         </Paper>
 
         <Button variant="contained" size="large" color="warning" startIcon={<AssignmentReturnIcon />} onClick={post} disabled={!invoiceHeaderValid}>
-          {editing ? 'Update Return' : 'Post Return'}
+          {editing ? tr("Update Return") : tr("Post Return")}
         </Button>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <AssignmentReturnIcon sx={{ color: '#c62828' }} fontSize="small" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Returns</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}><T>Posted Returns</T></Typography>
           </Stack>
           {postedReturns.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">No purchase returns posted yet.</Typography>
+            <Typography variant="body2" color="text.secondary"><T>No purchase returns posted yet.</T></Typography>
           ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Return seq.</TableCell>
-                    <TableCell>Party doc. no</TableCell>
-                    <TableCell>Party No.</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Original doc.</TableCell>
-                    <TableCell align="right">Lines</TableCell>
-                    <TableCell align="right">Total (SAR)</TableCell>
+                    <TableCell><T>Return seq.</T></TableCell>
+                    <TableCell><T>Party doc. no</T></TableCell>
+                    <TableCell><T>Party No.</T></TableCell>
+                    <TableCell><T>Date</T></TableCell>
+                    <TableCell><T>Original doc.</T></TableCell>
+                    <TableCell align="right"><T>Lines</T></TableCell>
+                    <TableCell align="right"><T>Total (SAR)</T></TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -611,20 +613,20 @@ export default function ReturnPurchaseInvoicePage() {
                       <TableCell align="right">{r.lines.length}</TableCell>
                       <TableCell align="right">{formatMoney(r.totalInclVat)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        <IconButton size="small" color="info" onClick={() => setViewing(r)} aria-label="View return">
+                        <IconButton size="small" color="info" onClick={() => setViewing(r)} aria-label={tr('View return')}>
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" color="primary" onClick={() => setPrinting(r)} aria-label="Print return">
+                        <IconButton size="small" color="primary" onClick={() => setPrinting(r)} aria-label={tr('Print return')}>
                           <PrintIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" color="warning" onClick={() => beginEdit(r)} aria-label="Modify return">
+                        <IconButton size="small" color="warning" onClick={() => beginEdit(r)} aria-label={tr('Modify return')}>
                           <EditOutlinedIcon fontSize="small" />
                         </IconButton>
                         <IconButton
                           size="small"
                           color="error"
                           onClick={() => { setDeleteError(null); setDeleteTarget(r); }}
-                          aria-label="Delete return"
+                          aria-label={tr('Delete return')}
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
@@ -644,7 +646,7 @@ export default function ReturnPurchaseInvoicePage() {
             <AssignmentReturnIcon color="warning" fontSize="small" />
             <span>{viewing?.invoiceNo}</span>
           </Stack>
-          <IconButton size="small" onClick={() => setViewing(null)} aria-label="Close">
+          <IconButton size="small" onClick={() => setViewing(null)} aria-label={tr('Close')}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -663,23 +665,23 @@ export default function ReturnPurchaseInvoicePage() {
                 {viewing.vendorNameAr}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Party credit note no: <strong>{viewing.vendorInvoiceNo}</strong>
-                {viewing.originalInvoiceNo ? ` · against ${viewing.originalInvoiceNo}` : ' · manual return'}
+                <T>Party credit note no:</T> <strong>{viewing.vendorInvoiceNo}</strong>
+                {viewing.originalInvoiceNo ? `${tr(" · against ")}${viewing.originalInvoiceNo}` : tr(" · manual return")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {viewing.vendorNameEn} · {viewing.date} · sent back by {viewing.receivedBy}
+                {viewing.vendorNameEn} · {viewing.date} <T>· sent back by</T> {viewing.receivedBy}
                 {viewing.returnReason ? ` · ${viewing.returnReason}` : ''}
               </Typography>
               <Divider />
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell align="right">Paid qty</TableCell>
-                    <TableCell align="right">Bonus qty</TableCell>
-                    <TableCell>Batch / expiry</TableCell>
-                    <TableCell align="right">Unit price</TableCell>
-                    <TableCell align="right">Total</TableCell>
+                    <TableCell><T>Item</T></TableCell>
+                    <TableCell align="right"><T>Paid qty</T></TableCell>
+                    <TableCell align="right"><T>Bonus qty</T></TableCell>
+                    <TableCell><T>Batch / expiry</T></TableCell>
+                    <TableCell align="right"><T>Unit price</T></TableCell>
+                    <TableCell align="right"><T>Total</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -697,15 +699,15 @@ export default function ReturnPurchaseInvoicePage() {
               </Table>
               <Divider />
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="body2">Subtotal (excl. VAT)</Typography>
+                <Typography variant="body2"><T>Subtotal (excl. VAT)</T></Typography>
                 <Typography variant="body2">{formatMoney(viewing.subtotalExclVat)}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="body2">VAT</Typography>
+                <Typography variant="body2"><T>VAT</T></Typography>
                 <Typography variant="body2">{formatMoney(viewing.totalVatAmount)}</Typography>
               </Stack>
               <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Total credited (SAR)</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}><T>Total credited (SAR)</T></Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatMoney(viewing.totalInclVat)}</Typography>
               </Stack>
             </Stack>
@@ -721,36 +723,36 @@ export default function ReturnPurchaseInvoicePage() {
               setViewing(null);
             }}
           >
-            Print A4
+            <T>Print A4</T>
           </Button>
           <Button
             color="warning"
             startIcon={<EditOutlinedIcon />}
             onClick={() => { if (viewing) beginEdit(viewing); }}
           >
-            Modify
+            <T>Modify</T>
           </Button>
-          <Button onClick={() => setViewing(null)}>Close</Button>
+          <Button onClick={() => setViewing(null)}><T>Close</T></Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete {deleteTarget?.invoiceNo}?</DialogTitle>
+        <DialogTitle><T>Delete</T> {deleteTarget?.invoiceNo}?</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
             <Typography variant="body2">
-              This removes the return from history and puts its returned units back into the batches
-              it came from.
+              <T>This removes the return from history and puts its returned units back into the batches
+              it came from.</T>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              If part of the returned goods has already been sold or moved, deletion is refused.
+              <T>If part of the returned goods has already been sold or moved, deletion is refused.</T>
             </Typography>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmDelete}>Delete Return</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete Return</T></Button>
         </DialogActions>
       </Dialog>
 

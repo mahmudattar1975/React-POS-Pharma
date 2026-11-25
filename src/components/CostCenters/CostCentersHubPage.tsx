@@ -14,6 +14,7 @@ import CostCentersPage from './CostCentersPage';
 import CategoryMapPage from './CategoryMapPage';
 import ExpensesPage from './ExpensesPage';
 
+import { T, useT } from '../../i18n';
 const TABS = [
   { path: '/cost-centers', label: 'Cost Centers', icon: <AccountTreeIcon fontSize="small" />, color: '#283593' }, // structure
   { path: '/category-map', label: 'Category → Center', icon: <CategoryIcon fontSize="small" />, color: '#00695c' }, // routing
@@ -21,6 +22,7 @@ const TABS = [
 ];
 
 export default function CostCentersHubPage() {
+  const tr = useT();
   const location = useLocation();
   const navigate = useNavigate();
   // Resolved from the URL rather than remembered, so refresh/deep link always opens the named tab.
@@ -28,9 +30,9 @@ export default function CostCentersHubPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Cost Centers &amp; Expenses</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Cost Centers &amp; Expenses</T></Typography>
       <Typography variant="caption" color="text.secondary">
-        Centre structure, category routing rules and expense postings
+        <T>Centre structure, category routing rules and expense postings</T>
       </Typography>
       <Tabs
         value={tabIndex}
@@ -40,7 +42,7 @@ export default function CostCentersHubPage() {
         sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tabIndex].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={tr(entry.label)} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tabIndex === 0 && <CostCentersPage />}

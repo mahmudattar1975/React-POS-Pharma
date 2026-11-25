@@ -3,7 +3,9 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, A
 import { useShiftStore } from '../../store/shiftStore';
 import { formatMoney } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) {
+  const tr = useT();
   const [closingAmount, setClosingAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,18 +35,18 @@ export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) 
     const variance = lastClose.cashVariance ?? 0;
     return (
       <Dialog open fullWidth maxWidth="xs">
-        <DialogTitle>Shift Closed</DialogTitle>
+        <DialogTitle><T>Shift Closed</T></DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
-            <Row label="Total Sales" value={`${formatMoney(lastClose.totalSales)} SAR`} />
-            <Row label="Total Returns" value={`${formatMoney(lastClose.totalReturns)} SAR`} />
+            <Row label={tr('Total Sales')} value={`${formatMoney(lastClose.totalSales)} SAR`} />
+            <Row label={tr('Total Returns')} value={`${formatMoney(lastClose.totalReturns)} SAR`} />
             <Divider />
-            <Row label="Commission Earned" value={`${formatMoney(lastClose.commissionEarned)} SAR`} bold />
+            <Row label={tr('Commission Earned')} value={`${formatMoney(lastClose.commissionEarned)} SAR`} bold />
             <Divider />
-            <Row label="Expected Cash" value={`${formatMoney(lastClose.expectedCash)} SAR`} />
-            <Row label="Counted Cash" value={`${formatMoney(lastClose.closingAmount ?? 0)} SAR`} />
+            <Row label={tr('Expected Cash')} value={`${formatMoney(lastClose.expectedCash)} SAR`} />
+            <Row label={tr('Counted Cash')} value={`${formatMoney(lastClose.closingAmount ?? 0)} SAR`} />
             <Row
-              label="Cash Variance"
+              label={tr('Cash Variance')}
               value={`${variance >= 0 ? '+' : ''}${formatMoney(variance)} SAR`}
               color={variance === 0 ? 'text.primary' : variance > 0 ? 'success.main' : 'error.main'}
               bold
@@ -60,7 +62,7 @@ export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) 
               onClose();
             }}
           >
-            OK
+            <T>OK</T>
           </Button>
         </DialogActions>
       </Dialog>
@@ -69,11 +71,11 @@ export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) 
 
   return (
     <Dialog open fullWidth maxWidth="xs" onClose={onClose}>
-      <DialogTitle>Close Drawer</DialogTitle>
+      <DialogTitle><T>Close Drawer</T></DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <TextField
-          label="Cash Counted (SAR)"
+          label={tr('Cash Counted (SAR)')}
           type="number"
           value={closingAmount}
           onChange={(e) => setClosingAmount(e.target.value)}
@@ -83,9 +85,9 @@ export default function CloseDrawerDialog({ onClose }: { onClose: () => void }) 
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+        <Button onClick={onClose} disabled={submitting}><T>Cancel</T></Button>
         <Button variant="contained" onClick={handleClose} disabled={submitting}>
-          {submitting ? 'Closing...' : 'Close Drawer'}
+          {submitting ? tr("Closing...") : tr("Close Drawer")}
         </Button>
       </DialogActions>
     </Dialog>

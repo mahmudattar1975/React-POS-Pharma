@@ -7,7 +7,9 @@ import * as erpApi from '../../api/erpApi';
 import type { ErpItem, ErpBatch, ErpCustomer } from '../../api/erpApi';
 import { formatMoney, formatQty } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export default function ErpTestPanel() {
+  const tr = useT();
   const [status, setStatus] = useState<erpApi.ErpStatus | null>(null);
 
   const [itemQuery, setItemQuery] = useState('');
@@ -72,28 +74,28 @@ export default function ErpTestPanel() {
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>XPH Live Data (Read-Only)</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}><T>XPH Live Data (Read-Only)</T></Typography>
         {status && (
           <Chip
             size="small"
             color={status.connected ? 'success' : 'error'}
-            label={status.connected ? `Connected (user ${status.userId})` : 'Not connected'}
+            label={status.connected ? `${tr("Connected (user ")}${status.userId})` : tr("Not connected")}
           />
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Reads real item, batch, and customer data straight from the PharmaAxis ERP's XPH database via
-        its existing .NET API - nothing is written back. See <code>server/src/erp/README.md</code>.
+        <T>Reads real item, batch, and customer data straight from the PharmaAxis ERP's XPH database via
+        its existing .NET API - nothing is written back. See</T> <code><T>server/src/erp/README.md</T></code>.
       </Typography>
 
       {status && !status.connected && <Alert severity="error" sx={{ mb: 2 }}>{status.error}</Alert>}
 
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Item search</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}><T>Item search</T></Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
         <TextField
           size="small"
           fullWidth
-          placeholder="Barcode, item number, or name (Arabic or English)"
+          placeholder={tr('Barcode, item number, or name (Arabic or English)')}
           value={itemQuery}
           onChange={(e) => setItemQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && runItemSearch()}
@@ -104,19 +106,19 @@ export default function ErpTestPanel() {
       {items.length > 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           {truncated
-            ? `Showing the first ${items.length} matches — there may be more; try a more specific search`
-            : `Showing all ${items.length} matching item${items.length === 1 ? '' : 's'}`}
+            ? `${tr("Showing the first ")}${items.length}${tr(" matches — there may be more; try a more specific search")}`
+            : `${tr("Showing all ")}${items.length}${tr("matching item")}${items.length === 1 ? '' : 's'}`}
         </Typography>
       )}
       {items.length > 0 && (
         <Table size="small" sx={{ mb: 2 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Barcode</TableCell>
-              <TableCell>Unit</TableCell>
-              <TableCell align="right">VAT</TableCell>
-              <TableCell>Tracked</TableCell>
+              <TableCell><T>Item</T></TableCell>
+              <TableCell><T>Barcode</T></TableCell>
+              <TableCell><T>Unit</T></TableCell>
+              <TableCell align="right"><T>VAT</T></TableCell>
+              <TableCell><T>Tracked</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -129,8 +131,8 @@ export default function ErpTestPanel() {
                   </TableCell>
                   <TableCell>{it.barcode || '—'}</TableCell>
                   <TableCell>{it.unit}</TableCell>
-                  <TableCell align="right">{it.vatRate > 0 ? `${(it.vatRate * 100).toFixed(0)}%` : 'zero-rated'}</TableCell>
-                  <TableCell>{it.requiresBatchTracking ? 'Yes' : 'No'}</TableCell>
+                  <TableCell align="right">{it.vatRate > 0 ? `${(it.vatRate * 100).toFixed(0)}%` : tr("zero-rated")}</TableCell>
+                  <TableCell>{it.requiresBatchTracking ? tr("Yes") : tr("No")}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={5} sx={{ p: 0, border: expandedItem === it.itemNo ? undefined : 'none' }}>
@@ -139,15 +141,15 @@ export default function ErpTestPanel() {
                         {batchesLoading ? (
                           <CircularProgress size={16} />
                         ) : batches.length === 0 ? (
-                          <Typography variant="caption" color="text.secondary">No batches with stock on hand.</Typography>
+                          <Typography variant="caption" color="text.secondary"><T>No batches with stock on hand.</T></Typography>
                         ) : (
                           <Stack spacing={0.5}>
                             {batches.map((b) => (
                               <Stack key={b.batchNo + b.expiryDate} direction="row" spacing={2}>
-                                <Typography variant="caption">Batch {b.batchNo}</Typography>
-                                <Typography variant="caption">Exp {b.expiryDate}</Typography>
-                                <Typography variant="caption">Qty {formatQty(b.qtyOnHand)}</Typography>
-                                <Typography variant="caption">Price {formatMoney(b.salePrice)}</Typography>
+                                <Typography variant="caption"><T>Batch</T> {b.batchNo}</Typography>
+                                <Typography variant="caption"><T>Exp</T> {b.expiryDate}</Typography>
+                                <Typography variant="caption"><T>Qty</T> {formatQty(b.qtyOnHand)}</Typography>
+                                <Typography variant="caption"><T>Price</T> {formatMoney(b.salePrice)}</Typography>
                               </Stack>
                             ))}
                           </Stack>
@@ -162,12 +164,12 @@ export default function ErpTestPanel() {
         </Table>
       )}
 
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Customer search</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}><T>Customer search</T></Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
         <TextField
           size="small"
           fullWidth
-          placeholder="Customer name or number"
+          placeholder={tr('Customer name or number')}
           value={custQuery}
           onChange={(e) => setCustQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && runCustomerSearch()}
@@ -179,9 +181,9 @@ export default function ErpTestPanel() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Customer</TableCell>
-              <TableCell>VAT File No.</TableCell>
-              <TableCell>Invoice Type</TableCell>
+              <TableCell><T>Customer</T></TableCell>
+              <TableCell><T>VAT File No.</T></TableCell>
+              <TableCell><T>Invoice Type</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

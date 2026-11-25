@@ -18,6 +18,7 @@ import ManufacturersPage from './ManufacturersPage';
 import DosagesPage from './DosagesPage';
 import WasfatyMappingPage from './WasfatyMappingPage';
 
+import { T, useT } from '../../i18n';
 const TABS = [
   { path: '/inventory', label: 'Batches & Expiry', icon: <Inventory2Icon fontSize="small" />, color: '#7d5714' }, // expiry watch
   { path: '/items', label: 'Item Master', icon: <ListAltIcon fontSize="small" />, color: '#1565c0' }, // catalogue
@@ -27,6 +28,7 @@ const TABS = [
 ];
 
 export default function InventoryHubPage() {
+  const tr = useT();
   const location = useLocation();
   const navigate = useNavigate();
   // Resolved from the path (not remembered in state) so a refresh or a pasted link always opens the
@@ -35,9 +37,9 @@ export default function InventoryHubPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Inventory &amp; Expiry</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Inventory &amp; Expiry</T></Typography>
       <Typography variant="caption" color="text.secondary">
-        Batch expiry, stock levels, the item master file, the manufacturer file and the dosage library
+        <T>Batch expiry, stock levels, the item master file, the manufacturer file and the dosage library</T>
       </Typography>
       <Tabs
         value={tab}
@@ -47,7 +49,7 @@ export default function InventoryHubPage() {
         sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tab].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={tr(entry.label)} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tab === 0 && <InventoryPage />}

@@ -30,10 +30,12 @@ import { useSettingsStore } from '../../store/settingsStore';
 import PurchaseInvoiceDocument from './PurchaseInvoiceDocument';
 import DiscountInput from '../common/DiscountInput';
 
+import { T, useT } from '../../i18n';
 // Posted invoices are final documents, but the owner can correct or remove one: the form below
 // switches into edit mode, reversing the original stock receipt first. That reversal is refused
 // when part of the delivery has already been sold - use a purchase return / credit note then.
 export default function PurchaseInvoicePage() {
+  const tr = useT();
   const {
     vendors,
     invoices,
@@ -450,26 +452,26 @@ export default function PurchaseInvoicePage() {
       <Stack spacing={2}>
         {posted && (
           <Alert severity="success" onClose={() => setPosted(null)}>
-            {posted.partyType === PARTY_TYPE_FLAG.customer ? 'Customer document' : 'Vendor invoice'}{' '}
-            {posted.vendorInvoiceNo} · {posted.invoiceNo} received from {posted.vendorNameEn} - {posted.lines.length} line(s),
-            SAR {formatMoney(posted.totalInclVat)} incl. VAT. Stock has been posted.
+            {posted.partyType === PARTY_TYPE_FLAG.customer ? tr("Customer document") : tr("Vendor invoice")}{' '}
+            {posted.vendorInvoiceNo} · {posted.invoiceNo} <T>received from</T> {posted.vendorNameEn} - {posted.lines.length} <T>line(s),
+            SAR</T> {formatMoney(posted.totalInclVat)} <T>incl. VAT. Stock has been posted.</T>
           </Alert>
         )}
 
         {editing && (
           <Alert
             severity="info"
-            action={<Button color="inherit" size="small" onClick={cancelEdit}>Cancel edit</Button>}
+            action={<Button color="inherit" size="small" onClick={cancelEdit}><T>Cancel edit</T></Button>}
           >
-            Editing {editing.partyType === PARTY_TYPE_FLAG.customer ? 'customer document' : 'vendor invoice'}{' '}
-            {editing.vendorInvoiceNo} · {editing.invoiceNo} · {editing.vendorNameEn}. Saving reverses the original stock
-            receipt and posts the corrected lines; cancelling leaves it untouched.
+            <T>Editing</T> {editing.partyType === PARTY_TYPE_FLAG.customer ? tr("customer document") : tr("vendor invoice")}{' '}
+            {editing.vendorInvoiceNo} · {editing.invoiceNo} · {editing.vendorNameEn}<T>. Saving reverses the original stock
+            receipt and posts the corrected lines; cancelling leaves it untouched.</T>
           </Alert>
         )}
 
         {/* ---- party (vendor or customer) + document header */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Vendor / Customer & Invoice</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Vendor / Customer & Invoice</T></Typography>
           <Stack spacing={2}>
             {/* Legacy FCODCSVN type_flag switch: a purchase normally comes from a vendor (1), but a
                 buy-back / customer return is booked against a real customer account (2). */}
@@ -484,7 +486,7 @@ export default function PurchaseInvoicePage() {
                   }}
                 />
               }
-              label="Customer (type_flag = 2) — unchecked means vendor (type_flag = 1)"
+              label={tr('Customer (type_flag = 2) — unchecked means vendor (type_flag = 1)')}
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Autocomplete
@@ -510,9 +512,9 @@ export default function PurchaseInvoicePage() {
                       <Typography variant="caption" color="text.secondary">
                         {p.nameAr}
                         {p.phone ? ` · ${p.phone}` : ''}
-                        {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
-                        {p.glnNo ? ` · GLN ${p.glnNo}` : ''}
-                        {!p.isActive ? ' · inactive' : ''}
+                        {p.vatNumber ? `${tr(" · VAT ")}${p.vatNumber}` : ''}
+                        {p.glnNo ? `${tr(" · GLN ")}${p.glnNo}` : ''}
+                        {!p.isActive ? tr("· inactive") : ''}
                       </Typography>
                     </Box>
                   </li>
@@ -523,7 +525,7 @@ export default function PurchaseInvoicePage() {
                   <TextField
                     {...params}
                     label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
-                    placeholder="Name, no, VAT, GLN or phone"
+                    placeholder={tr('Name, no, VAT, GLN or phone')}
                     size="small"
                   />
                 )}
@@ -535,7 +537,7 @@ export default function PurchaseInvoicePage() {
                 startIcon={<AddIcon />}
                 onClick={() => { setNewPartyOpen((o) => !o); setPartyId(''); }}
               >
-                {partyType === PARTY_TYPE_FLAG.customer ? 'New customer' : 'New vendor'}
+                {partyType === PARTY_TYPE_FLAG.customer ? tr("New customer") : tr("New vendor")}
               </Button>
             </Stack>
 
@@ -569,14 +571,14 @@ export default function PurchaseInvoicePage() {
                     dir="rtl"
                     fullWidth
                   />
-                  <TextField label="Phone" value={newPartyPhone} onChange={(e) => setNewPartyPhone(e.target.value)} size="small" fullWidth />
+                  <TextField label={tr('Phone')} value={newPartyPhone} onChange={(e) => setNewPartyPhone(e.target.value)} size="small" fullWidth />
                   {/* VAT is OPTIONAL (blank is legal for a non-registered party) but when typed
                       it is exactly 15 digits (KSA rule). onChange sanitizes as you type, so a
                       16th digit is simply not accepted and letters/spaces never get in; the error
                       message counts the digits entered so a short number is obvious before save,
                       and Save is disabled until it is complete or cleared. */}
                   <TextField
-                    label="VAT number (optional)"
+                    label={tr('VAT number (optional)')}
                     value={newPartyVat}
                     onChange={(e) => setNewPartyVat(cleanVatNumberInput(e.target.value))}
                     size="small"
@@ -595,7 +597,7 @@ export default function PurchaseInvoicePage() {
                   {/* Legacy gln_no: the party's GS1 location number. Optional, but a typed value
                       must be 13 digits - the same rule the full Vendor master form enforces. */}
                   <TextField
-                    label="GLN (optional)"
+                    label={tr('GLN (optional)')}
                     value={newPartyGln}
                     onChange={(e) => setNewPartyGln(e.target.value.replace(/\D/g, '').slice(0, 13))}
                     size="small"
@@ -611,7 +613,7 @@ export default function PurchaseInvoicePage() {
                     fullWidth
                   />
                   <Button variant="contained" size="small" disabled={!newPartyValid} onClick={saveParty} sx={{ alignSelf: 'flex-start' }}>
-                    {partyType === PARTY_TYPE_FLAG.customer ? 'Save customer' : 'Save vendor'}
+                    {partyType === PARTY_TYPE_FLAG.customer ? tr("Save customer") : tr("Save vendor")}
                   </Button>
                 </Stack>
               </Paper>
@@ -619,14 +621,14 @@ export default function PurchaseInvoicePage() {
 
             {party && partyType === PARTY_TYPE_FLAG.vendor && !newPartyOpen && (
               <Typography variant="caption" color="text.secondary">
-                {party.vendorNo} · {party.nameAr} · Phone {party.phone} · VAT {party.vatNumber || '—'}
-                {party.glnNo ? ` · GLN ${party.glnNo}` : ''}
+                {party.vendorNo} · {party.nameAr} <T>· Phone</T> {party.phone} <T>· VAT</T> {party.vatNumber || '—'}
+                {party.glnNo ? `${tr(" · GLN ")}${party.glnNo}` : ''}
               </Typography>
             )}
             {party && partyType === PARTY_TYPE_FLAG.customer && (
               <Typography variant="caption" color="text.secondary">
-                Customer account · {party.vendorNo} · {party.nameAr} · Phone {party.phone} · VAT {party.vatNumber || '—'}
-                {party.glnNo ? ` · GLN ${party.glnNo}` : ''}
+                <T>Customer account ·</T> {party.vendorNo} · {party.nameAr} <T>· Phone</T> {party.phone} <T>· VAT</T> {party.vatNumber || '—'}
+                {party.glnNo ? `${tr(" · GLN ")}${party.glnNo}` : ''}
                 {party.category ? ` · ${party.category}` : ''}
               </Typography>
             )}
@@ -645,15 +647,15 @@ export default function PurchaseInvoicePage() {
                 fullWidth
               />
               <TextField
-                label="Invoice seq."
+                label={tr('Invoice seq.')}
                 value={editing?.invoiceNo ?? nextPurchaseNo()}
                 size="small"
-                helperText="System-assigned PUR number - separate from the vendor's own document no."
+                helperText={tr('System-assigned PUR number - separate from the vendor\'s own document no.')}
                 slotProps={{ input: { readOnly: true } }}
                 fullWidth
               />
               <TextField
-                label="Invoice date"
+                label={tr('Invoice date')}
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -666,12 +668,12 @@ export default function PurchaseInvoicePage() {
             </Stack>
             {duplicateVendorInvoice && (
               <Alert severity="warning" icon={false}>
-                A purchase invoice from this {partyType === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'} with this
-                number was already received - receiving it again would double the stock. Check the history below.
+                <T>A purchase invoice from this</T> {partyType === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'} <T>with this
+                number was already received - receiving it again would double the stock. Check the history below.</T>
               </Alert>
             )}
             <TextField
-              label="Notes (optional)"
+              label={tr('Notes (optional)')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               size="small"
@@ -686,26 +688,26 @@ export default function PurchaseInvoicePage() {
               sx={{ maxWidth: 420 }}
             >
               <MenuItem value="">
-                <em>No cost center (unassigned exception)</em>
+                <em><T>No cost center (unassigned exception)</T></em>
               </MenuItem>
               {postingCenters.map((c) => (
                 <MenuItem key={c.id} value={c.id}>{c.code} — {c.nameEn}</MenuItem>
               ))}
             </Select>
             <Typography variant="caption" color="text.secondary">
-              Attributed branch/department for this invoice (defaults to this register's branch).
+              <T>Attributed branch/department for this invoice (defaults to this register's branch).</T>
             </Typography>
           </Stack>
         </Paper>
 
         {/* ---- line entry */}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Add Line</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}><T>Add Line</T></Typography>
           {!headerReadyForLines && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Select the {partyType === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'} and enter the{' '}
-              {partyType === PARTY_TYPE_FLAG.customer ? 'customer document no' : "vendor's invoice no"} above
-              before adding lines — every line must belong to an identified document.
+              <T>Select the</T> {partyType === PARTY_TYPE_FLAG.customer ? 'customer' : 'vendor'} <T>and enter the</T>{' '}
+              {partyType === PARTY_TYPE_FLAG.customer ? tr("customer document no") : tr("vendor's invoice no")} <T>above
+              before adding lines — every line must belong to an identified document.</T>
             </Alert>
           )}
           <Stack spacing={2}>
@@ -713,7 +715,7 @@ export default function PurchaseInvoicePage() {
               <TextField
                 inputRef={itemSearchRef}
                 fullWidth
-                label="Scan barcode or type item name / SKU, then Enter"
+                label={tr('Scan barcode or type item name / SKU, then Enter')}
                 size="small"
                 value={itemQuery}
                 disabled={!headerReadyForLines}
@@ -728,7 +730,7 @@ export default function PurchaseInvoicePage() {
               {itemDropdownOpen && (
                 <Paper
                   elevation={4}
-                  sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
+                  sx={{ position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, zIndex: 20, mt: 0.5, maxHeight: 320, overflow: 'auto' }}
                 >
                   <List dense disablePadding>
                     {itemSuggestions.map((item, i) => (
@@ -775,10 +777,10 @@ export default function PurchaseInvoicePage() {
             <Stack direction="row" spacing={1.5}>
               {selectedItem?.pack && (
                 <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel id="purchase-unit-label">Invoice unit</InputLabel>
+                  <InputLabel id="purchase-unit-label"><T>Invoice unit</T></InputLabel>
                   <Select
                     labelId="purchase-unit-label"
-                    label="Invoice unit"
+                    label={tr('Invoice unit')}
                     value={receiveUnit}
                     disabled={!headerReadyForLines}
                     onChange={(e) => {
@@ -809,18 +811,18 @@ export default function PurchaseInvoicePage() {
                 fullWidth
               />
               <TextField
-                label="Bonus (free)"
+                label={tr('Bonus (free)')}
                 type="number"
                 value={bonusQty}
                 onChange={(e) => setBonusQty(e.target.value)}
                 size="small"
                 disabled={!headerReadyForLines}
-                helperText="Free goods, never priced or taxed"
+                helperText={tr('Free goods, never priced or taxed')}
                 fullWidth
               />
             </Stack>
             <Stack direction="row" spacing={1.5}>
-              <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" disabled={!headerReadyForLines} fullWidth />
+              <TextField label={tr('Batch / Lot No.')} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} size="small" disabled={!headerReadyForLines} fullWidth />
               <TextField
                 label={
                   selectedItem && !itemTracksExpiry(selectedItem)
@@ -847,7 +849,7 @@ export default function PurchaseInvoicePage() {
             </Stack>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
               <TextField
-                label="Unit purchase price (excl. VAT)"
+                label={tr('Unit purchase price (excl. VAT)')}
                 type="number"
                 value={unitPurchasePrice}
                 onChange={(e) => setUnitPurchasePrice(e.target.value)}
@@ -863,11 +865,11 @@ export default function PurchaseInvoicePage() {
                 fullWidth
               />
               <TextField
-                label="Unit cost (computed)"
+                label={tr('Unit cost (computed)')}
                 value={lineValid ? formatUnitPrice(entryUnitCost) : ''}
                 disabled
                 size="small"
-                helperText="Per unit received (paid + bonus), after discounts"
+                helperText={tr('Per unit received (paid + bonus), after discounts')}
                 fullWidth
               />
             </Stack>
@@ -877,20 +879,20 @@ export default function PurchaseInvoicePage() {
                 the form. Empty = 0 for that tier. Each field now carries its own money read-out so
                 the percentage can be checked against the vendor's paper before the line is added. */}
             <Typography variant="caption" color="text.secondary">
-              Enter percentages (16.67% = 0.1667). Tiers cascade: #1 off the paid gross, #2 off what&apos;s
-              left, #3 off what&apos;s left after that.
+              <T>Enter percentages (16.67% = 0.1667). Tiers cascade: #1 off the paid gross, #2 off what&apos;s
+              left, #3 off what&apos;s left after that.</T>
             </Typography>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
                 <DiscountInput
-                  label="Discount 1"
+                  label={tr('Discount 1')}
                   value={discountPercent1}
                   onChange={setDiscountPercent1}
                   size="small"
                   disabled={!headerReadyForLines}
                 />
                 <TextField
-                  label="Value off #1 (SAR)"
+                  label={tr('Value off #1 (SAR)')}
                   value={linePreview ? formatMoney(linePreview.tierAmounts[0]) : ''}
                   placeholder="0.00"
                   size="small"
@@ -900,14 +902,14 @@ export default function PurchaseInvoicePage() {
               </Stack>
               <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
                 <DiscountInput
-                  label="Discount 2"
+                  label={tr('Discount 2')}
                   value={discountPercent2}
                   onChange={setDiscountPercent2}
                   size="small"
                   disabled={!headerReadyForLines}
                 />
                 <TextField
-                  label="Value off #2 (SAR)"
+                  label={tr('Value off #2 (SAR)')}
                   value={linePreview ? formatMoney(linePreview.tierAmounts[1]) : ''}
                   placeholder="0.00"
                   size="small"
@@ -917,14 +919,14 @@ export default function PurchaseInvoicePage() {
               </Stack>
               <Stack spacing={1} sx={{ flex: '1 1 190px', minWidth: 190 }}>
                 <DiscountInput
-                  label="Discount 3"
+                  label={tr('Discount 3')}
                   value={discountPercent3}
                   onChange={setDiscountPercent3}
                   size="small"
                   disabled={!headerReadyForLines}
                 />
                 <TextField
-                  label="Value off #3 (SAR)"
+                  label={tr('Value off #3 (SAR)')}
                   value={linePreview ? formatMoney(linePreview.tierAmounts[2]) : ''}
                   placeholder="0.00"
                   size="small"
@@ -937,7 +939,7 @@ export default function PurchaseInvoicePage() {
                 adds, the line total, and the invoice total including every line already added. */}
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <TextField
-                label="Line net (excl. VAT)"
+                label={tr('Line net (excl. VAT)')}
                 value={linePreview ? formatMoney(linePreview.netExclVat) : ''}
                 placeholder="0.00"
                 size="small"
@@ -959,7 +961,7 @@ export default function PurchaseInvoicePage() {
                 sx={{ flex: '1 1 170px' }}
               />
               <TextField
-                label="Line total (incl. VAT)"
+                label={tr('Line total (incl. VAT)')}
                 value={linePreview ? formatMoney(linePreview.totalInclVat) : ''}
                 placeholder="0.00"
                 size="small"
@@ -967,7 +969,7 @@ export default function PurchaseInvoicePage() {
                 sx={{ flex: '1 1 170px' }}
               />
               <TextField
-                label="Invoice total (incl. VAT, SAR)"
+                label={tr('Invoice total (incl. VAT, SAR)')}
                 value={formatMoney(totals.totalInclVat)}
                 size="small"
                 disabled
@@ -976,10 +978,10 @@ export default function PurchaseInvoicePage() {
             </Stack>
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" startIcon={<AddIcon />} disabled={!lineValid || !headerReadyForLines} onClick={addLine}>
-                {editingLineId ? 'Update line' : 'Add line to invoice'}
+                {editingLineId ? tr("Update line") : tr("Add line to invoice")}
               </Button>
               {editingLineId && (
-                <Button color="inherit" onClick={resetLineEntry}>Cancel line edit</Button>
+                <Button color="inherit" onClick={resetLineEntry}><T>Cancel line edit</T></Button>
               )}
             </Stack>
 
@@ -988,18 +990,18 @@ export default function PurchaseInvoicePage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Item</TableCell>
-                      <TableCell align="right">Qty</TableCell>
-                      <TableCell>Batch</TableCell>
-                      <TableCell>Expiry</TableCell>
-                      <TableCell align="right">Unit price</TableCell>
-                      <TableCell align="right">Unit cost</TableCell>
-                      <TableCell align="right">Discount 1</TableCell>
-                      <TableCell align="right">Discount 2</TableCell>
-                      <TableCell align="right">Discount 3</TableCell>
-                      <TableCell align="right">Net (excl. VAT)</TableCell>
-                      <TableCell align="right">Input VAT</TableCell>
-                      <TableCell align="right">Total</TableCell>
+                      <TableCell><T>Item</T></TableCell>
+                      <TableCell align="right"><T>Qty</T></TableCell>
+                      <TableCell><T>Batch</T></TableCell>
+                      <TableCell><T>Expiry</T></TableCell>
+                      <TableCell align="right"><T>Unit price</T></TableCell>
+                      <TableCell align="right"><T>Unit cost</T></TableCell>
+                      <TableCell align="right"><T>Discount 1</T></TableCell>
+                      <TableCell align="right"><T>Discount 2</T></TableCell>
+                      <TableCell align="right"><T>Discount 3</T></TableCell>
+                      <TableCell align="right"><T>Net (excl. VAT)</T></TableCell>
+                      <TableCell align="right"><T>Input VAT</T></TableCell>
+                      <TableCell align="right"><T>Total</T></TableCell>
                       <TableCell />
                     </TableRow>
                   </TableHead>
@@ -1010,7 +1012,7 @@ export default function PurchaseInvoicePage() {
                         <TableCell align="right">
                           {formatQty(l.qty)}
                           {l.bonusQty > 0 && (
-                            <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} bonus</Typography>
+                            <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} <T>bonus</T></Typography>
                           )}
                         </TableCell>
                         <TableCell>{l.batchNo}</TableCell>
@@ -1020,7 +1022,7 @@ export default function PurchaseInvoicePage() {
                           {formatUnitPrice(lineUnitCost(l))}
                           {l.bonusQty > 0 && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              paid-unit {formatUnitPrice(l.unitCostPrice)}
+                              <T>paid-unit</T> {formatUnitPrice(l.unitCostPrice)}
                             </Typography>
                           )}
                         </TableCell>
@@ -1037,7 +1039,7 @@ export default function PurchaseInvoicePage() {
                         <TableCell align="right">{formatMoney(l.vatAmount)}</TableCell>
                         <TableCell align="right">{formatMoney(l.totalInclVat)}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <IconButton size="small" onClick={() => beginLineEdit(l)} aria-label="Modify line">
+                          <IconButton size="small" onClick={() => beginLineEdit(l)} aria-label={tr('Modify line')}>
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>
                           <IconButton
@@ -1047,7 +1049,7 @@ export default function PurchaseInvoicePage() {
                               setLines((ls) => ls.filter((x) => x.id !== l.id));
                               if (editingLineId === l.id) resetLineEntry();
                             }}
-                            aria-label="Remove line"
+                            aria-label={tr('Remove line')}
                           >
                             <DeleteOutlineIcon fontSize="small" />
                           </IconButton>
@@ -1062,24 +1064,24 @@ export default function PurchaseInvoicePage() {
             {lines.length > 0 && (
               <Box sx={{ alignSelf: 'flex-end', minWidth: 300 }}>
                 <Stack spacing={0.5} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                  <Row label="Subtotal (excl. VAT)" value={formatMoney(totals.subtotalExclVat)} />
-                  <Row label="Purchase discounts" value={`-${formatMoney(totals.totalDiscount)}`} />
+                  <Row label={tr('Subtotal (excl. VAT)')} value={formatMoney(totals.subtotalExclVat)} />
+                  <Row label={tr('Purchase discounts')} value={`-${formatMoney(totals.totalDiscount)}`} />
                   {totals.totalBonusValue > 0 && (
                     <Row
-                      label="Bonus goods (free - not charged or taxed)"
+                      label={tr('Bonus goods (free - not charged or taxed)')}
                       value={formatMoney(totals.totalBonusValue)}
                     />
                   )}
-                  <Row label="Net before VAT" value={formatMoney(totals.netExclVat)} />
+                  <Row label={tr('Net before VAT')} value={formatMoney(totals.netExclVat)} />
                   {totals.vatByRate.map((b) => (
                     <Row
                       key={b.rate}
-                      label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
+                      label={`${tr('Input VAT ')}${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr('(zero-rated)')}`}
                       value={formatMoney(b.vatAmount)}
                     />
                   ))}
                   <Divider />
-                  <Row label="Total incl. VAT (SAR)" value={formatMoney(totals.totalInclVat)} bold />
+                  <Row label={tr('Total incl. VAT (SAR)')} value={formatMoney(totals.totalInclVat)} bold />
                 </Stack>
               </Box>
             )}
@@ -1094,12 +1096,12 @@ export default function PurchaseInvoicePage() {
             disabled={!invoiceHeaderValid}
           >
             {editing
-              ? `Save changes to ${editing.invoiceNo} (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${formatMoney(totals.totalInclVat)}`
-              : `Receive into stock (${lines.length} line${lines.length === 1 ? '' : 's'}) · SAR ${formatMoney(totals.totalInclVat)}`}
+              ? `${tr("Save changes to ")}${editing.invoiceNo} (${lines.length} line${lines.length === 1 ? '' : 's'}${tr(") · SAR ")}${formatMoney(totals.totalInclVat)}`
+              : `${tr("Receive into stock (")}${lines.length} line${lines.length === 1 ? '' : 's'}${tr(") · SAR ")}${formatMoney(totals.totalInclVat)}`}
           </Button>
           {editing && (
             <Button size="large" color="inherit" onClick={cancelEdit}>
-              Cancel
+              <T>Cancel</T>
             </Button>
           )}
         </Stack>
@@ -1109,12 +1111,12 @@ export default function PurchaseInvoicePage() {
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <ReceiptLongIcon sx={{ color: '#1565c0' }} fontSize="small" />
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Posted Invoices</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}><T>Posted Invoices</T></Typography>
             </Stack>
             <TextField
               size="small"
-              label="Search posted invoices"
-              placeholder="e.g. PUR-000001"
+              label={tr('Search posted invoices')}
+              placeholder={tr('e.g. PUR-000001')}
               value={historyFilter}
               onChange={(e) => setHistoryFilter(e.target.value)}
               sx={{ width: 320 }}
@@ -1122,8 +1124,8 @@ export default function PurchaseInvoicePage() {
           </Stack>
           {filteredInvoices.length > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Showing latest {visibleInvoices.length} of {filteredInvoices.length} posted invoices
-              {historyFilter.trim() ? ` matching “${historyFilter.trim()}”` : ''}.
+              <T>Showing latest</T> {visibleInvoices.length} <T>of</T> {filteredInvoices.length} <T>posted invoices</T>
+              {historyFilter.trim() ? `${tr("matching “")}${historyFilter.trim()}”` : ''}.
             </Typography>
           )}
           {/* Returns are posted documents too, but they are not purchases: editing or deleting one
@@ -1131,25 +1133,25 @@ export default function PurchaseInvoicePage() {
               Returns tab and are filtered out here. */}
           {purchaseInvoices.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No purchase invoices posted yet.
+              <T>No purchase invoices posted yet.</T>
             </Typography>
           ) : filteredInvoices.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No posted invoices match “{historyFilter.trim()}”.
+              <T>No posted invoices match “</T>{historyFilter.trim()}”.
             </Typography>
           ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Vendor / customer doc. no</TableCell>
-                    <TableCell>Party No.</TableCell>
-                    <TableCell>Invoice seq.</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Center</TableCell>
-                    <TableCell align="right">Lines</TableCell>
-                    <TableCell align="right">Total (SAR)</TableCell>
-                    <TableCell align="right">Input VAT</TableCell>
+                    <TableCell><T>Vendor / customer doc. no</T></TableCell>
+                    <TableCell><T>Party No.</T></TableCell>
+                    <TableCell><T>Invoice seq.</T></TableCell>
+                    <TableCell><T>Date</T></TableCell>
+                    <TableCell><T>Center</T></TableCell>
+                    <TableCell align="right"><T>Lines</T></TableCell>
+                    <TableCell align="right"><T>Total (SAR)</T></TableCell>
+                    <TableCell align="right"><T>Input VAT</T></TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -1174,14 +1176,14 @@ export default function PurchaseInvoicePage() {
                       <TableCell align="right">{formatMoney(inv.totalInclVat)}</TableCell>
                       <TableCell align="right">{formatMoney(inv.totalVatAmount)}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        <IconButton size="small" color="info" onClick={() => setViewing(inv)} aria-label="View invoice">
+                        <IconButton size="small" color="info" onClick={() => setViewing(inv)} aria-label={tr('View invoice')}>
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                         <IconButton
                           size="small"
                           color="primary"
                           onClick={() => setPrinting(inv)}
-                          aria-label="Print purchase invoice"
+                          aria-label={tr('Print purchase invoice')}
                         >
                           <PrintIcon fontSize="small" />
                         </IconButton>
@@ -1189,7 +1191,7 @@ export default function PurchaseInvoicePage() {
                           size="small"
                           color="warning"
                           onClick={() => beginEdit(inv)}
-                          aria-label="Modify purchase invoice"
+                          aria-label={tr('Modify purchase invoice')}
                         >
                           <EditOutlinedIcon fontSize="small" />
                         </IconButton>
@@ -1197,7 +1199,7 @@ export default function PurchaseInvoicePage() {
                           size="small"
                           color="error"
                           onClick={() => { setDeleteError(null); setDeleteTarget(inv); }}
-                          aria-label="Delete purchase invoice"
+                          aria-label={tr('Delete purchase invoice')}
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
@@ -1217,7 +1219,7 @@ export default function PurchaseInvoicePage() {
             <ReceiptLongIcon color="primary" fontSize="small" />
             <span>{viewing?.invoiceNo}</span>
           </Stack>
-          <IconButton size="small" onClick={() => setViewing(null)} aria-label="Close">
+          <IconButton size="small" onClick={() => setViewing(null)} aria-label={tr('Close')}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1236,26 +1238,26 @@ export default function PurchaseInvoicePage() {
                 {viewing.vendorNameAr}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {viewing.partyType === PARTY_TYPE_FLAG.customer ? 'Customer document no' : 'Vendor invoice no'}:{' '}
+                {viewing.partyType === PARTY_TYPE_FLAG.customer ? tr("Customer document no") : tr("Vendor invoice no")}:{' '}
                 <strong>{viewing.vendorInvoiceNo}</strong>
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {viewing.vendorNameEn} · {viewing.date} · received by {viewing.receivedBy}
+                {viewing.vendorNameEn} · {viewing.date} <T>· received by</T> {viewing.receivedBy}
                 {viewing.notes ? ` · ${viewing.notes}` : ''}
               </Typography>
               <Divider />
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell align="right">Qty</TableCell>
-                    <TableCell>Batch / expiry</TableCell>
-                    <TableCell align="right">Unit price</TableCell>
-                    <TableCell align="right">Unit cost</TableCell>
-                    <TableCell align="right">Discount 1</TableCell>
-                    <TableCell align="right">Discount 2</TableCell>
-                    <TableCell align="right">Discount 3</TableCell>
-                    <TableCell align="right">Total</TableCell>
+                    <TableCell><T>Item</T></TableCell>
+                    <TableCell align="right"><T>Qty</T></TableCell>
+                    <TableCell><T>Batch / expiry</T></TableCell>
+                    <TableCell align="right"><T>Unit price</T></TableCell>
+                    <TableCell align="right"><T>Unit cost</T></TableCell>
+                    <TableCell align="right"><T>Discount 1</T></TableCell>
+                    <TableCell align="right"><T>Discount 2</T></TableCell>
+                    <TableCell align="right"><T>Discount 3</T></TableCell>
+                    <TableCell align="right"><T>Total</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1265,7 +1267,7 @@ export default function PurchaseInvoicePage() {
                       <TableCell align="right">
                         {formatQty(l.qty)}
                         {l.bonusQty > 0 && (
-                          <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} bonus</Typography>
+                          <Typography variant="caption" color="text.secondary"> + {formatQty(l.bonusQty)} <T>bonus</T></Typography>
                         )}
                       </TableCell>
                       <TableCell>{l.batchNo} · {l.expiryDate ?? '—'}</TableCell>
@@ -1274,7 +1276,7 @@ export default function PurchaseInvoicePage() {
                         {formatUnitPrice(lineUnitCost(l))}
                         {l.bonusQty > 0 && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            paid-unit {formatUnitPrice(l.unitCostPrice)}
+                            <T>paid-unit</T> {formatUnitPrice(l.unitCostPrice)}
                           </Typography>
                         )}
                       </TableCell>
@@ -1293,19 +1295,19 @@ export default function PurchaseInvoicePage() {
                 </TableBody>
               </Table>
               <Divider />
-              <Row label="Subtotal (excl. VAT)" value={formatMoney(viewing.subtotalExclVat)} />
-              <Row label="Purchase discounts" value={`-${formatMoney(viewing.totalDiscount)}`} />
+              <Row label={tr('Subtotal (excl. VAT)')} value={formatMoney(viewing.subtotalExclVat)} />
+              <Row label={tr('Purchase discounts')} value={`-${formatMoney(viewing.totalDiscount)}`} />
               {viewing.totalBonusValue > 0 && (
-                <Row label="Bonus goods (free - not charged or taxed)" value={formatMoney(viewing.totalBonusValue)} />
+                <Row label={tr('Bonus goods (free - not charged or taxed)')} value={formatMoney(viewing.totalBonusValue)} />
               )}
               {viewing.vatByRate.map((b) => (
                 <Row
                   key={b.rate}
-                  label={`Input VAT ${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : '(zero-rated)'}`}
+                  label={`${tr('Input VAT ')}${b.rate > 0 ? `(${(b.rate * 100).toFixed(0)}%)` : tr('(zero-rated)')}`}
                   value={formatMoney(b.vatAmount)}
                 />
               ))}
-              <Row label="Total incl. VAT (SAR)" value={formatMoney(viewing.totalInclVat)} bold />
+              <Row label={tr('Total incl. VAT (SAR)')} value={formatMoney(viewing.totalInclVat)} bold />
             </Stack>
           )}
         </DialogContent>
@@ -1319,37 +1321,37 @@ export default function PurchaseInvoicePage() {
               setViewing(null);
             }}
           >
-            Print A4
+            <T>Print A4</T>
           </Button>
           <Button
             color="warning"
             startIcon={<EditOutlinedIcon />}
             onClick={() => { if (viewing) beginEdit(viewing); }}
           >
-            Modify
+            <T>Modify</T>
           </Button>
-          <Button onClick={() => setViewing(null)}>Close</Button>
+          <Button onClick={() => setViewing(null)}><T>Close</T></Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete {deleteTarget?.invoiceNo}?</DialogTitle>
+        <DialogTitle><T>Delete</T> {deleteTarget?.invoiceNo}?</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
             <Typography variant="body2">
-              This removes the invoice from history and takes its received stock back out of the
-              batches it created.
+              <T>This removes the invoice from history and takes its received stock back out of the
+              batches it created.</T>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              If any of that delivery has already been sold or moved, deletion is refused - post a
-              purchase return / credit note instead.
+              <T>If any of that delivery has already been sold or moved, deletion is refused - post a
+              purchase return / credit note instead.</T>
             </Typography>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmDelete}>Delete Invoice</Button>
+          <Button onClick={() => setDeleteTarget(null)}><T>Cancel</T></Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete Invoice</T></Button>
         </DialogActions>
       </Dialog>
 

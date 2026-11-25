@@ -19,6 +19,7 @@ import {
 } from '../../utils/wasfaty';
 import * as wasfatyApi from '../../api/wasfatyApi';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   initialPatientId?: string;
@@ -31,6 +32,7 @@ function today(): string {
 }
 
 export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, onStart }: Props) {
+  const tr = useT();
   const [values, setValues] = useState<WasfatySession>({
     patientNationalId: initialPatientId ?? '',
     prescriptionNo: '',
@@ -104,20 +106,20 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <LocalPharmacyOutlinedIcon color="primary" />
-        Wasfaty / وصفتي dispense
+        <T>Wasfaty / وصفتي dispense</T>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
-            Covered items are invoiced at the NUPCO-approved value and settled by a Wasfaty tender,
-            so the patient share is 0.00. Non-covered items stay patient-paid on the same invoice.
+            <T>Covered items are invoiced at the NUPCO-approved value and settled by a Wasfaty tender,
+            so the patient share is 0.00. Non-covered items stay patient-paid on the same invoice.</T>
           </Typography>
           {lookupState.error && <Alert severity="warning" onClose={() => setLookupState({ loading: false })}>{lookupState.error}</Alert>}
           {lookupState.info && <Alert severity="success">{lookupState.info}</Alert>}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
             <TextField
-              label="Prescription No. (وصفة)"
+              label={tr('Prescription No. (وصفة)')}
               value={values.prescriptionNo}
               onChange={(e) => patch('prescriptionNo', e.target.value)}
               error={!!errorFor('prescriptionNo')}
@@ -133,13 +135,13 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
               onClick={lookup}
               sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
             >
-              Look up
+              <T>Look up</T>
             </Button>
           </Stack>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField
-              label="Patient National ID / Iqama"
+              label={tr('Patient National ID / Iqama')}
               value={values.patientNationalId}
               onChange={(e) => patch('patientNationalId', e.target.value.replace(/\D/g, '').slice(0, 10))}
               error={!!errorFor('patientNationalId')}
@@ -154,7 +156,7 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
               slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 10 } }}
             />
             <TextField
-              label="Prescription date"
+              label={tr('Prescription date')}
               type="date"
               value={values.prescriptionDate}
               onChange={(e) => patch('prescriptionDate', e.target.value)}
@@ -168,14 +170,14 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField
-              label="Wasfaty reference (optional)"
+              label={tr('Wasfaty reference (optional)')}
               value={values.wasfatyReferenceNo ?? ''}
               onChange={(e) => patch('wasfatyReferenceNo', e.target.value)}
               size="small"
               fullWidth
             />
             <TextField
-              label="Authorization No. (optional)"
+              label={tr('Authorization No. (optional)')}
               value={values.authorizationNo ?? ''}
               onChange={(e) => patch('authorizationNo', e.target.value)}
               error={!!errorFor('authorizationNo')}
@@ -188,7 +190,7 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
           <Divider />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField
-              label="Prescriber name"
+              label={tr('Prescriber name')}
               value={values.prescriberName}
               onChange={(e) => patch('prescriberName', e.target.value)}
               error={!!errorFor('prescriberName')}
@@ -197,7 +199,7 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
               fullWidth
             />
             <TextField
-              label="Prescriber ID (optional)"
+              label={tr('Prescriber ID (optional)')}
               value={values.prescriberId ?? ''}
               onChange={(e) => patch('prescriberId', e.target.value)}
               size="small"
@@ -207,14 +209,14 @@ export default function WasfatyCaptureDialog({ open, initialPatientId, onClose, 
 
           <Box>
             <Typography variant="caption" color="text.secondary">
-              The cashier/pharmacist on this register is recorded on the dispense automatically.
+              <T>The cashier/pharmacist on this register is recorded on the dispense automatically.</T>
             </Typography>
           </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={start}>Start dispense</Button>
+        <Button onClick={onClose}><T>Cancel</T></Button>
+        <Button variant="contained" onClick={start}><T>Start dispense</T></Button>
       </DialogActions>
     </Dialog>
   );

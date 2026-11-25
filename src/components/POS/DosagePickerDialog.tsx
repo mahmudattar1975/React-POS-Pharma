@@ -14,6 +14,7 @@ import type { DosageSnapshot } from '../../types/dosage';
 import { useDosageStore } from '../../store/dosageStore';
 import { buildDosageText, snapshotDosage } from '../../utils/dosages';
 
+import { T, useT } from '../../i18n';
 interface Props {
   open: boolean;
   item: Item | null;
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function DosagePickerDialog({ open, item, selectedCode, onPick, onClose }: Props) {
+  const tr = useT();
   const dosages = useDosageStore((s) => s.dosages);
 
   const linked = (item?.dosageIds ?? [])
@@ -37,7 +39,7 @@ export default function DosagePickerDialog({ open, item, selectedCode, onPick, o
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        Directions for use
+        <T>Directions for use</T>
         {item && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {item.nameEn}{item.nameAr ? ` · ${item.nameAr}` : ''}
@@ -78,7 +80,7 @@ export default function DosagePickerDialog({ open, item, selectedCode, onPick, o
                     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 0.25 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{text.textEn}</Typography>
                       <Chip size="small" variant="outlined" label={dosage.code} sx={{ fontFamily: 'monospace', height: 21 }} />
-                      {suggested && <Chip size="small" color="primary" label="Suggested" sx={{ height: 21 }} />}
+                      {suggested && <Chip size="small" color="primary" label={tr('Suggested')} sx={{ height: 21 }} />}
                     </Stack>
                   }
                   secondary={

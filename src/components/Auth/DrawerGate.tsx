@@ -4,6 +4,7 @@ import { Box, CircularProgress, Alert, Button, Stack } from '@mui/material';
 import { useShiftStore } from '../../store/shiftStore';
 import OpenDrawerDialog from './OpenDrawerDialog';
 
+import { T } from '../../i18n';
 // Sits inside AppLayout's <Outlet/> - every page requires the logged-in cashier to have an open
 // shift, same rule the backend enforces server-side on every sale/return.
 export default function DrawerGate() {
@@ -26,7 +27,7 @@ export default function DrawerGate() {
       <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
         <Stack spacing={2} sx={{ alignItems: 'center' }}>
           <Alert severity="error">{error}</Alert>
-          <Button variant="outlined" onClick={() => refresh()}>Retry</Button>
+          <Button variant="outlined" onClick={() => refresh()}><T>Retry</T></Button>
         </Stack>
       </Box>
     );

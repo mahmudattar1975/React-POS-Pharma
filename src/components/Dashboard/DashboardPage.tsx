@@ -35,6 +35,7 @@ import {
 } from '../../utils/analytics';
 import type { NamedValue, TrendPoint } from '../../utils/analytics';
 
+import { T, useT } from '../../i18n';
 type PeriodKey = '30' | '90' | '365' | 'all';
 
 const PERIOD_LABEL: Record<PeriodKey, string> = {
@@ -232,6 +233,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
 }
 
 export default function DashboardPage() {
+  const tr = useT();
   const navigate = useNavigate();
   const { invoices: sales, returns: salesReturns } = useSalesStore();
   const { invoices: purchaseDocs, vendors } = usePurchasingStore();
@@ -294,24 +296,24 @@ export default function DashboardPage() {
       {/* ---- header ---- */}
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Business Dashboard</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}><T>Business Dashboard</T></Typography>
           <Typography variant="body2" color="text.secondary">
-            {settings.storeNameEn || 'Pharmacy'} · {settings.storeNameAr || ''} · {salesPeriodLabel}
+            {settings.storeNameEn || tr("Pharmacy")} · {settings.storeNameAr || ''} · {salesPeriodLabel}
           </Typography>
         </Box>
         <Stack id="dashboard-print-controls" direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Chip
             size="small"
-            label="Live data"
+            label={tr('Live data')}
             color="success"
             variant="outlined"
             sx={{ bgcolor: '#2f7a5210' }}
           />
           <Button variant="outlined" startIcon={<BarChartIcon />} onClick={() => navigate('/reports')}>
-            Detailed reports
+            <T>Detailed reports</T>
           </Button>
           <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>
-            Print
+            <T>Print</T>
           </Button>
         </Stack>
       </Stack>
@@ -321,7 +323,7 @@ export default function DashboardPage() {
         {(Object.keys(PERIOD_LABEL) as PeriodKey[]).map((key) => (
           <Chip
             key={key}
-            label={PERIOD_LABEL[key]}
+            label={tr(PERIOD_LABEL[key])}
             color={period === key ? 'primary' : 'default'}
             variant={period === key ? 'filled' : 'outlined'}
             onClick={() => setPeriod(key)}
@@ -329,7 +331,7 @@ export default function DashboardPage() {
           />
         ))}
         <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', ml: 1 }}>
-          Stock figures are always the current shelf state.
+          <T>Stock figures are always the current shelf state.</T>
         </Typography>
       </Stack>
 
@@ -339,49 +341,49 @@ export default function DashboardPage() {
           <StatTile
             icon={PointOfSaleIcon}
             color="#2e7d32"
-            label="Net sales (incl. VAT)"
+            label={tr('Net sales (incl. VAT)')}
             value={formatSar(salesSummary.grossSales)}
             hint={`${salesSummary.invoiceCount} invoice${salesSummary.invoiceCount === 1 ? '' : 's'} · avg ${formatSar(salesSummary.avgBasket)}`}
           />
           <StatTile
             icon={ShoppingCartIcon}
             color="#5d4037"
-            label="Purchases (incl. VAT)"
+            label={tr('Purchases (incl. VAT)')}
             value={formatSar(purchaseSummary.purchasesInclVat)}
             hint={`${purchaseSummary.invoiceCount} invoice${purchaseSummary.invoiceCount === 1 ? '' : 's'} · input VAT ${formatSar(purchaseSummary.vat)}`}
           />
           <StatTile
             icon={AssignmentReturnIcon}
             color="#e65100"
-            label="Sales returns"
+            label={tr('Sales returns')}
             value={formatSar(salesSummary.refunded)}
             hint={`${salesSummary.returnCount} return${salesSummary.returnCount === 1 ? '' : 's'} · ${(salesSummary.returnRate * 100).toFixed(1)}% of sales`}
           />
           <StatTile
             icon={UndoIcon}
             color="#c62828"
-            label="Purchase returns"
+            label={tr('Purchase returns')}
             value={formatSar(purchaseSummary.credit)}
             hint={`${purchaseSummary.returnCount} return${purchaseSummary.returnCount === 1 ? '' : 's'} · ${(purchaseSummary.returnRate * 100).toFixed(1)}% of purchases`}
           />
           <StatTile
             icon={Inventory2Icon}
             color="#1565c0"
-            label="Stock at cost"
+            label={tr('Stock at cost')}
             value={formatSar(stockSummary.costValue)}
             hint={`${formatQty(stockSummary.units)} units · ${stockSummary.batchCount} batches`}
           />
           <StatTile
             icon={PaidIcon}
             color="#00838f"
-            label="Stock at retail"
+            label={tr('Stock at retail')}
             value={formatSar(stockSummary.retailValue)}
             hint={`Potential margin ${formatSar(stockSummary.margin)}`}
           />
           <StatTile
             icon={HourglassEmptyIcon}
             color="#b8862c"
-            label="Stagnant stock (90 days)"
+            label={tr('Stagnant stock (90 days)')}
             value={formatSar(stagnant.costValue)}
             hint={`${stagnant.count} item${stagnant.count === 1 ? '' : 's'} · no sale in 90 days`}
           />
@@ -392,7 +394,7 @@ export default function DashboardPage() {
           <SectionHeader
             icon={BarChartIcon}
             color="#1565c0"
-            title="Sales & Purchasing — last 6 months"
+            title={tr('Sales & Purchasing — last 6 months')}
             subtitle="Returns are drawn as their own positive bars, never subtracted from the sale or purchase"
           />
           <TrendChart points={trend} />
@@ -404,30 +406,30 @@ export default function DashboardPage() {
             <SectionHeader
               icon={Inventory2Icon}
               color="#1565c0"
-              title="Goods on the Shelf"
+              title={tr('Goods on the Shelf')}
               subtitle="Cost value by category, from the live batches"
             />
             <Stack direction="row" spacing={3} sx={{ mb: 1.5, flexWrap: 'wrap', rowGap: 1 }}>
               <Box>
-                <Typography variant="caption" color="text.secondary">Items</Typography>
+                <Typography variant="caption" color="text.secondary"><T>Items</T></Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{stockSummary.itemCount}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Units on hand</Typography>
+                <Typography variant="caption" color="text.secondary"><T>Units on hand</T></Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{formatQty(stockSummary.units)}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">At cost</Typography>
+                <Typography variant="caption" color="text.secondary"><T>At cost</T></Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{formatSar(stockSummary.costValue)}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">At retail</Typography>
+                <Typography variant="caption" color="text.secondary"><T>At retail</T></Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{formatSar(stockSummary.retailValue)}</Typography>
               </Box>
             </Stack>
             <Divider sx={{ mb: 1.5 }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Cost value by category
+              <T>Cost value by category</T>
             </Typography>
             <Box sx={{ mt: 1 }}>
               <BarList
@@ -442,7 +444,7 @@ export default function DashboardPage() {
             <SectionHeader
               icon={WarningAmberIcon}
               color="#b8862c"
-              title="Stock Watch"
+              title={tr('Stock Watch')}
               subtitle="Items at or below reorder level, and batches that have expired or expire within 90 days"
             />
             <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
@@ -452,9 +454,9 @@ export default function DashboardPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Item</TableCell>
-                  <TableCell align="right">On hand</TableCell>
-                  <TableCell align="right">Reorder</TableCell>
+                  <TableCell><T>Item</T></TableCell>
+                  <TableCell align="right"><T>On hand</T></TableCell>
+                  <TableCell align="right"><T>Reorder</T></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -462,7 +464,7 @@ export default function DashboardPage() {
                   <TableRow>
                     <TableCell colSpan={3}>
                       <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                        Every item is above its reorder level.
+                        <T>Every item is above its reorder level.</T>
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -480,19 +482,19 @@ export default function DashboardPage() {
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
               <EventBusyIcon fontSize="small" sx={{ color: '#c62828' }} />
               <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                Expired / expiring within 90 days
+                <T>Expired / expiring within 90 days</T>
               </Typography>
             </Stack>
             {stockSummary.expiring.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">No batch is close to expiry.</Typography>
+              <Typography variant="body2" color="text.secondary"><T>No batch is close to expiry.</T></Typography>
             ) : (
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Batch</TableCell>
-                    <TableCell>Expiry</TableCell>
-                    <TableCell align="right">Qty</TableCell>
+                    <TableCell><T>Item</T></TableCell>
+                    <TableCell><T>Batch</T></TableCell>
+                    <TableCell><T>Expiry</T></TableCell>
+                    <TableCell align="right"><T>Qty</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -515,7 +517,7 @@ export default function DashboardPage() {
           <SectionHeader
             icon={HourglassEmptyIcon}
             color="#b8862c"
-            title="Stagnant Items"
+            title={tr('Stagnant Items')}
             subtitle="Stock on hand with no sale in the last 90 days, ranked by the money tied up"
             action={(
               <Stack direction="row" spacing={1}>
@@ -526,20 +528,20 @@ export default function DashboardPage() {
           />
           {stagnant.rows.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-              Every item in stock has sold within the last 90 days.
+              <T>Every item in stock has sold within the last 90 days.</T>
             </Typography>
           ) : (
             <>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell align="right">On hand</TableCell>
-                    <TableCell align="right">At cost</TableCell>
-                    <TableCell align="right">At retail</TableCell>
-                    <TableCell>Last sold</TableCell>
-                    <TableCell align="right">Idle</TableCell>
+                    <TableCell><T>Item</T></TableCell>
+                    <TableCell><T>Category</T></TableCell>
+                    <TableCell align="right"><T>On hand</T></TableCell>
+                    <TableCell align="right"><T>At cost</T></TableCell>
+                    <TableCell align="right"><T>At retail</T></TableCell>
+                    <TableCell><T>Last sold</T></TableCell>
+                    <TableCell align="right"><T>Idle</T></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -550,7 +552,7 @@ export default function DashboardPage() {
                       <TableCell align="right">{formatQty(row.qtyOnHand)}</TableCell>
                       <TableCell align="right">{formatSar(row.costValue)}</TableCell>
                       <TableCell align="right">{formatSar(row.retailValue)}</TableCell>
-                      <TableCell>{row.lastSoldDate ?? 'Never sold'}</TableCell>
+                      <TableCell>{row.lastSoldDate ?? tr("Never sold")}</TableCell>
                       <TableCell align="right">
                         {row.daysIdle === null ? '—' : `${formatQty(row.daysIdle)} days`}
                       </TableCell>
@@ -560,7 +562,7 @@ export default function DashboardPage() {
               </Table>
               {stagnant.rows.length > 10 && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Showing the 10 largest of {stagnant.count} stagnant items. The full list is in Reports.
+                  <T>Showing the 10 largest of</T> {stagnant.count} <T>stagnant items. The full list is in Reports.</T>
                 </Typography>
               )}
             </>
@@ -573,25 +575,25 @@ export default function DashboardPage() {
             <SectionHeader
               icon={PointOfSaleIcon}
               color="#2e7d32"
-              title="Sales Analysis"
+              title={tr('Sales Analysis')}
               subtitle={`${salesSummary.invoiceCount} invoices · ${formatQty(salesSummary.itemsSold)} units sold`}
             />
             <Stack spacing={0.25} sx={{ mb: 1.5 }}>
-              <StatLine label="Gross sales (incl. VAT)" value={formatSar(salesSummary.grossSales)} />
-              <StatLine label="Net excl. VAT" value={formatSar(salesSummary.netExclVat)} />
-              <StatLine label="Output VAT" value={formatSar(salesSummary.vat)} />
-              <StatLine label="Average basket" value={formatSar(salesSummary.avgBasket)} />
-              <StatLine label="Sales returns" value={`${formatSar(salesSummary.refunded)} · ${formatQty(salesSummary.returnedUnits)} units`} />
+              <StatLine label={tr('Gross sales (incl. VAT)')} value={formatSar(salesSummary.grossSales)} />
+              <StatLine label={tr('Net excl. VAT')} value={formatSar(salesSummary.netExclVat)} />
+              <StatLine label={tr('Output VAT')} value={formatSar(salesSummary.vat)} />
+              <StatLine label={tr('Average basket')} value={formatSar(salesSummary.avgBasket)} />
+              <StatLine label={tr('Sales returns')} value={`${formatSar(salesSummary.refunded)} · ${formatQty(salesSummary.returnedUnits)} units`} />
             </Stack>
             <Divider sx={{ mb: 1.5 }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Payment mix
+              <T>Payment mix</T>
             </Typography>
             <Box sx={{ mt: 1, mb: 2 }}>
               <BarList rows={salesSummary.byPayment} color="#2f7a52" empty="No payments recorded in this period." />
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Top items by sales
+              <T>Top items by sales</T>
             </Typography>
             <Box sx={{ mt: 1 }}>
               <BarList rows={salesSummary.topItems} color="#1565c0" empty="No items sold in this period." />
@@ -602,18 +604,18 @@ export default function DashboardPage() {
             <SectionHeader
               icon={ShoppingCartIcon}
               color="#5d4037"
-              title="Purchasing Analysis"
+              title={tr('Purchasing Analysis')}
               subtitle={`${purchaseSummary.invoiceCount} invoices · ${formatQty(purchaseSummary.paidUnits)} paid units + ${formatQty(purchaseSummary.bonusUnits)} bonus`}
             />
             <Stack spacing={0.25} sx={{ mb: 1.5 }}>
-              <StatLine label="Purchases (incl. VAT)" value={formatSar(purchaseSummary.purchasesInclVat)} />
-              <StatLine label="Net excl. VAT" value={formatSar(purchaseSummary.purchasesExclVat)} />
-              <StatLine label="Input VAT" value={formatSar(purchaseSummary.vat)} />
-              <StatLine label="Purchase returns" value={`${formatSar(purchaseSummary.credit)} · ${formatQty(purchaseSummary.returnedUnits)} units`} />
+              <StatLine label={tr('Purchases (incl. VAT)')} value={formatSar(purchaseSummary.purchasesInclVat)} />
+              <StatLine label={tr('Net excl. VAT')} value={formatSar(purchaseSummary.purchasesExclVat)} />
+              <StatLine label={tr('Input VAT')} value={formatSar(purchaseSummary.vat)} />
+              <StatLine label={tr('Purchase returns')} value={`${formatSar(purchaseSummary.credit)} · ${formatQty(purchaseSummary.returnedUnits)} units`} />
             </Stack>
             <Divider sx={{ mb: 1.5 }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Top suppliers by purchases
+              <T>Top suppliers by purchases</T>
             </Typography>
             <Box sx={{ mt: 1 }}>
               <BarList rows={purchaseSummary.topVendors} color="#5d4037" empty="No purchases in this period." />
@@ -627,31 +629,31 @@ export default function DashboardPage() {
             <SectionHeader
               icon={AssignmentReturnIcon}
               color="#e65100"
-              title="Returns Watch"
+              title={tr('Returns Watch')}
               subtitle="What came back in and what went back to suppliers"
             />
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#e6510008', border: '1px solid', borderColor: '#e6510022' }}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
                   <AssignmentReturnIcon fontSize="small" sx={{ color: '#e65100' }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Sales returns</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Sales returns</T></Typography>
                 </Stack>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{formatSar(salesSummary.refunded)}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                  {salesSummary.returnCount} return{salesSummary.returnCount === 1 ? '' : 's'} · {(salesSummary.returnRate * 100).toFixed(1)}% of sales
+                  {salesSummary.returnCount} <T>return</T>{salesSummary.returnCount === 1 ? '' : 's'} · {(salesSummary.returnRate * 100).toFixed(1)}<T>% of sales</T>
                 </Typography>
-                <StatLine label="Units returned" value={formatQty(salesSummary.returnedUnits)} />
+                <StatLine label={tr('Units returned')} value={formatQty(salesSummary.returnedUnits)} />
               </Box>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#c6282808', border: '1px solid', borderColor: '#c6282822' }}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
                   <UndoIcon fontSize="small" sx={{ color: '#c62828' }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Purchase returns</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}><T>Purchase returns</T></Typography>
                 </Stack>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{formatSar(purchaseSummary.credit)}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                  {purchaseSummary.returnCount} return{purchaseSummary.returnCount === 1 ? '' : 's'} · {(purchaseSummary.returnRate * 100).toFixed(1)}% of purchases
+                  {purchaseSummary.returnCount} <T>return</T>{purchaseSummary.returnCount === 1 ? '' : 's'} · {(purchaseSummary.returnRate * 100).toFixed(1)}<T>% of purchases</T>
                 </Typography>
-                <StatLine label="Units returned" value={formatQty(purchaseSummary.returnedUnits)} />
+                <StatLine label={tr('Units returned')} value={formatQty(purchaseSummary.returnedUnits)} />
               </Box>
             </Box>
           </Paper>
@@ -660,11 +662,11 @@ export default function DashboardPage() {
             <SectionHeader
               icon={StorefrontIcon}
               color="#4527a0"
-              title="Vendors & Customers"
+              title={tr('Vendors & Customers')}
               subtitle={`${parties.activeVendorCount} active vendors · ${parties.customerCount} customer accounts`}
             />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Top vendors by purchases
+              <T>Top vendors by purchases</T>
             </Typography>
             <Box sx={{ mt: 1, mb: 2 }}>
               <BarList rows={parties.topVendors} color="#4527a0" empty="No supplier purchases yet." />
@@ -673,12 +675,12 @@ export default function DashboardPage() {
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
               <PeopleIcon fontSize="small" sx={{ color: '#00838f' }} />
               <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                Top customers by spend
+                <T>Top customers by spend</T>
               </Typography>
             </Stack>
             <BarList rows={parties.topCustomers} color="#00838f" empty="No identified customer sales yet." />
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-              {formatQty(parties.loyaltyPoints)} loyalty points outstanding across customers.
+              {formatQty(parties.loyaltyPoints)} <T>loyalty points outstanding across customers.</T>
             </Typography>
           </Paper>
         </Box>

@@ -9,7 +9,9 @@ import { PACK_LEVEL_LABEL, PACK_LEVEL_LABEL_PLURAL, purchasePackLevels, tabletsP
 import { itemCodes, itemTracksExpiry } from '../../utils/itemMaster';
 import { formatUnitPrice } from '../../utils/format';
 
+import { T, useT } from '../../i18n';
 export default function ReceivingPage() {
+  const tr = useT();
   const { items, receiveStock, itemById } = useCatalogStore();
   const [itemId, setItemId] = useState('');
   const [batchNo, setBatchNo] = useState('');
@@ -64,20 +66,20 @@ export default function ReceivingPage() {
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2}>
           <FormControl fullWidth>
-            <InputLabel id="item-label">Item</InputLabel>
-            <Select labelId="item-label" label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+            <InputLabel id="item-label"><T>Item</T></InputLabel>
+            <Select labelId="item-label" label={tr('Item')} value={itemId} onChange={(e) => setItemId(e.target.value)}>
               {items.map((i) => (
-                <MenuItem key={i.id} value={i.id}>{i.nameEn}{itemCodes(i).length > 1 ? ` (${itemCodes(i).length} codes)` : ''}</MenuItem>
+                <MenuItem key={i.id} value={i.id}>{i.nameEn}{itemCodes(i).length > 1 ? ` (${itemCodes(i).length}${tr(" codes)")}` : ''}</MenuItem>
               ))}
             </Select>
           </FormControl>
           {pack && (
             <>
               <FormControl fullWidth>
-                <InputLabel id="receive-unit-label">Received as</InputLabel>
+                <InputLabel id="receive-unit-label"><T>Received as</T></InputLabel>
                 <Select
                   labelId="receive-unit-label"
-                  label="Received as"
+                  label={tr('Received as')}
                   value={receiveUnit}
                   onChange={(e) => setReceiveUnit(e.target.value as PackLevel)}
                 >
@@ -87,11 +89,11 @@ export default function ReceivingPage() {
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary">
-                1 {PACK_LEVEL_LABEL[receiveUnit].toLowerCase()} = {perUnit} tablet{perUnit === 1 ? '' : 's'} · stock is counted in tablets
+                1 {PACK_LEVEL_LABEL[receiveUnit].toLowerCase()} = {perUnit} <T>tablet</T>{perUnit === 1 ? '' : 's'} <T>· stock is counted in tablets</T>
               </Typography>
             </>
           )}
-          <TextField label="Batch / Lot No." value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
+          <TextField label={tr('Batch / Lot No.')} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} fullWidth />
           <TextField
             label={tracksExpiry ? 'Expiry Date' : 'Expiry Date (none)'}
             type="date"
@@ -115,18 +117,18 @@ export default function ReceivingPage() {
             type="number"
             value={purchasePrice}
             onChange={(e) => setPurchasePrice(e.target.value)}
-            helperText="The supplier's invoice price for the unit selected above, before any discount."
+            helperText={tr('The supplier\'s invoice price for the unit selected above, before any discount.')}
             slotProps={{ htmlInput: { step: '0.001' } }}
             fullWidth
           />
           <DiscountInput
-            label="Discount"
+            label={tr('Discount')}
             value={discountPercent}
             onChange={setDiscountPercent}
             fullWidth
           />
           <TextField
-            label="Cost Price (computed)"
+            label={tr('Cost Price (computed)')}
             value={costPrice.toFixed(3)}
             disabled
             helperText={
@@ -136,8 +138,8 @@ export default function ReceivingPage() {
             }
             fullWidth
           />
-          {done && <Alert severity="success">Stock received into inventory.</Alert>}
-          <Button variant="contained" disabled={!valid} onClick={submit}>Receive Stock</Button>
+          {done && <Alert severity="success"><T>Stock received into inventory.</T></Alert>}
+          <Button variant="contained" disabled={!valid} onClick={submit}><T>Receive Stock</T></Button>
         </Stack>
       </Paper>
     </Box>
