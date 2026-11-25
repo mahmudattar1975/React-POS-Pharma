@@ -5,6 +5,7 @@
 // button still land on the right tab.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs } from '@mui/material';
+import { coloredTabSx, coloredTabsIndicatorSx } from '../common/tabStyles';
 import InsightsIcon from '@mui/icons-material/Insights';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardPage from '../Dashboard/DashboardPage';
@@ -13,9 +14,9 @@ import IncentiveReportPage from '../Incentives/IncentiveReportPage';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 const TABS = [
-  { path: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" /> },
-  { path: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" /> },
-  { path: '/incentive-report', label: 'Incentive Report', icon: <TrendingUpIcon fontSize="small" /> },
+  { path: '/dashboard', label: 'Dashboard', icon: <InsightsIcon fontSize="small" />, color: '#1565c0' }, // overview
+  { path: '/reports', label: 'Reports', icon: <BarChartIcon fontSize="small" />, color: '#283593' }, // analysis
+  { path: '/incentive-report', label: 'Incentive Report', icon: <TrendingUpIcon fontSize="small" />, color: '#7b1fa2' }, // profit bonus
 ];
 
 export default function InsightsHubPage() {
@@ -30,10 +31,10 @@ export default function InsightsHubPage() {
       <Tabs
         value={activeTab}
         onChange={(_, value: number) => navigate(TABS[value].path)}
-        sx={{ flex: 'none', px: 2, pt: 1, borderBottom: 1, borderColor: 'divider' }}
+        sx={{ flex: 'none', px: 2, pt: 1, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[activeTab].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={{ minHeight: 44 }} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

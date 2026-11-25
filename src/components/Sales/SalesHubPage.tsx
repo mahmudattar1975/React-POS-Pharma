@@ -12,7 +12,7 @@
 // would eat selling space. The tab strip alone tells you which side of the counter you're on.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { coloredTabSx, coloredTabsIndicatorSx } from '../common/tabStyles';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -59,7 +59,7 @@ export default function SalesHubPage() {
           pt: 1,
           borderBottom: 1,
           borderColor: 'divider',
-          '& .MuiTabs-indicator': { backgroundColor: TABS[activeTab].color },
+          ...coloredTabsIndicatorSx(TABS[activeTab].color),
         }}
       >
         {TABS.map((entry) => (
@@ -68,18 +68,7 @@ export default function SalesHubPage() {
             icon={entry.icon}
             iconPosition="start"
             label={entry.label}
-            sx={{
-              minHeight: 44,
-              color: entry.color,
-              '& .MuiTab-iconWrapper': { color: entry.color },
-              '&:hover': { color: entry.color, backgroundColor: alpha(entry.color, 0.05) },
-              '&.Mui-selected': {
-                color: entry.color,
-                fontWeight: 700,
-                backgroundColor: alpha(entry.color, 0.09),
-              },
-              '&.Mui-selected:hover': { backgroundColor: alpha(entry.color, 0.12) },
-            }}
+            sx={coloredTabSx(entry.color)}
           />
         ))}
       </Tabs>

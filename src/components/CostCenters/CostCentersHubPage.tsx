@@ -6,6 +6,7 @@
 // /category-map and /expenses.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { coloredTabSx, coloredTabsIndicatorSx } from '../common/tabStyles';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CategoryIcon from '@mui/icons-material/Category';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -14,9 +15,9 @@ import CategoryMapPage from './CategoryMapPage';
 import ExpensesPage from './ExpensesPage';
 
 const TABS = [
-  { path: '/cost-centers', label: 'Cost Centers', icon: <AccountTreeIcon fontSize="small" /> },
-  { path: '/category-map', label: 'Category → Center', icon: <CategoryIcon fontSize="small" /> },
-  { path: '/expenses', label: 'Expenses', icon: <AccountBalanceWalletIcon fontSize="small" /> },
+  { path: '/cost-centers', label: 'Cost Centers', icon: <AccountTreeIcon fontSize="small" />, color: '#283593' }, // structure
+  { path: '/category-map', label: 'Category → Center', icon: <CategoryIcon fontSize="small" />, color: '#00695c' }, // routing
+  { path: '/expenses', label: 'Expenses', icon: <AccountBalanceWalletIcon fontSize="small" />, color: '#b3261e' }, // spend
 ];
 
 export default function CostCentersHubPage() {
@@ -36,10 +37,10 @@ export default function CostCentersHubPage() {
         onChange={(_, value: number) => navigate(TABS[value].path)}
         variant="scrollable"
         allowScrollButtonsMobile
-        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
+        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tabIndex].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={{ minHeight: 44 }} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tabIndex === 0 && <CostCentersPage />}

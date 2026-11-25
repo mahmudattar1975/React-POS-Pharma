@@ -4,6 +4,7 @@
 // its own tab: /purchases, /purchase-returns, /vendors, /receiving and /head-office-receiving.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { coloredTabSx, coloredTabsIndicatorSx } from '../common/tabStyles';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -16,11 +17,11 @@ import ReceivingPage from '../Receiving/ReceivingPage';
 import HeadOfficeReceivingPage from '../Receiving/HeadOfficeReceivingPage';
 
 const TABS = [
-  { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" /> },
-  { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
-  { path: '/vendors', label: 'Vendors & Customers', icon: <StorefrontIcon fontSize="small" /> },
-  { path: '/receiving', label: 'Stock Receiving', icon: <LocalShippingIcon fontSize="small" /> },
-  { path: '/head-office-receiving', label: 'Receive from Head Office', icon: <MoveToInboxIcon fontSize="small" /> },
+  { path: '/purchases', label: 'Purchase Invoice', icon: <ReceiptLongIcon fontSize="small" />, color: '#2f7a52' }, // stock in
+  { path: '/purchase-returns', label: 'Purchase Returns', icon: <AssignmentReturnIcon fontSize="small" />, color: '#b8862c' }, // reversal
+  { path: '/vendors', label: 'Vendors & Customers', icon: <StorefrontIcon fontSize="small" />, color: '#1565c0' }, // parties
+  { path: '/receiving', label: 'Stock Receiving', icon: <LocalShippingIcon fontSize="small" />, color: '#283593' }, // inbound
+  { path: '/head-office-receiving', label: 'Receive from Head Office', icon: <MoveToInboxIcon fontSize="small" />, color: '#00695c' }, // transfer
 ];
 
 export default function PurchasingHubPage() {
@@ -41,10 +42,10 @@ export default function PurchasingHubPage() {
         onChange={(_, value: number) => navigate(TABS[value].path)}
         variant="scrollable"
         allowScrollButtonsMobile
-        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
+        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tabIndex].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={{ minHeight: 44 }} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tabIndex === 0 && <PurchaseInvoicePage />}

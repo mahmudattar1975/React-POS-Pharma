@@ -6,6 +6,7 @@
 // existing bookmarks/deep links always land on the right screen.
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { coloredTabSx, coloredTabsIndicatorSx } from '../common/tabStyles';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import FactoryIcon from '@mui/icons-material/Factory';
@@ -18,11 +19,11 @@ import DosagesPage from './DosagesPage';
 import WasfatyMappingPage from './WasfatyMappingPage';
 
 const TABS = [
-  { path: '/inventory', label: 'Batches & Expiry', icon: <Inventory2Icon fontSize="small" /> },
-  { path: '/items', label: 'Item Master', icon: <ListAltIcon fontSize="small" /> },
-  { path: '/manufacturers', label: 'Companies (Manufacturers)', icon: <FactoryIcon fontSize="small" /> },
-  { path: '/dosages', label: 'Dosage Instructions', icon: <MedicationOutlinedIcon fontSize="small" /> },
-  { path: '/wasfaty-mapping', label: 'Wasfaty / NUPCO Mapping', icon: <LocalPharmacyOutlinedIcon fontSize="small" /> },
+  { path: '/inventory', label: 'Batches & Expiry', icon: <Inventory2Icon fontSize="small" />, color: '#b8862c' }, // expiry watch
+  { path: '/items', label: 'Item Master', icon: <ListAltIcon fontSize="small" />, color: '#1565c0' }, // catalogue
+  { path: '/manufacturers', label: 'Companies (Manufacturers)', icon: <FactoryIcon fontSize="small" />, color: '#283593' }, // suppliers
+  { path: '/dosages', label: 'Dosage Instructions', icon: <MedicationOutlinedIcon fontSize="small" />, color: '#00695c' }, // clinical
+  { path: '/wasfaty-mapping', label: 'Wasfaty / NUPCO Mapping', icon: <LocalPharmacyOutlinedIcon fontSize="small" />, color: '#7b1fa2' }, // external program
 ];
 
 export default function InventoryHubPage() {
@@ -43,10 +44,10 @@ export default function InventoryHubPage() {
         onChange={(_, value: number) => navigate(TABS[value].path)}
         variant="scrollable"
         allowScrollButtonsMobile
-        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
+        sx={{ mt: 1.5, mb: 2.5, borderBottom: 1, borderColor: 'divider', ...coloredTabsIndicatorSx(TABS[tab].color) }}
       >
         {TABS.map((entry) => (
-          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={{ minHeight: 44 }} />
+          <Tab key={entry.path} icon={entry.icon} iconPosition="start" label={entry.label} sx={coloredTabSx(entry.color)} />
         ))}
       </Tabs>
       {tab === 0 && <InventoryPage />}
