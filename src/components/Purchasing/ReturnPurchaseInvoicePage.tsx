@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
   Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent,
-  DialogTitle, Divider, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper,
-  Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
+  DialogTitle, Divider, FormControlLabel, IconButton, Paper,
+  Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -71,6 +71,7 @@ export default function ReturnPurchaseInvoicePage() {
   const partyTable = useMemo(() => buildPartyTable(vendors), [vendors]);
   const partyOptions = useMemo(() => partyTable.filter((p) => p.typeFlag === partyType), [partyTable, partyType]);
   const party = vendors.find((v) => v.id === partyId && v.typeFlag === partyType);
+  const selectedParty = partyOptions.find((p) => p.id === partyId) ?? null;
   // The link picker searches every posted purchase, not only the currently selected party's
   // invoices: the owner often starts from the paper document (PUR-000001) and lets the party fill
   // itself in. Once a party is chosen, the list narrows to that party.
@@ -349,19 +350,52 @@ export default function ReturnPurchaseInvoicePage() {
               label="Customer Return"
             />
             <Stack direction="row" spacing={2}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Party</InputLabel>
-                <Select value={partyId} label="Party" onChange={(e) => {
-                  setPartyId(e.target.value);
+              <Autocomplete
+                fullWidth
+                sx={{ flex: 1, minWidth: 0 }}
+                size="small"
+                options={partyOptions}
+                value={selectedParty}
+                onChange={(_, value) => {
+                  setPartyId(value?.id ?? '');
                   setOriginalInvoice(null);
                   setLines([]);
-                }}>
-                  {partyOptions.map((p) => <MenuItem key={p.id} value={p.id}>{p.no} — {p.nameEn}</MenuItem>)}
-                </Select>
-              </FormControl>
+                }}
+                getOptionLabel={(p) => `${p.no} — ${p.nameEn}`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, state) => {
+                  const query = state.inputValue.trim().toLowerCase();
+                  if (!query) return options;
+                  return options.filter((p) =>
+                    [p.no, p.nameEn, p.nameAr, p.vatNumber, p.phone]
+                      .some((value) => (value ?? '').toLowerCase().includes(query))
+                  );
+                }}
+                renderOption={(props, p) => (
+                  <li {...props} key={p.id}>
+                    <Box>
+                      <Typography variant="body2">{p.no} — {p.nameEn}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {p.nameAr}
+                        {p.phone ? ` · ${p.phone}` : ''}
+                        {p.vatNumber ? ` · VAT ${p.vatNumber}` : ''}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                noOptionsText={`No ${partyType === PARTY_TYPE_FLAG.customer ? 'customers' : 'vendors'} found`}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={partyType === PARTY_TYPE_FLAG.customer ? 'Search customer' : 'Search vendor'}
+                    placeholder="Name, no, VAT or phone"
+                  />
+                )}
+              />
               <Autocomplete
                 size="small"
                 fullWidth
+                sx={{ flex: 1, minWidth: 0 }}
                 options={partyInvoices}
                 getOptionLabel={(o) => `${o.invoiceNo} · ${o.vendorInvoiceNo} (${o.date})`}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
