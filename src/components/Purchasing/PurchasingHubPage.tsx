@@ -33,7 +33,7 @@ export default function PurchasingHubPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Purchasing &amp; Receiving</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}>Purchasing Invoice</Typography>
       <Typography variant="caption" color="text.secondary">
         Vendor invoices, purchase returns, the party master, direct stock receiving and head-office transfers
       </Typography>

@@ -20,6 +20,7 @@ import { computePurchaseTotals, dilutedUnitCost, discountInputToFraction, format
 import { itemCodes, itemTracksExpiry } from '../../utils/itemMaster';
 import { PACK_LEVEL_LABEL_PLURAL, purchasePackLevels } from '../../utils/packUnits';
 import { cleanVatNumberInput, isVatNumberComplete, isVatNumberEmptyOrComplete } from '../../utils/vat';
+import { ISO_DATE_BOUNDS, isValidIsoDate } from '../../utils/date';
 import { alertWithSound } from '../../utils/alertSound';
 import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import { useCatalogStore } from '../../store/catalogStore';
@@ -204,9 +205,11 @@ export default function PurchaseInvoicePage() {
   // date; everything else still has to carry one. The price is always mandatory: a zero/blank
   // purchase price would post a batch with no cost and skew every margin report.
   const expiryRequired = !!selectedItem && itemTracksExpiry(selectedItem);
+  const invoiceDateInvalid = !!date && !isValidIsoDate(date);
+  const expiryDateInvalid = expiryRequired && !!expiryDate && !isValidIsoDate(expiryDate);
   const lineValid =
     !!selectedItem && Number(qty) > 0 && Number(bonusQty || '0') >= 0 && !!batchNo.trim() &&
-    (!expiryRequired || !!expiryDate) && Number(unitPurchasePrice) > 0 && tierValid;
+    (!expiryRequired || isValidIsoDate(expiryDate)) && Number(unitPurchasePrice) > 0 && tierValid;
 
   const totals = useMemo(() => computePurchaseTotals(lines), [lines]);
 
@@ -217,7 +220,7 @@ export default function PurchaseInvoicePage() {
     !!party && !!vendorInvoiceNo.trim() &&
     isVendorInvoiceNoUsed(party.id, vendorInvoiceNo, editing?.id);
 
-  const invoiceHeaderValid = !!party && !!vendorInvoiceNo.trim() && !!date && lines.length > 0 && !duplicateVendorInvoice;
+  const invoiceHeaderValid = !!party && !!vendorInvoiceNo.trim() && isValidIsoDate(date) && lines.length > 0 && !duplicateVendorInvoice;
 
   // Goods come after the document is identified: the owner picks the vendor and types the number
   // printed on that vendor's paper invoice BEFORE any line is entered, so a line can never belong
@@ -601,7 +604,9 @@ export default function PurchaseInvoicePage() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
+                error={invoiceDateInvalid}
+                helperText={invoiceDateInvalid ? 'Use a real date in YYYY-MM-DD format' : undefined}
+                slotProps={{ htmlInput: ISO_DATE_BOUNDS, inputLabel: { shrink: true } }}
                 fullWidth
               />
             </Stack>
@@ -774,12 +779,15 @@ export default function PurchaseInvoicePage() {
                 size="small"
                 disabled={!headerReadyForLines || (!!selectedItem && !itemTracksExpiry(selectedItem))}
                 required={!selectedItem || itemTracksExpiry(selectedItem)}
+                error={expiryDateInvalid}
                 helperText={
-                  selectedItem && !itemTracksExpiry(selectedItem)
-                    ? 'Item Master marks this item as having no expiry'
-                    : undefined
+                  expiryDateInvalid
+                    ? 'Use a real date in YYYY-MM-DD format'
+                    : selectedItem && !itemTracksExpiry(selectedItem)
+                      ? 'Item Master marks this item as having no expiry'
+                      : undefined
                 }
-                slotProps={{ inputLabel: { shrink: true } }}
+                slotProps={{ htmlInput: ISO_DATE_BOUNDS, inputLabel: { shrink: true } }}
                 fullWidth
               />
             </Stack>
