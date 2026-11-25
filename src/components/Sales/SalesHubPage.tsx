@@ -29,12 +29,12 @@ import IncentiveItemsPage from '../Incentives/IncentiveItemsPage';
 
 const TABS = [
   { path: '/', label: 'Sell', icon: <PointOfSaleIcon fontSize="small" /> },
-  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" /> },
-  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
   { path: '/returns', label: 'Returns', icon: <AssignmentReturnIcon fontSize="small" /> },
-  { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
-  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" /> },
   { path: '/incentives', label: 'Incentive Items', icon: <TrendingUpIcon fontSize="small" /> },
+  { path: '/prescriptions', label: 'Prescriptions', icon: <MedicationIcon fontSize="small" /> },
+  { path: '/sales-invoices', label: 'ZATCA Sales Invoices', icon: <ReceiptLongIcon fontSize="small" /> },
+  { path: '/controlled-register', label: 'Controlled Register', icon: <FactCheckOutlinedIcon fontSize="small" /> },
+  { path: '/rsd-reporting', label: 'RSD Reporting', icon: <VerifiedUserIcon fontSize="small" /> },
 ];
 
 export default function SalesHubPage() {
@@ -43,6 +43,8 @@ export default function SalesHubPage() {
   // Path-driven (not state) so a refresh on a tab keeps the cashier where they were.
   const tabIndex = TABS.findIndex((entry) => entry.path === location.pathname);
   const activeTab = tabIndex === -1 ? 0 : tabIndex;
+  // Render by path, not array index, so reordering tabs can't silently swap their content.
+  const activePath = TABS[activeTab].path;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -59,33 +61,33 @@ export default function SalesHubPage() {
           (minHeight 0) instead of an auto-height wrapper. The invoice ledger is taller than the
           viewport, so it gets its own scroll container and the same page padding Settings gave it. */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        {activeTab === 0 && <POSPage />}
-        {activeTab === 1 && (
+        {activePath === '/' && <POSPage />}
+        {activePath === '/returns' && <ReturnsPage />}
+        {activePath === '/incentives' && (
+          <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
+            <IncentiveItemsPage />
+          </Box>
+        )}
+        {activePath === '/prescriptions' && (
           <Box sx={{ height: '100%', overflow: 'auto' }}>
             <PrescriptionsPage />
           </Box>
         )}
-        {activeTab === 2 && (
-          <Box sx={{ height: '100%', overflow: 'auto' }}>
-            <ControlledRegisterPage />
-          </Box>
-        )}
-        {activeTab === 3 && <ReturnsPage />}
-        {activeTab === 4 && (
+        {activePath === '/sales-invoices' && (
           <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
             <Box sx={{ maxWidth: 1200 }}>
               <ZatcaInvoicesPanel />
             </Box>
           </Box>
         )}
-        {activeTab === 5 && (
+        {activePath === '/controlled-register' && (
           <Box sx={{ height: '100%', overflow: 'auto' }}>
-            <RsdMonitorPage />
+            <ControlledRegisterPage />
           </Box>
         )}
-        {activeTab === 6 && (
-          <Box sx={{ height: '100%', overflow: 'auto', p: 3 }}>
-            <IncentiveItemsPage />
+        {activePath === '/rsd-reporting' && (
+          <Box sx={{ height: '100%', overflow: 'auto' }}>
+            <RsdMonitorPage />
           </Box>
         )}
       </Box>
