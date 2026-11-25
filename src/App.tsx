@@ -15,9 +15,7 @@ import OffersPage from './components/Offers/OffersPage';
 import CostCentersHubPage from './components/CostCenters/CostCentersHubPage';
 import InsightsHubPage from './components/Insights/InsightsHubPage';
 import WasfatyClaimsPage from './components/Reports/WasfatyClaimsPage';
-import PrescriptionsPage from './components/Prescriptions/PrescriptionsPage';
 import SettingsPage from './components/Settings/SettingsPage';
-import IncentiveItemsPage from './components/Incentives/IncentiveItemsPage';
 import IncentiveReportPage from './components/Incentives/IncentiveReportPage';
 import ZatcaSetupPage from './components/Zatca/ZatcaSetupPage';
 import { useAlertSounds } from './hooks/useAlertSounds';
@@ -78,10 +76,12 @@ export default function App() {
                 <Route path="/category-map" element={<CostCentersHubPage />} />
                 <Route path="/reports" element={<InsightsHubPage />} />
                 <Route path="/dashboard" element={<InsightsHubPage />} />
-                <Route path="/prescriptions" element={<PrescriptionsPage />} />
+                {/* Prescriptions and Incentive Items are Point of Sale tabs, so their direct URLs
+                    must land on the hub; otherwise the tab strip disappears. */}
+                <Route path="/prescriptions" element={<SalesHubPage />} />
                 <Route path="/wasfaty-claims" element={<WasfatyClaimsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/incentives" element={<IncentiveItemsPage />} />
+                <Route path="/incentives" element={<SalesHubPage />} />
                 <Route path="/incentive-report" element={<IncentiveReportPage />} />
                 {/* Guided data-entry screen for a pharmacy that is onboarding ZATCA for the first
                     time. It shows the checklist and both setup panels on one page; Settings keeps
