@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Button, Paper, Table, TableHead, TableRow, TableCell, TableBody, Chip,
   IconButton, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select,
   MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel,
+  List, ListItem, ListItemButton, ListItemText,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -12,6 +13,7 @@ import { useIncentiveStore } from '../../store/incentiveStore';
 import type { IncentiveItem, IncentiveType } from '../../types/incentive';
 import { formatMoney } from '../../utils/format';
 import { discountInputToFraction, formatDiscountInput, formatDiscountPercent } from '../../utils/purchasing';
+import { itemCodes } from '../../utils/itemMaster';
 import DiscountInput from '../common/DiscountInput';
 
 export default function IncentiveItemsPage() {
@@ -21,6 +23,8 @@ export default function IncentiveItemsPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // The item picker searches the same catalog and the same fields as the POS sale scan field.
+  const [itemQuery, setItemQuery] = useState('');
   // Percent is typed as whole points ("16.67") with the same masked field as POS discounts and
   // stored as a fraction (0.1667); a fixed amount is entered directly in SAR.
   const [percentInput, setPercentInput] = useState(formatDiscountInput(0.1));
@@ -48,8 +52,10 @@ export default function IncentiveItemsPage() {
         activeFrom: new Date().toISOString().slice(0, 10), activeTo: '2026-12-31', active: true,
       });
       setPercentInput(formatDiscountInput(item?.incentiveType === 'percent' ? item.rate : 0.1));
+      const selected = catalogItems.find((i) => i.barcode === item?.itemId || i.id === item?.itemId);
+      setItemQuery(selected ? `${selected.nameEn} (${itemCodes(selected).join(' / ')})` : '');
     }
-  }, [dialog.open, dialog.item]);
+  }, [dialog.open, dialog.item, catalogItems]);
 
   function save() {
     const payload = {
@@ -73,9 +79,26 @@ export default function IncentiveItemsPage() {
     return { label: 'Active', color: 'success' as const };
   }
 
-  // The dotnet_pos commission_item list is keyed by barcode (item.Code), so the dropdown stores
+  // The dotnet_pos commission_item list is keyed by barcode (item.Code), so the picker stores
   // the barcode as the item id and resolves names from either the barcode or the local catalog id.
   const itemName = (id: string) => catalogItems.find((i) => i.barcode === id || i.id === id)?.nameEn ?? id;
+
+  // Same substring match as POS: English/Arabic name or ANY scannable code, capped to a short list.
+  const itemSuggestions = useMemo(() => {
+    const q = itemQuery.trim().toLowerCase();
+    if (!q) return [];
+    // Ignore the label shown after a selection so it doesn't filter itself down to one row.
+    const selected = catalogItems.find((i) => i.barcode === form.itemId || i.id === form.itemId);
+    if (selected && q === `${selected.nameEn} (${itemCodes(selected).join(' / ')})`.toLowerCase()) return [];
+    return catalogItems
+      .filter(
+        (i) =>
+          i.nameEn.toLowerCase().includes(q) ||
+          i.nameAr.includes(q) ||
+          itemCodes(i).some((code) => code.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
+  }, [catalogItems, itemQuery, form.itemId]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -141,14 +164,40 @@ export default function IncentiveItemsPage() {
         <DialogTitle>{dialog.item ? 'Edit Incentive Item' : 'Add Incentive Item'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Item</InputLabel>
-              <Select value={form.itemId} label="Item" onChange={(e) => setForm({ ...form, itemId: e.target.value })}>
-                {catalogItems.map((it) => (
-                  <MenuItem key={it.id} value={it.barcode}>{it.nameEn} ({it.nameAr})</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              label="Search item (name or barcode)"
+              value={itemQuery}
+              onChange={(e) => {
+                setItemQuery(e.target.value);
+                setForm({ ...form, itemId: '' });
+              }}
+              placeholder="Type name, Arabic name, or barcode"
+              size="small"
+              fullWidth
+            />
+            {itemQuery.trim() !== '' && (
+              <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+                <List dense disablePadding>
+                  {itemSuggestions.length === 0 && (
+                    <ListItem><ListItemText primary="No matching items in the POS catalog" /></ListItem>
+                  )}
+                  {itemSuggestions.map((it) => (
+                    <ListItemButton
+                      key={it.id}
+                      onClick={() => {
+                        setForm({ ...form, itemId: it.barcode });
+                        setItemQuery(`${it.nameEn} (${itemCodes(it).join(' / ')})`);
+                      }}
+                    >
+                      <ListItemText
+                        primary={it.nameEn}
+                        secondary={`${it.nameAr} · ${itemCodes(it).join(' / ')}`}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Paper>
+            )}
             <FormControl fullWidth size="small">
               <InputLabel>Type</InputLabel>
               <Select value={form.incentiveType} label="Type" onChange={(e) => setForm({ ...form, incentiveType: e.target.value as IncentiveType })}>
