@@ -39,7 +39,8 @@ test.describe('purchase returns', () => {
     // Search by the internal purchase sequence; the party fills itself in from the linked invoice.
     await page.getByLabel('Link to original invoice').fill('PUR-000001');
     await page.getByRole('option', { name: /PUR-000001/ }).click();
-    await expect(page.getByRole('combobox').first()).toContainText('Al-Hayat Drug Distribution');
+    // The party field is an Autocomplete <input>: assert its value, not its (empty) text content.
+    await expect(page.getByRole('combobox').first()).toHaveValue(/Al-Hayat Drug Distribution/);
 
     await page.getByLabel('Return No').fill('CN-2026-001');
     // Select the Panadol line from the original invoice, then lower just its return quantity:
