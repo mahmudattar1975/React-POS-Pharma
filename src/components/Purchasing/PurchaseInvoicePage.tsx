@@ -479,6 +479,8 @@ export default function PurchaseInvoicePage() {
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Autocomplete
+                fullWidth
+                sx={{ flex: 1, minWidth: 0 }}
                 options={partyOptions}
                 value={selectedParty}
                 onChange={(_, value) => setPartyId(value?.id ?? '')}
@@ -519,6 +521,7 @@ export default function PurchaseInvoicePage() {
               <Button
                 variant={newPartyOpen ? 'text' : 'outlined'}
                 size="small"
+                sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                 startIcon={<AddIcon />}
                 onClick={() => { setNewPartyOpen((o) => !o); setPartyId(''); }}
               >
