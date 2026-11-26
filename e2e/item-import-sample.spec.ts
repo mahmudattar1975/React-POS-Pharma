@@ -32,3 +32,25 @@ test('Excel sample button downloads a usable item-import template', async ({ pag
   });
   rmSync(saved, { force: true });
 });
+
+test('preview expands a scientific-notation barcode before applying', async ({ page }) => {
+  // Build the workbook in memory: Playwright owns test-results, and setInputFiles accepts a buffer
+  // directly, so the test cannot fail because of worker-local file access rules.
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Barcode', 'Item Name', 'Sale Price', 'VAT %'],
+    ['6.9442E+12', 'Scientific Barcode Item', 1, '0'],
+  ]), 'Items');
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+  await page.goto('/items');
+  await page.getByRole('button', { name: 'Import Excel' }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'scientific-barcode.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer,
+  });
+
+  await expect(page.getByText('6944200000000', { exact: true })).toBeVisible();
+  await expect(page.getByText('Scientific Barcode Item')).toBeVisible();
+});

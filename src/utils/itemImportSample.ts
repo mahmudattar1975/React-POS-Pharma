@@ -32,7 +32,7 @@ export const ITEM_IMPORT_SAMPLE_ROW: Record<string, string | number> = {
 
 const GUIDE_ROWS: (string | number)[][] = [
   ['Column', 'Required', 'Example', 'Notes'],
-  ['Barcode', 'Yes', '6281007320999', '4-32 letters/digits/dot/dash/underscore. Unique across both item tables.'],
+  ['Barcode', 'Yes', '6281007320999', '4-32 letters/digits/dot/dash/underscore. Format the Excel column as Text before pasting; scientific notation such as 6.9442E+12 is expanded on import, but re-enter the code if Excel has already rounded its digits.'],
   ['Item Name (English)', 'Yes', 'Paracetamol 500mg', 'Used by the .NET item master and POS search.'],
   ['Arabic Name', 'No', 'باراسيتامول 500 مجم', 'Optional, but recommended for receipts and labels.'],
   ['Sale Price', 'No', '12.50', 'Blank becomes 0.00; the preview will flag it.'],

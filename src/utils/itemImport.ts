@@ -154,6 +154,31 @@ function cell(row: Record<string, unknown>, column?: string): string {
   return String(value).trim();
 }
 
+// Excel turns long numeric-looking barcodes into strings like "6.9442E+12" when the column is
+// General. Expand that back to the full integer using string arithmetic (not Number.toString, which
+// can round long codes). Fractional exponents stay invalid so the preview can tell the owner to
+// format the column as Text instead of silently importing a truncated barcode.
+export function normaliseBarcodeCell(value: string): string {
+  const cleaned = arabicDigits(value).replace(/^\u0027/, '').replace(/\s+/g, '');
+  const scientific = /^(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(cleaned);
+  if (!scientific) {
+    // Spreadsheet apps also write numeric codes as "6281007320014.0".
+    return /^(\d+)\.0+$/.exec(cleaned)?.[1] ?? cleaned;
+  }
+
+  const [, whole, fraction = '', exponentText] = scientific;
+  const exponent = Number(exponentText);
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 32) return cleaned;
+
+  const digits = whole + fraction;
+  const decimalPoint = whole.length + exponent;
+  let expanded: string;
+  if (decimalPoint <= 0) expanded = `0.${'0'.repeat(-decimalPoint)}${digits}`;
+  else if (decimalPoint >= digits.length) expanded = digits + '0'.repeat(decimalPoint - digits.length);
+  else expanded = `${digits.slice(0, decimalPoint)}.${digits.slice(decimalPoint)}`;
+  return /^(\d+)\.0+$/.exec(expanded)?.[1] ?? expanded;
+}
+
 export function detectItemColumns(headers: string[]): ItemColumnMapping {
   const byNormalised = new Map(headers.map((header) => [normaliseItemHeader(header), header]));
   const mapping: ItemColumnMapping = {};
@@ -237,10 +262,21 @@ export function planItemImport(
   sheetRows.forEach((sheetRow, index) => {
     const row = rowNumbers?.[index] ?? index + rowOffset;
     const rawBarcode = cell(sheetRow, columns.barcode).replace(/\s+/g, '');
-    const barcode = rawBarcode;
+    const barcode = normaliseBarcodeCell(rawBarcode);
     const key = barcode.toLowerCase();
+    const scientific = /^[+-]?\d+(?:\.\d+)?[eE][+-]?\d+$/.test(rawBarcode);
     if (!barcode) {
       rows.push(rowError(row, 'Barcode is missing.', barcode));
+      return;
+    }
+    // A fractional scientific value (e.g. 1.23E-2 -> 0.0123) is not a barcode; the dots allowed by
+    // the general barcode validator are for codes, not decimal points.
+    if (scientific && !/^\d+$/.test(barcode)) {
+      rows.push(rowError(
+        row,
+        'Barcode was shown in scientific notation with decimals. Format the Excel column as Text and re-enter the full digits.',
+        barcode,
+      ));
       return;
     }
     if (!isValidBarcode(barcode)) {

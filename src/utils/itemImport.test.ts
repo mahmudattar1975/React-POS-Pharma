@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '../types/catalog';
 import {
-  detectItemColumns, planItemImport, type ItemColumnMapping,
+  detectItemColumns, normaliseBarcodeCell, planItemImport, type ItemColumnMapping,
 } from './itemImport';
 import {
   buildItemImportSampleWorkbook, ITEM_IMPORT_SAMPLE_HEADERS, ITEM_IMPORT_SAMPLE_ROW,
@@ -124,5 +124,39 @@ describe('Excel sample template', () => {
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Items, { defval: '' });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject(ITEM_IMPORT_SAMPLE_ROW);
+  });
+});
+
+describe('Excel barcode normalisation', () => {
+  const sheetRow = (barcode: string, nameEn: string) => ({
+    Barcode: barcode,
+    'Item Name': nameEn,
+    'Arabic name': '',
+    'Sale Price': '1',
+    'VAT %': '0',
+    Category: '',
+    Unit: '',
+  });
+
+  it('expands scientific notation and numeric .0 codes to full barcodes', () => {
+    const plan = planItemImport([
+      sheetRow('6.9442E+12', 'Scientific barcode'),
+      sheetRow('6281007320014.0', 'Float barcode'),
+    ], columns, []);
+    expect(plan.errors).toBe(0);
+    expect(plan.apply.map((item) => item.barcode)).toEqual(['6944200000000', '6281007320014']);
+  });
+
+  it('keeps fractional scientific values as an error with spreadsheet guidance', () => {
+    expect(normaliseBarcodeCell('1.23E-2')).toBe('0.0123');
+    const plan = planItemImport([sheetRow('1.23E-2', 'Fractional barcode')], columns, []);
+    expect(plan.errors).toBe(1);
+    expect(plan.rows[0].note).toMatch(/scientific notation/i);
+    expect(plan.apply).toHaveLength(0);
+  });
+
+  it('leaves ordinary alphanumeric barcodes and apostrophe-prefixed text untouched', () => {
+    expect(normaliseBarcodeCell('SAMPLE-0001')).toBe('SAMPLE-0001');
+    expect(normaliseBarcodeCell("'6944200000000")).toBe('6944200000000');
   });
 });
