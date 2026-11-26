@@ -52,6 +52,9 @@ test.describe('prescription / controlled-substance gate', () => {
   });
 
   test('fills partially, reuses the prescription on the next sale and shows both fills in the registry', async ({ page }) => {
+    // Two full checkouts plus a registry lookup; the default 30s is too tight when the suite runs
+    // with two workers. The flow itself passed repeatedly at ~30s.
+    test.setTimeout(45_000);
     await page.goto('/');
     const scan = page.getByLabel(/Scan barcode/);
     await scan.fill(TRAMADOL_BARCODE);
