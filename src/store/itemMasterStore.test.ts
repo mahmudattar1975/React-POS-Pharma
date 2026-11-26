@@ -116,6 +116,45 @@ describe('catalogStore item master CRUD', () => {
     expect(catalog.getState().batches.some((b) => b.itemId === created.id)).toBe(false);
     expect(catalog.getState().offers.some((o) => o.itemId === created.id)).toBe(false);
   });
+
+  it('adopts imported rows by barcode without renumbering the local item', () => {
+    const existing = catalog.getState().itemById('itm-1')!;
+    catalog.getState().upsertImportedItems([{
+      ...draft,
+      id: `sql-${existing.barcode}`,
+      barcode: existing.barcode,
+      nameEn: 'Imported Name',
+      basePrice: 9,
+    }]);
+    const after = catalog.getState().itemById('itm-1')!;
+    expect(after.id).toBe('itm-1');
+    expect(after.itemNo).toBe(existing.itemNo);
+    expect(after.nameEn).toBe('Imported Name');
+    expect(after.basePrice).toBe(9);
+    expect(catalog.getState().items.filter((i) => i.barcode === existing.barcode)).toHaveLength(1);
+  });
+
+  it('assigns a local item number to a genuinely new imported item', () => {
+    catalog.getState().upsertImportedItems([{ ...draft, id: 'imp-1' }]);
+    const created = catalog.getState().items.find((i) => i.barcode === draft.barcode)!;
+    expect(created.id).toBe('imp-1');
+    expect(created.itemNo).toBe(1011);
+    expect(created.isActive).toBe(true); // SQL sync omits this branch-local field
+  });
+
+  it('keeps a locally discontinued item inactive when the shared catalogue syncs', () => {
+    const existing = catalog.getState().itemById('itm-1')!;
+    catalog.getState().setItemActive(existing.id, false);
+    catalog.getState().upsertImportedItems([{
+      ...draft,
+      id: `sql-${existing.barcode}`,
+      barcode: existing.barcode,
+      nameEn: 'Synced From SQL',
+    }]);
+    const after = catalog.getState().itemById('itm-1')!;
+    expect(after.nameEn).toBe('Synced From SQL');
+    expect(after.isActive).toBe(false);
+  });
 });
 
 describe('catalogStore convertStockToBase', () => {

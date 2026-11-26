@@ -17,6 +17,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useBranchBatches, useBranchReceivingLog, useBranchSales } from '../../store/branchSelectors';
 import { usePurchasingStore } from '../../store/purchasingStore';
@@ -30,6 +31,7 @@ import { formatPackShort } from '../../utils/packUnits';
 import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { formatMoney, formatQty } from '../../utils/format';
 import ItemMasterFormDialog from './ItemMasterFormDialog';
+import ItemImportDialog from './ItemImportDialog';
 
 import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -43,6 +45,7 @@ export default function ItemMasterPage() {
   const updateItem = useCatalogStore((s) => s.updateItem);
   const convertStockToBase = useCatalogStore((s) => s.convertStockToBase);
   const deleteItem = useCatalogStore((s) => s.deleteItem);
+  const upsertImportedItems = useCatalogStore((s) => s.upsertImportedItems);
   const invoices = useBranchSales();
   const vendors = usePurchasingStore((s) => s.vendors);
   const manufacturers = useManufacturerStore((s) => s.manufacturers);
@@ -51,6 +54,7 @@ export default function ItemMasterPage() {
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dialog, setDialog] = useState<{ open: boolean; item: Item | null }>({ open: false, item: null });
+  const [importOpen, setImportOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -162,9 +166,19 @@ export default function ItemMasterPage() {
           <Chip size="small" variant="outlined" label={`Last number ${lastNumber || '—'}`} />
           <Chip size="small" variant="outlined" color="primary" label={`Next number ${nextNumber}`} />
         </Stack>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
-          <T>Add Item</T>
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+          <Button
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setImportOpen(true)}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            <T>Import Excel</T>
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
+            <T>Add Item</T>
+          </Button>
+        </Stack>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
@@ -351,6 +365,15 @@ export default function ItemMasterPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {importOpen && (
+        <ItemImportDialog
+          open
+          items={items}
+          onClose={() => setImportOpen(false)}
+          onImported={upsertImportedItems}
+        />
+      )}
 
       {dialog.open && (
         <ItemMasterFormDialog

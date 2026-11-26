@@ -4,6 +4,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { usePendingSyncStore } from './store/pendingSyncStore';
 import { useRsdOutboxStore } from './store/rsdOutboxStore';
 import { getBranchContext } from './api/branchApi';
+import { getSharedCatalog } from './api/catalogApi';
+import { useCatalogStore } from './store/catalogStore';
+import type { Item } from './types/catalog';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
 import RequireAuth from './components/Auth/RequireAuth';
@@ -60,6 +63,44 @@ export default function App() {
     getBranchContext().catch(() => {
       // No notification at the till; the next successful boot or sale will refresh it.
     });
+  }, []);
+
+  // The item catalogue is shared across branches; stock is not. Adopt master rows that another
+  // terminal imported (or that were seeded into SQL) into this browser's offline-first catalogue.
+  // Failure is advisory: an offline till keeps working from its last known copy, and the next boot
+  // retries. Local-only fields (pack ladders, directions, Wasfaty mapping) are preserved by the
+  // store's merge, and batches are never touched by this call.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    getSharedCatalog(controller.signal)
+      .then((rows) => {
+        if (rows.length === 0) return;
+        const items: Item[] = rows.map((row) => ({
+          id: row.id,
+          barcode: row.barcode,
+          nameAr: row.nameAr,
+          nameEn: row.nameEn,
+          unit: row.unit,
+          category: row.category,
+          basePrice: row.basePrice,
+          vatRate: row.vatRate,
+          requiresBatchTracking: row.requiresBatchTracking,
+          reorderLevel: row.reorderLevel,
+          controlledStatus: row.controlledStatus ?? undefined,
+          // isActive is local to each terminal; upsertImportedItems keeps the existing flag and
+          // only defaults genuinely new rows to active.
+        }));
+        useCatalogStore.getState().upsertImportedItems(items);
+      })
+      .catch(() => {
+        // No till-facing alert: the local catalogue is still valid, and the next boot retries.
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   return (

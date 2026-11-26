@@ -22,7 +22,9 @@ model Cashier {
 }
 
 model Item {
-  id       Int     @id @map("Id")
+  // The legacy table's Id column is an IDENTITY. Marking it autoincrement lets the import create
+  // new masters without inventing a number that may already be used by the .NET application.
+  id       Int     @id @default(autoincrement()) @map("Id")
   code     String  @map("Code")
   name     String  @map("Name")
   salePrice Decimal @map("SalePrice") @db.Decimal(18, 4)

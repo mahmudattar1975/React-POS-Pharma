@@ -57,6 +57,15 @@ async function seedCashierAndShift(page: Page) {
     }
     return route.fulfill({ status: 200, headers, json: {} });
   });
+
+  // The app now syncs the shared item master from this SQL mirror on boot. E2E contexts seed their
+  // own catalogue from seedData.ts, so a real SQL row must not overwrite a seed item's price/name
+  // and make a pricing spec depend on whatever the owner imported locally.
+  await page.route('http://localhost:4300/api/items', (route) => route.fulfill({
+    status: 200,
+    headers: { 'access-control-allow-origin': '*' },
+    json: { items: [] },
+  }));
 }
 
 // After "Complete Sale" the app may show the post-payment directions step before the receipt. That

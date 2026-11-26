@@ -1,0 +1,132 @@
+// Validation for the Excel item import. The browser plans the import (column detection, previews,
+// duplicate detection) and sends the normalised rows here; these rules run again on the server so a
+// direct POST cannot write a malformed master into either dotnet_pos.dbo.items or dbo.item.
+const BARCODE_RE = /^[0-9A-Za-z._-]{4,32}$/;
+const CONTROLLED_STATUSES = new Set([
+  'prescription',
+  'schedule_a',
+  'schedule_b',
+  'schedule_c',
+  'schedule_d',
+  'schedule_e',
+]);
+const MAX_ROWS = 1000;
+
+export interface ItemImportInput {
+  preferredId?: string;
+  barcode: string;
+  nameEn: string;
+  nameAr: string;
+  unit: string;
+  category: string;
+  basePrice: number;
+  vatRate: number;
+  requiresBatchTracking: boolean;
+  reorderLevel: number;
+  controlledStatus?: string | null;
+  isActive: boolean;
+}
+
+function text(value: unknown, label: string, max: number, required = false): string {
+  if (value === undefined || value === null) {
+    if (required) throw new Error(`${label} is required.`);
+    return '';
+  }
+  if (typeof value !== 'string') throw new Error(`${label} must be text.`);
+  const trimmed = value.trim();
+  if (required && !trimmed) throw new Error(`${label} is required.`);
+  if (trimmed.length > max) throw new Error(`${label} is too long (max ${max}).`);
+  return trimmed;
+}
+
+function number(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${label} must be a number.`);
+  return value;
+}
+
+function boolean(value: unknown, label: string): boolean {
+  if (typeof value !== 'boolean') throw new Error(`${label} must be true or false.`);
+  return value;
+}
+
+function validateRow(raw: unknown, index: number): ItemImportInput {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`Row ${index + 2} is not an object.`);
+  }
+  const row = raw as Record<string, unknown>;
+  const at = (label: string) => `Row ${index + 2}: ${label}`;
+
+  const barcode = text(row.barcode, at('barcode'), 32, true);
+  if (!BARCODE_RE.test(barcode)) {
+    throw new Error(`${at('barcode')} must be 4-32 letters, digits, dots, dashes or underscores.`);
+  }
+  const nameEn = text(row.nameEn, at('English name'), 150, true);
+  const nameAr = text(row.nameAr, at('Arabic name'), 150);
+  const unit = text(row.unit, at('unit'), 100);
+  const category = text(row.category, at('category'), 100);
+
+  const basePrice = number(row.basePrice, at('sale price'));
+  if (basePrice < 0) throw new Error(`${at('sale price')} cannot be negative.`);
+
+  const vatRate = number(row.vatRate, at('VAT rate'));
+  if (vatRate < 0 || vatRate > 1) throw new Error(`${at('VAT rate')} must be between 0 and 1.`);
+
+  const reorderLevel = number(row.reorderLevel, at('reorder level'));
+  if (!Number.isInteger(reorderLevel) || reorderLevel < 0 || reorderLevel > 2_147_483_647) {
+    throw new Error(`${at('reorder level')} must be a whole number of 0 or more.`);
+  }
+
+  const controlledRaw = row.controlledStatus;
+  if (controlledRaw !== undefined && controlledRaw !== null && controlledRaw !== '') {
+    if (typeof controlledRaw !== 'string' || !CONTROLLED_STATUSES.has(controlledRaw)) {
+      throw new Error(`${at('controlled status')} is not recognised.`);
+    }
+  }
+  const preferredId = row.preferredId === undefined || row.preferredId === null
+    ? undefined
+    : text(row.preferredId, at('preferred id'), 80, true);
+  if (preferredId && !/^[A-Za-z0-9._:-]+$/.test(preferredId)) {
+    throw new Error(`${at('preferred id')} contains unsupported characters.`);
+  }
+
+  return {
+    preferredId,
+    barcode,
+    nameEn,
+    nameAr,
+    unit,
+    category,
+    basePrice: Math.round((basePrice + Number.EPSILON) * 1000) / 1000,
+    vatRate: Math.round((vatRate + Number.EPSILON) * 10000) / 10000,
+    requiresBatchTracking: boolean(row.requiresBatchTracking, at('batch tracking')),
+    reorderLevel,
+    controlledStatus: controlledRaw ? String(controlledRaw) : null,
+    isActive: boolean(row.isActive, at('active status')),
+  };
+}
+
+// Anything the client sends must pass here before a single write happens. Duplicate barcodes are
+// rejected rather than "last row wins": two spreadsheet rows with one code is almost always a typo,
+// and both tables treat the code as the item identity.
+export function validateItemImportBody(body: unknown): { items: ItemImportInput[] } {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('Expected an object with an items array.');
+  }
+  const rows = (body as Record<string, unknown>).items;
+  if (!Array.isArray(rows)) throw new Error('Expected an items array.');
+  if (rows.length === 0) throw new Error('There are no items to import.');
+  if (rows.length > MAX_ROWS) throw new Error(`An import can contain at most ${MAX_ROWS} rows.`);
+
+  const items = rows.map(validateRow);
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = item.barcode.toLowerCase();
+    if (seen.has(key)) throw new Error(`Barcode ${item.barcode} appears more than once in this import.`);
+    seen.add(key);
+  }
+  return { items };
+}
+
+export function barcodeKey(barcode: string): string {
+  return barcode.trim().toLowerCase();
+}

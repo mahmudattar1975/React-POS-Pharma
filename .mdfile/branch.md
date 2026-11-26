@@ -2,7 +2,7 @@
 
 آخر تحديث: 2026-11-26  
 المشروع: `F:\SOURCE\React\Pharmacy-App`  
-الفرع: `main` — آخر commit: `1f9fe6b` (`feat: add branch management and Arabic RTL interface`) — **لم يتم push**.
+الفرع: `main` — آخر commit: انظر `git log -1` (`feat: import Excel item masters for all branches`) — **لم يتم push**.
 
 ---
 
@@ -219,6 +219,8 @@ Terminal branch: br-ph001 (from config/branch.json)
 | `PATCH /api/branches/:id` | تعديل فرع / إيقافه |
 | `GET /api/context` | فرع هذا الجهاز + القائمة + حالة الضبط |
 | `GET /api/stock/other-branches?itemId=` | كميات نفس الصنف في الفروع الأخرى |
+| `GET /api/items` | نسخة الكتالوج المشتركة (أصناف فقط، بلا دفعات/مخزون) |
+| `POST /api/items/import` | استيراد أصناف Excel إلى `dbo.items` و`dbo.item` معاً |
 
 ---
 
@@ -227,10 +229,10 @@ Terminal branch: br-ph001 (from config/branch.json)
 ```powershell
 # من جذر المشروع
 npx tsc -b
-npm test -- --run          # 535 / 535
+npm test -- --run          # 547 / 547 بعد استيراد Excel
 npm run build
 npm run lint               # تحذيرات فقط
-npm run test:e2e           # 44 / 44
+npm run test:e2e           # 44 / 44 (بعد stub الكتالوج المشترك في e2e/fixtures.ts)
 
 # من server
 npm run build
@@ -243,6 +245,9 @@ npx prisma migrate status  # up to date
 GET /api/branches  → source: database, الفروع: DAM,JED,MKK,PH001,RIY
 GET /api/context   → br-ph001 / PH001 / Configured: True
 POST فرع تجريبي ZZTEST → 201، ثم حُذف (CREATE OK)
+GET /api/items → صنف الـ seed فقط (بلا دفعات)
+POST /api/items/import بصف TMP-IMPORT-CHECK-001 → created 1 في dbo.items وcreated 1 في dbo.item، ثم حُذف الصف من الجدولين (SMOKE OK)
+GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-local، ملف .env لم يُلمس)
 ```
 
 ---
@@ -253,7 +258,8 @@ POST فرع تجريبي ZZTEST → 201، ثم حُذف (CREATE OK)
 - بيانات ZATCA / RSD / Wasfaty ما زالت عامة (ليست لكل فرع). حقول VAT/CR/GLN محفوطة في `branches` للاستخدام المستقبلي.
 - فواتير الشراء تبقى في `localStorage` لكل جهاز؛ المبيعات/المرتجعات/المخزون فقط تُنسخ إلى SQL.
 - `server/config/branch.json` و`server/.env` gitignored — لا يظهران في `git status`.
-- يوجد تعديل i18n واحد غير مُ-commit في `src/components/Layout/AppLayout.tsx` (زر اللغة يعرض اللغة الهدف بدل الحالية). ليس part من عمل الفروع.
+- يوجد تعديل i18n واحد غير مُ-commit في `src/components/Layout/AppLayout.tsx` (زر اللغة يعرض اللغة الهدف بدل الحالية). ليس part من عمل الفروع ولا من استيراد Excel، ويُترك خارج ال commit.
+- استيراد Excel يضيف master مشتركاً فقط؛ لا ينقل مخزوناً ولا يغيّر عدّادات المستندات أو بيانات الفروع الأخرى.
 
 ---
 
@@ -298,3 +304,43 @@ POST فرع تجريبي ZZTEST → 201، ثم حُذف (CREATE OK)
 ### النقطة الأساسية
 
 > `br-ph001 / PH001` لم يعد مجرد اسم في الشريط الجانبي: أصبح حدّاً فعلياً للبيانات. أول فاتورة على الجهاز **`PH001-SIM-000001`**، وبيانات RIY القديمة (فواتير/مشتريات/مخزون مستلم) مخفية على هذا الجهاز ومحفوظة تحت `cc-br-001` دون حذف. الفرع يحدد الرقم والبيانات معاً، لا العرض فقط.
+
+---
+
+## 11. استيراد الأصناف من Excel
+
+المطلوب كان شاشة تستورد ملف الإكسل الخاص بصاحب الصيدلية وتكتب **صفّ master فقط** في جدولين:
+
+| الجدول | الاستخدام |
+|---|---|
+| `dotnet_pos.dbo.items` | كتالوج التطبيق الذي يستخدمه الـ POS والمخزون |
+| `dotnet_pos.dbo.item` | master القديم الخاص بتطبيق .NET وحساب العمولات |
+
+### الشاشة
+
+- `Inventory → Items → Import Excel` تفتح `src/components/Inventory/ItemImportDialog.tsx`.
+- الملف يُقرأ في المتصفح (`xlsx` يُحمّل ديناميكياً فقط عند الاختيار، فلا يدخل الحزمة الأولى). تُكتشف أعمدة الملف تلقائياً بأسماء إنجليزية أو عربية (`Barcode/الباركود`, `Item Name/اسم الصنف`, `Sale Price/سعر البيع`, `VAT %/ضريبة القيمة المضافة` إلخ)، وكل عمود قابل للتعديل يدوياً قبل التطبيق.
+- معاينة إلزامية: كل صف يظهر كـ **New** أو **Update** أو **Error** مع رقم الصف الأصلي. أي خطأ (باركود مكرر داخل الملف، رقم ضريبة خارج 0–100%، اسم مفقود...) يمنع تطبيق الملف كله.
+- الضريبة تقبل `0.15` أو `15` أو `15%` والسعر الفارغ يُستورد صفراً مع تنبيه في المعاينة. الحد الأقصى 1000 صف لكل ملف.
+
+### الكتابة في SQL
+
+- `POST /api/items/import` يعيد التحقق من كل الصفوف قبل أي كتابة، ثم يعمل upsert بالباركود في الجدولين. إعادة استيراد نفس الملف تعدّل الصفوف نفسها ولا تنشئ نسخاً.
+- الصف الموجود يحتفظ بـ `id`/`itemNo` المحلي، فتبقى الدفعات والعروض والمستندات المرتبطة به سليمة. الصنف الجديد يحصل على معرّف SQL ثابت.
+- `dbo.item.Id` عمود `IDENTITY`، لذلك الإدراج يتم بـ `INSERT ... OUTPUT INSERTED.Id` عبر SQL خام؛ توليد Prisma القديم فشل بسبب `EPERM` عند استبدال ملف محرك الاستعلام، وهذا لا يؤثر على الاستيراد.
+- الجدولان ليسا في معاملة واحدة؛ تُنشأ لقطة لكل صف قبل تعديله، وإذا فشل أي طرف تُعاد كل التعديلات بترتيب عكسي ويُعرض صراحةً أي فشل في الاسترجاع.
+
+### هل الصنف يظهر في كل الفروع؟
+
+**نعم كـ master، ولا كـ مخزون.** الاستيراد لا ينشئ دفعات ولا أرصدة؛ المخزون يبقى مملوكاً للفرع عبر `batches.branchId`. الصنف المستورد يُكتب مرة واحدة في `dotnet_pos.dbo.items` فيُعتبر متاحاً لكل الفروع.
+
+بما أن المتصفح offline-first ويحتفظ بنسخة `localStorage` خاصة به، أُضيفت مزامنة خفيفة:
+
+- `GET /api/items` يقرأ أصناف `dbo.items` فقط ولا يُرجع أي دفعة أو رصيد أو مستند. في اختبارات E2E يُStub هذا المسار بـ `items: []` في `e2e/fixtures.ts` حتى تبقى أسعار أصناف الـ seed ثابتة ولا تعتمد على بيانات الجهاز المحلي.
+- عند إقلاع التطبيق يجلب `src/App.tsx` هذه القائمة (مهلة 3 ثوانٍ،failure صامت) ويمرّرها إلى `upsertImportedItems` في `catalogStore`.
+- الدمج يحفظ الحقول المحلية التي لا مصدر لها في SQL (سلم العبوات، ربط الجرعات، mapping الخاص بـ Wasfaty، الأكواد البديلة)، ويحفظ حالة `isActive` الخاصة بكل جهاز (SQL لا يرسلها أصلاً). الأصناف الجديدة تبدأ نشطة وتأخذ رقماً محلياً.
+- لذلك يظهر الصنف المستورد على الأجهزة الأخرى بعد إقلاع التطبيق أو تحديث الصفحة؛ إذا كان الجهاز بدون إنترنت يظهر في أول إقلاع ناجح لاحقاً. البيع لا يتوقف عند فشل المزامنة.
+
+### الملفات
+
+`server/src/items/import.ts`, `server/src/routes/items.ts`, `server/src/index.ts`, `src/utils/itemImport.ts`, `src/api/itemImportApi.ts`, `src/api/catalogApi.ts`, `src/components/Inventory/ItemImportDialog.tsx`, `src/components/Inventory/ItemMasterPage.tsx`, `src/store/catalogStore.ts`, `src/App.tsx`, `server/prisma/dotnet-pos-schema.prisma`، مع اختبارات في `src/utils/itemImport.test.ts`, `server/tests/items/import.test.ts`, `src/store/itemMasterStore.test.ts`.

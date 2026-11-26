@@ -27,6 +27,10 @@ export function erpItemId(itemNo: number): string {
   return `erp-${itemNo}`;
 }
 
+// A SQL catalogue row (Excel import or boot sync) may omit isActive: that flag is branch-local and
+// must not be overwritten by a terminal that only knows the shared master fields.
+export type ImportedItemRow = Omit<Item, 'isActive'> & { isActive?: boolean };
+
 function erpBatchId(itemNo: number, batchNo: string): string {
   return `erp-batch-${itemNo}-${batchNo}`;
 }
@@ -191,6 +195,10 @@ interface CatalogState {
   // validation and create a duplicate barcode.
   addItem: (input: Omit<Item, 'id' | 'itemNo'>) => Item;
   updateItem: (id: string, input: Omit<Item, 'id' | 'itemNo'>) => void;
+  // Adopts rows returned by the Excel import API. Existing local rows are matched by barcode so
+  // their id/itemNo (and therefore their batches, offers and historical documents) stay intact;
+  // only the imported master fields are replaced. New rows get a local item number immediately.
+  upsertImportedItems: (imported: ImportedItemRow[]) => void;
   // Enabling a pack ladder on an item that already has stock: the shelf balance was counted in the
   // item's OLD unit (typically its free-text `unit`, e.g. "Strip") while packed items are counted
   // in tablets. This multiplies each batch by that old-unit-to-tablet factor and divides its
@@ -541,6 +549,53 @@ export const useCatalogStore = create<CatalogState>()(
           // itemNo is an identity assigned at creation - an edit may change everything else, but
           // renumbering an item would break printed labels and external references to it.
           items: s.items.map((i) => (i.id === id ? { ...input, id, itemNo: i.itemNo } : i)),
+        }));
+      },
+
+      upsertImportedItems: (imported) => {
+        const current = get().items;
+        const byCode = new Map<string, Item>();
+        for (const item of current) {
+          for (const code of itemCodes(item)) byCode.set(code.toLowerCase(), item);
+        }
+        const usedIds = new Set(current.map((i) => i.id));
+        let nextNumber = nextItemNumber(current);
+        const patches = new Map<string, Item>();
+        const fresh: Item[] = [];
+
+        for (const row of imported) {
+          const key = row.barcode.trim().toLowerCase();
+          const existing = byCode.get(key);
+          const master = {
+            barcode: row.barcode,
+            nameAr: row.nameAr,
+            nameEn: row.nameEn,
+            unit: row.unit,
+            category: row.category,
+            basePrice: row.basePrice,
+            vatRate: row.vatRate,
+            requiresBatchTracking: row.requiresBatchTracking,
+            reorderLevel: row.reorderLevel,
+            controlledStatus: row.controlledStatus ?? undefined,
+          } as Partial<Item>;
+          // A boot sync has no branch-local active flag: keep this terminal's current choice
+          // instead of silently re-enabling an item it had discontinued.
+          if (row.isActive !== undefined) master.isActive = row.isActive;
+          if (existing) {
+            // Keep local-only metadata (pack ladder, dosage links, Wasfaty mapping, alias codes)
+            // that a catalogue import has no source for.
+            patches.set(existing.id, { ...existing, ...master });
+            continue;
+          }
+          const id = row.id && !usedIds.has(row.id) ? row.id : `itm-${crypto.randomUUID()}`;
+          usedIds.add(id);
+          const itemNo = row.itemNo ?? nextNumber;
+          nextNumber = Math.max(nextNumber, itemNo + 1);
+          fresh.push({ ...row, ...master, id, itemNo, isActive: row.isActive ?? true });
+        }
+
+        set((s) => ({
+          items: [...s.items.map((item) => patches.get(item.id) ?? item), ...fresh],
         }));
       },
 
