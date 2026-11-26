@@ -31,11 +31,11 @@ model Sale {
   customerNameAr String?
   customerNameEn String?
 
-  subtotalExclVat Decimal @db.Decimal(12, 3)
-  totalDiscount   Decimal @db.Decimal(12, 3)
-  totalVatAmount  Decimal @db.Decimal(12, 3)
-  totalInclVat    Decimal @db.Decimal(12, 3)
-  totalIncentive  Decimal? @db.Decimal(12, 3)
+  subtotalExclVat          Decimal  @db.Decimal(12, 3)
+  totalDiscount            Decimal  @db.Decimal(12, 3)
+  totalVatAmount           Decimal  @db.Decimal(12, 3)
+  totalInclVat             Decimal  @db.Decimal(12, 3)
+  totalIncentive           Decimal? @db.Decimal(12, 3)
   totalIncentiveClawedBack Decimal? @db.Decimal(12, 3)
 
   zatcaQrBase64 String @db.NVarChar(Max)
@@ -49,17 +49,17 @@ model Sale {
   pointsRedeemedRefunded Int?
 
   // PrescriptionInfo, inlined - at most one per sale, so no separate table.
-  prescriptionSource        String?
-  prescriptionWasfatyRefNo  String?
-  prescriberName            String?
-  prescriberId              String?
-  prescriptionId            String?
-  prescriptionDate          DateTime?
-  patientNationalId         String?
+  prescriptionSource       String?
+  prescriptionWasfatyRefNo String?
+  prescriberName           String?
+  prescriberId             String?
+  prescriptionId           String?
+  prescriptionDate         DateTime?
+  patientNationalId        String?
 
-  lines     SaleLine[]
-  payments  Payment[]
-  returns   ReturnRecord[]
+  lines            SaleLine[]
+  payments         Payment[]
+  returns          ReturnRecord[]
   incentiveRecords IncentiveRecord[]
 
   @@index([branchId])
@@ -119,14 +119,14 @@ model Payment {
 
 // Mirrors ReturnHeader.
 model ReturnRecord {
-  id                String @id @default(uuid())
-  returnNo          String @unique
-  branchId          String @default("cc-br-001")
+  id                String   @id @default(uuid())
+  returnNo          String   @unique
+  branchId          String   @default("cc-br-001")
   date              DateTime
   originalInvoiceId String
-  sale              Sale   @relation(fields: [originalInvoiceId], references: [id])
+  sale              Sale     @relation(fields: [originalInvoiceId], references: [id])
   originalInvoiceNo String
-  totalRefund       Decimal @db.Decimal(12, 3)
+  totalRefund       Decimal  @db.Decimal(12, 3)
   reason            String
 
   lines ReturnLine[]
@@ -154,16 +154,16 @@ model ReturnLine {
 // by this table alone, so a cashier cannot accidentally post a sale to another pharmacy.
 // Deactivate instead of deleting: invoice prefixes and history still reference the code.
 model Branch {
-  id           String   @id           // system id, e.g. cc-br-001
-  code         String   @unique       // short prefix used on invoices, e.g. RIY
+  id           String   @id // system id, e.g. cc-br-001
+  code         String   @unique // short prefix used on invoices, e.g. RIY
   nameEn       String
   nameAr       String
   address      String?
   phone        String?
   vatNumber    String?
   crNumber     String?
-  glnNo        String?                // GS1 location number for RSD
-  costCenterId String?                // links to the app's branch cost center for reporting
+  glnNo        String? // GS1 location number for RSD
+  costCenterId String? // links to the app's branch cost center for reporting
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
@@ -182,17 +182,43 @@ model Item {
   nameEn                String
   unit                  String
   category              String
+  // Link to the ItemCategories master. `category` above stays as the free-text label used by the
+  // POS and cost-center rules; this id is the stable key for reports and future category lookup.
+  categoryId            Int?    @map("categoryId")
   basePrice             Decimal @db.Decimal(12, 3)
   controlledStatus      String?
   vatRate               Decimal @db.Decimal(6, 4)
   requiresBatchTracking Boolean
   reorderLevel          Int
 
-  batches    Batch[]
-  offers     Offer[]
-  incentives IncentiveItem[]
+  // NoAction on both sides keeps this relation out of Prisma's cyclic referential-action chain
+  // (Item -> ItemCategory -> Item). A category still in use is rejected instead of silently
+  // rewriting item rows.
+  categoryMaster ItemCategory?   @relation(fields: [categoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
+  batches        Batch[]
+  offers         Offer[]
+  incentives     IncentiveItem[]
 
+  @@index([categoryId])
   @@map("items")
+}
+
+// Pharmacy category master. Mirrors the owner's dbo.ItemCategories design: stable numeric id,
+// unique code, bilingual names, optional parent for future hierarchy, and an active flag. The
+// flat seeded list uses ParentCategoryID = NULL; the self-relation is ready for grouping later.
+model ItemCategory {
+  categoryId       Int     @id @default(autoincrement()) @map("CategoryID")
+  categoryCode     String  @unique @map("CategoryCode") @db.NVarChar(50)
+  nameAr           String  @map("CategoryNameAr") @db.NVarChar(150)
+  nameEn           String  @map("CategoryNameEn") @db.NVarChar(150)
+  parentCategoryId Int?    @map("ParentCategoryID")
+  isActive         Boolean @default(true) @map("IsActive")
+
+  parent   ItemCategory?  @relation("ItemCategoryHierarchy", fields: [parentCategoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
+  children ItemCategory[] @relation("ItemCategoryHierarchy")
+  items    Item[]
+
+  @@map("ItemCategories")
 }
 
 // Mirrors Batch.
@@ -235,13 +261,12 @@ model Offer {
   @@map("offers")
 }
 
-
 // ---- Incentive / profit bonus (Phase A) ---------------------------------------------------
 model IncentiveItem {
   id            String   @id @default(cuid())
   itemId        String
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  incentiveType String   // 'percent' | 'amount'
+  incentiveType String // 'percent' | 'amount'
   rate          Decimal  @db.Decimal(12, 4)
   activeFrom    DateTime
   activeTo      DateTime
@@ -256,21 +281,21 @@ model IncentiveItem {
 }
 
 model IncentiveRecord {
-  id             String        @id @default(cuid())
-  saleId         String
-  sale           Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  invoiceNo      String
-  invoiceDate    DateTime
-  itemId         String
-  itemNameEn     String
-  qty            Int
-  saleAmount     Decimal       @db.Decimal(12, 3)
-  incentiveType  String        // 'percent' | 'amount'
-  rate           Decimal       @db.Decimal(12, 4)
-  incentiveAmount Decimal      @db.Decimal(12, 3)
-  cashierName    String
-  branchNo       Int?
-  createdAt      DateTime      @default(now())
+  id              String   @id @default(cuid())
+  saleId          String
+  sale            Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  invoiceNo       String
+  invoiceDate     DateTime
+  itemId          String
+  itemNameEn      String
+  qty             Int
+  saleAmount      Decimal  @db.Decimal(12, 3)
+  incentiveType   String // 'percent' | 'amount'
+  rate            Decimal  @db.Decimal(12, 4)
+  incentiveAmount Decimal  @db.Decimal(12, 3)
+  cashierName     String
+  branchNo        Int?
+  createdAt       DateTime @default(now())
 
   incentiveItemId String?
   incentiveItem   IncentiveItem? @relation(fields: [incentiveItemId], references: [id])

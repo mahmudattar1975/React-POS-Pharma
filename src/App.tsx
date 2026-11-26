@@ -5,7 +5,9 @@ import { usePendingSyncStore } from './store/pendingSyncStore';
 import { useRsdOutboxStore } from './store/rsdOutboxStore';
 import { getBranchContext } from './api/branchApi';
 import { getSharedCatalog } from './api/catalogApi';
+import { getItemCategories } from './api/itemCategoryApi';
 import { useCatalogStore } from './store/catalogStore';
+import { useItemCategoryStore } from './store/itemCategoryStore';
 import type { Item } from './types/catalog';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
@@ -83,6 +85,7 @@ export default function App() {
           nameEn: row.nameEn,
           unit: row.unit,
           category: row.category,
+          categoryId: row.categoryId,
           basePrice: row.basePrice,
           vatRate: row.vatRate,
           requiresBatchTracking: row.requiresBatchTracking,
@@ -95,6 +98,23 @@ export default function App() {
       })
       .catch(() => {
         // No till-facing alert: the local catalogue is still valid, and the next boot retries.
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  // The ItemCategories master is shared like the item catalogue. A failed sync keeps the seeded
+  // 28-row fallback, so the Item Master dropdown and Excel importer still work at the till.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    getItemCategories(controller.signal)
+      .then((rows) => useItemCategoryStore.getState().replaceCategories(rows))
+      .catch(() => {
+        // Advisory only: the persisted/seeded category list remains authoritative offline.
       })
       .finally(() => clearTimeout(timeout));
     return () => {

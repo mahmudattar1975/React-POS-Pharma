@@ -19,6 +19,8 @@ export interface ItemImportInput {
   nameAr: string;
   unit: string;
   category: string;
+  // Optional link to dbo.ItemCategories. Blank Excel cells leave an existing link untouched.
+  categoryId?: number;
   basePrice: number;
   vatRate: number;
   requiresBatchTracking: boolean;
@@ -65,6 +67,15 @@ function validateRow(raw: unknown, index: number): ItemImportInput {
   const unit = text(row.unit, at('unit'), 100);
   const category = text(row.category, at('category'), 100);
 
+  const rawCategoryId = row.categoryId;
+  let categoryId: number | undefined;
+  if (rawCategoryId !== undefined && rawCategoryId !== null && rawCategoryId !== '') {
+    if (typeof rawCategoryId !== 'number' || !Number.isInteger(rawCategoryId) || rawCategoryId <= 0) {
+      throw new Error(`${at('category id')} must be a positive whole number.`);
+    }
+    categoryId = rawCategoryId;
+  }
+
   const basePrice = number(row.basePrice, at('sale price'));
   if (basePrice < 0) throw new Error(`${at('sale price')} cannot be negative.`);
 
@@ -96,6 +107,7 @@ function validateRow(raw: unknown, index: number): ItemImportInput {
     nameAr,
     unit,
     category,
+    categoryId,
     basePrice: Math.round((basePrice + Number.EPSILON) * 1000) / 1000,
     vatRate: Math.round((vatRate + Number.EPSILON) * 10000) / 10000,
     requiresBatchTracking: boolean(row.requiresBatchTracking, at('batch tracking')),

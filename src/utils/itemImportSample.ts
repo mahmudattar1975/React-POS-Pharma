@@ -8,6 +8,7 @@ export const ITEM_IMPORT_SAMPLE_HEADERS: string[] = [
   'Arabic Name',
   'Sale Price',
   'VAT %',
+  'CategoryID',
   'Category',
   'Unit',
   'Reorder Level',
@@ -22,7 +23,8 @@ export const ITEM_IMPORT_SAMPLE_ROW: Record<string, string | number> = {
   'Arabic Name': 'صنف تجريبي - استبدله أو احذفه',
   'Sale Price': 12.5,
   'VAT %': '15%',
-  Category: 'Analgesics',
+  CategoryID: 1,
+  Category: '',
   Unit: 'Box',
   'Reorder Level': 10,
   'Controlled Status': '',
@@ -37,7 +39,8 @@ const GUIDE_ROWS: (string | number)[][] = [
   ['Arabic Name', 'No', 'باراسيتامول 500 مجم', 'Optional, but recommended for receipts and labels.'],
   ['Sale Price', 'No', '12.50', 'Blank becomes 0.00; the preview will flag it.'],
   ['VAT %', 'No', '15%', 'Accepts 0.15, 15 or 15%. Zero-rated items can use 0.'],
-  ['Category', 'No', 'Analgesics', 'Free text; used for grouping in Item Master.'],
+  ['CategoryID', 'No', '1', 'Fill this column. It is the CategoryID from dbo.ItemCategories; CategoryCode (CAT-001), English name or Arabic name are also accepted. Unknown values block the whole file.'],
+  ['Category', 'No', '', 'Leave blank when CategoryID is filled: the importer writes CategoryNameEn from ItemCategories here. Free text is only for legacy rows with no CategoryID.'],
   ['Unit', 'No', 'Box', 'Free text, e.g. Box, Strip, Tablet.'],
   ['Reorder Level', 'No', '10', 'Whole number, 0 or more.'],
   ['Controlled Status', 'No', 'prescription', 'Blank = none. Also accepts schedule_a ... schedule_e.'],
@@ -57,8 +60,8 @@ export async function buildItemImportSampleWorkbook() {
     ITEM_IMPORT_SAMPLE_HEADERS.map((header) => ITEM_IMPORT_SAMPLE_ROW[header] ?? ''),
   ]);
   items['!cols'] = [
-    { wch: 18 }, { wch: 38 }, { wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 16 },
-    { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 24 }, { wch: 10 },
+    { wch: 18 }, { wch: 38 }, { wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 14 },
+    { wch: 30 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 24 }, { wch: 10 },
   ];
   XLSX.utils.book_append_sheet(workbook, items, 'Items');
 

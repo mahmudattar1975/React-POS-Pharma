@@ -22,6 +22,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useBranchBatches, useBranchReceivingLog, useBranchSales } from '../../store/branchSelectors';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useManufacturerStore } from '../../store/manufacturerStore';
+import { useItemCategoryStore } from '../../store/itemCategoryStore';
 import { useDosageStore } from '../../store/dosageStore';
 import type { Item } from '../../types/catalog';
 import { itemCodes, itemMovementTotals, itemNumberOf, nextItemNumber } from '../../utils/itemMaster';
@@ -49,6 +50,7 @@ export default function ItemMasterPage() {
   const invoices = useBranchSales();
   const vendors = usePurchasingStore((s) => s.vendors);
   const manufacturers = useManufacturerStore((s) => s.manufacturers);
+  const itemCategories = useItemCategoryStore((s) => s.categories);
   const dosages = useDosageStore((s) => s.dosages);
 
   const [filter, setFilter] = useState('');
@@ -382,6 +384,7 @@ export default function ItemMasterPage() {
           open
           item={dialog.item}
           items={items}
+          itemCategories={itemCategories}
           vendors={vendors}
           manufacturers={manufacturers}
           batches={batches}

@@ -28,9 +28,23 @@ test('Excel sample button downloads a usable item-import template', async ({ pag
     Barcode: 'SAMPLE-0001',
     'Item Name (English)': 'Sample Item - replace or delete this row',
     'VAT %': '15%',
+    CategoryID: 1,
+    Category: '',
     Active: 'Yes',
   });
   rmSync(saved, { force: true });
+});
+
+test('Item Master links CategoryID and fills the category label from ItemCategories', async ({ page }) => {
+  await page.goto('/items');
+  await page.getByRole('button', { name: 'Add Item' }).click();
+
+  await page.getByLabel('CategoryID').click();
+  await page.getByRole('option', { name: /Vitamins & Supplements/ }).click();
+
+  const category = page.getByRole('textbox', { name: 'Category', exact: true });
+  await expect(category).toHaveValue('Vitamins & Supplements');
+  await expect(category).toHaveAttribute('readonly');
 });
 
 test('preview expands a scientific-notation barcode before applying', async ({ page }) => {

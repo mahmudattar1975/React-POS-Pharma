@@ -34,4 +34,13 @@ describe('item import server validation', () => {
   it('rejects an out-of-range VAT rate', () => {
     expect(() => validateItemImportBody({ items: [row({ vatRate: 15 })] })).toThrow(/VAT rate/i);
   });
+
+  it('accepts a positive ItemCategories id', () => {
+    const result = validateItemImportBody({ items: [row({ categoryId: 8, category: 'Vitamins & Supplements' })] });
+    expect(result.items[0].categoryId).toBe(8);
+  });
+
+  it('rejects a malformed ItemCategories id before any write', () => {
+    expect(() => validateItemImportBody({ items: [row({ categoryId: 'CAT-008' })] })).toThrow(/category id/i);
+  });
 });

@@ -20,6 +20,7 @@ interface AppRow {
   nameEn: string;
   unit: string;
   category: string;
+  categoryId: number | null;
   basePrice: number;
   vatRate: number;
   controlledStatus: string | null;
@@ -82,7 +83,7 @@ itemsRouter.get('/', async (_req, res) => {
       orderBy: { nameEn: 'asc' },
       select: {
         id: true, barcode: true, nameAr: true, nameEn: true, unit: true, category: true,
-        basePrice: true, vatRate: true, controlledStatus: true,
+        categoryId: true, basePrice: true, vatRate: true, controlledStatus: true,
         requiresBatchTracking: true, reorderLevel: true,
       },
     });
@@ -94,6 +95,7 @@ itemsRouter.get('/', async (_req, res) => {
         nameEn: row.nameEn,
         unit: row.unit,
         category: row.category,
+        categoryId: row.categoryId,
         basePrice: row.basePrice.toNumber(),
         vatRate: row.vatRate.toNumber(),
         requiresBatchTracking: row.requiresBatchTracking,
@@ -117,6 +119,32 @@ itemsRouter.post('/import', async (req, res) => {
     return;
   }
 
+  const requestedCategoryIds = [...new Set(
+    inputs.map((item) => item.categoryId).filter((id): id is number => id !== undefined)
+  )];
+  const validCategoryIds = new Set<number>();
+  const categoryLabels = new Map<number, string>();
+  if (requestedCategoryIds.length > 0) {
+    try {
+      const found = await prisma.itemCategory.findMany({
+        where: { categoryId: { in: requestedCategoryIds } },
+        select: { categoryId: true, nameEn: true },
+      });
+      for (const row of found) {
+        validCategoryIds.add(row.categoryId);
+        categoryLabels.set(row.categoryId, row.nameEn);
+      }
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+    const missing = requestedCategoryIds.filter((id) => !validCategoryIds.has(id));
+    if (missing.length > 0) {
+      res.status(400).json({ error: `Unknown ItemCategories id(s): ${missing.join(', ')}.` });
+      return;
+    }
+  }
+
   try {
     const codes = inputs.map((item) => item.barcode);
     const [appRowsRaw, legacyRowsRaw] = await Promise.all([
@@ -125,7 +153,7 @@ itemsRouter.post('/import', async (req, res) => {
           where: { barcode: { in: chunk } },
           select: {
             id: true, barcode: true, nameAr: true, nameEn: true, unit: true, category: true,
-            basePrice: true, vatRate: true, controlledStatus: true,
+            categoryId: true, basePrice: true, vatRate: true, controlledStatus: true,
             requiresBatchTracking: true, reorderLevel: true,
           },
         }),
@@ -176,11 +204,18 @@ itemsRouter.post('/import', async (req, res) => {
 
     try {
       for (const row of prepared) {
+        // The server is the writer even when a caller bypasses the browser planner: a supplied
+        // CategoryID always owns the free-text label used by POS/cost-center rules.
+        const category = row.categoryId !== undefined
+          ? categoryLabels.get(row.categoryId) ?? row.category
+          : row.category;
         const data = {
           nameAr: row.nameAr,
           nameEn: row.nameEn,
           unit: row.unit,
-          category: row.category,
+          category,
+          // A blank cell keeps an existing link; a supplied id replaces it. Creates leave it null.
+          ...(row.categoryId !== undefined ? { categoryId: row.categoryId } : {}),
           basePrice: row.basePrice,
           vatRate: row.vatRate,
           // A blank controlled-status cell means "not supplied", not "clear a restriction that was
@@ -251,7 +286,7 @@ itemsRouter.post('/import', async (req, res) => {
               where: { id: snapshot.id },
               data: {
                 barcode: b.barcode, nameAr: b.nameAr, nameEn: b.nameEn, unit: b.unit,
-                category: b.category, basePrice: b.basePrice, vatRate: b.vatRate,
+                category: b.category, categoryId: b.categoryId, basePrice: b.basePrice, vatRate: b.vatRate,
                 controlledStatus: b.controlledStatus ?? undefined, requiresBatchTracking: b.requiresBatchTracking,
                 reorderLevel: b.reorderLevel,
               },
@@ -279,7 +314,10 @@ itemsRouter.post('/import', async (req, res) => {
         nameAr: row.nameAr,
         nameEn: row.nameEn,
         unit: row.unit,
-        category: row.category,
+        category: row.categoryId !== undefined
+          ? categoryLabels.get(row.categoryId) ?? row.category
+          : row.category,
+        categoryId: row.categoryId ?? null,
         basePrice: row.basePrice,
         vatRate: row.vatRate,
         requiresBatchTracking: row.requiresBatchTracking,

@@ -4,8 +4,10 @@
 // same catalogue with slightly different names. The dialog lets the owner override every detected
 // column, but these aliases cover the common cases so most files need no adjustment. Nothing here
 // writes anything: every row becomes a reviewable `create`, `update` or `error` before Apply.
-import type { ControlledStatus, Item } from '../types/catalog';
+import type { ControlledStatus, Item, ItemCategory } from '../types/catalog';
 import { isValidBarcode, itemCodes } from './itemMaster';
+import { itemCategoryLabel, resolveItemCategory } from './itemCategories';
+import { seedItemCategories } from './seedData';
 
 export type ItemImportField =
   | 'barcode'
@@ -14,6 +16,7 @@ export type ItemImportField =
   | 'basePrice'
   | 'vatRate'
   | 'category'
+  | 'itemCategories'
   | 'unit'
   | 'reorderLevel'
   | 'controlledStatus'
@@ -27,6 +30,7 @@ export const ITEM_IMPORT_FIELDS: readonly ItemImportField[] = [
   'basePrice',
   'vatRate',
   'category',
+  'itemCategories',
   'unit',
   'reorderLevel',
   'controlledStatus',
@@ -61,6 +65,11 @@ export const ITEM_IMPORT_ALIASES: Record<ItemImportField, string[]> = {
   category: [
     'category', 'item category', 'group', 'item group', 'تصنيف', 'مجموعة الصنف', 'المجموعة',
   ],
+  itemCategories: [
+    'itemcategories', 'item categories', 'item category id', 'itemcategoryid', 'category id',
+    'categoryid', 'category code', 'item category code', 'category name', 'category name english',
+    'category name arabic', 'فئات الصنف', 'فئة الصنف', 'الفئات', 'كود الفئة', 'رقم الفئة', 'اسم الفئة',
+  ],
   unit: [
     'unit', 'uom', 'packing', 'unit of measure', 'وحدة', 'الوحدة', 'وحدة القياس',
   ],
@@ -94,6 +103,8 @@ export interface ItemImportPayloadRow {
   nameAr: string;
   unit: string;
   category: string;
+  // Resolved from the ItemCategories column; the canonical English name is written to `category`.
+  categoryId?: number;
   basePrice: number;
   vatRate: number;
   requiresBatchTracking: boolean;
@@ -254,6 +265,7 @@ export function planItemImport(
   items: Item[],
   rowOffset = 2,
   rowNumbers?: number[],
+  categories: ItemCategory[] = seedItemCategories,
 ): ItemImportPlan {
   const byCode = localItemsByCode(items);
   const seen = new Map<string, number>();
@@ -322,6 +334,26 @@ export function planItemImport(
       return;
     }
 
+    // ItemCategories is an explicit lookup column: a value must resolve to one seeded/SQL row, or
+    // the whole file is blocked. Free-text Category remains usable on its own for legacy sheets.
+    const itemCategoriesCell = cell(sheetRow, columns.itemCategories);
+    const matchedCategory = resolveItemCategory(itemCategoriesCell, categories);
+    if (itemCategoriesCell && !matchedCategory) {
+      rows.push(rowError(
+        row,
+        `ItemCategories value "${itemCategoriesCell}" is not in the category master.`,
+        barcode,
+      ));
+      return;
+    }
+    const category = matchedCategory
+      ? itemCategoryLabel(matchedCategory)
+      : cell(sheetRow, columns.category);
+    if (category.length > 100) {
+      rows.push(rowError(row, 'Category is longer than 100 characters.', barcode));
+      return;
+    }
+
     const existing = byCode.get(key);
     const priceNote = rawPrice ? undefined : 'No price column/value — imported at 0.';
     rows.push({
@@ -332,7 +364,8 @@ export function planItemImport(
       nameEn,
       nameAr,
       unit: cell(sheetRow, columns.unit),
-      category: cell(sheetRow, columns.category),
+      category,
+      categoryId: matchedCategory?.categoryId,
       basePrice: Math.round((basePrice + Number.EPSILON) * 1000) / 1000,
       vatRate: Math.round((vatRate + Number.EPSILON) * 10000) / 10000,
       requiresBatchTracking: parseBoolean(cell(sheetRow, columns.requiresBatchTracking), true),
@@ -345,13 +378,14 @@ export function planItemImport(
 
   const apply = rows
     .filter((row): row is ItemImportRow & { status: 'create' | 'update' } => row.status !== 'error')
-    .map(({ preferredId, barcode, nameEn, nameAr, unit, category, basePrice, vatRate, requiresBatchTracking, reorderLevel, controlledStatus, isActive }) => ({
+    .map(({ preferredId, barcode, nameEn, nameAr, unit, category, categoryId, basePrice, vatRate, requiresBatchTracking, reorderLevel, controlledStatus, isActive }) => ({
       preferredId,
       barcode,
       nameEn,
       nameAr,
       unit,
       category,
+      categoryId,
       basePrice,
       vatRate,
       requiresBatchTracking,

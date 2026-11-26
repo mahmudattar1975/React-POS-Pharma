@@ -21,6 +21,7 @@ import {
 } from '../../utils/itemImport';
 import { downloadItemImportSample } from '../../utils/itemImportSample';
 import { formatMoney } from '../../utils/format';
+import { useItemCategoryStore } from '../../store/itemCategoryStore';
 
 import { T, useT } from '../../i18n';
 
@@ -43,7 +44,8 @@ const FIELD_LABEL: Record<ItemImportField, string> = {
   nameAr: 'Arabic name',
   basePrice: 'Sale price',
   vatRate: 'VAT rate',
-  category: 'Category',
+  category: 'Category (free text)',
+  itemCategories: 'CategoryID (ItemCategories)',
   unit: 'Unit',
   reorderLevel: 'Reorder level',
   controlledStatus: 'Controlled status',
@@ -72,6 +74,7 @@ function toImportedItem(record: ImportedItemRecord): Item {
     nameEn: record.nameEn,
     unit: record.unit,
     category: record.category,
+    categoryId: record.categoryId,
     basePrice: record.basePrice,
     vatRate: record.vatRate,
     requiresBatchTracking: record.requiresBatchTracking,
@@ -83,6 +86,7 @@ function toImportedItem(record: ImportedItemRecord): Item {
 
 export default function ItemImportDialog({ open, items, onClose, onImported }: Props) {
   const tr = useT();
+  const categories = useItemCategoryStore((s) => s.categories);
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [columns, setColumns] = useState<ItemColumnMapping>({});
   const [fileError, setFileError] = useState<string | undefined>();
@@ -91,8 +95,8 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
   const [result, setResult] = useState<ItemImportResult | null>(null);
 
   const plan = useMemo(
-    () => (sheet ? planItemImport(sheet.rows, columns, items, 2, sheet.rowNumbers) : null),
-    [sheet, columns, items],
+    () => (sheet ? planItemImport(sheet.rows, columns, items, 2, sheet.rowNumbers, categories) : null),
+    [sheet, columns, items, categories],
   );
 
   function close() {
@@ -318,7 +322,8 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
             <Typography variant="caption" color="text.secondary">
               <T>Expected columns (names may be in English or Arabic):</T> Barcode,{' '}
               <T>English name</T>, <T>Arabic name</T>, <T>Sale price</T>, <T>VAT rate</T>,{' '}
-              <T>Category</T>, <T>Unit</T>. <T>Only barcode and English name are required.</T>
+              <T>CategoryID</T>, <T>Category</T>, <T>Unit</T>.{' '}
+              <T>Only barcode and English name are required.</T>
             </Typography>
           )}
         </Stack>

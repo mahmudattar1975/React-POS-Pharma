@@ -66,6 +66,13 @@ async function seedCashierAndShift(page: Page) {
     headers: { 'access-control-allow-origin': '*' },
     json: { items: [] },
   }));
+  // Same principle for the category master: E2E contexts use the seeded fallback, never whatever
+  // categories happen to exist in the developer's live dotnet_pos database.
+  await page.route('http://localhost:4300/api/item-categories', (route) => route.fulfill({
+    status: 200,
+    headers: { 'access-control-allow-origin': '*' },
+    json: { categories: [] },
+  }));
 }
 
 // After "Complete Sale" the app may show the post-payment directions step before the receipt. That

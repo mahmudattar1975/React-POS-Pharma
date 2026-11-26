@@ -7,7 +7,9 @@
 // active (yes/no) status. Stock quantities are kept on Batch rows, not on the item itself, so the
 // Item Master reads them through itemMovementTotals below rather than storing a denormalised
 // balance that could drift away from the batches.
-import type { Batch, ControlledStatus, Item, PackConfig, PackLevel } from '../types/catalog';
+import type { Batch, ControlledStatus, Item, ItemCategory, PackConfig, PackLevel } from '../types/catalog';
+import { itemCategoryLabel, resolveItemCategory } from './itemCategories';
+import { seedItemCategories } from './seedData';
 import { tabletsPerBox } from './packUnits';
 import { isValidNupcoCode, nupcoCodeConflictMessage, normaliseNupcoCode } from './wasfaty';
 
@@ -25,6 +27,9 @@ export interface ItemMasterFormValues {
   nameAr: string;
   nameEn: string;
   category: string;
+  // Dropdown value as a string so an empty Select is represented by ''. On save it becomes the
+  // numeric ItemCategories link; the category text is kept in sync with the selected master row.
+  categoryId: string;
   unit: string;
   basePrice: string;
   vatRate: string; // one of ITEM_VAT_RATES, kept as a string for <Select> value handling
@@ -75,6 +80,7 @@ export const EMPTY_ITEM_FORM: ItemMasterFormValues = {
   nameAr: '',
   nameEn: '',
   category: '',
+  categoryId: '',
   unit: '',
   basePrice: '',
   vatRate: '0',
@@ -130,7 +136,8 @@ export function packLevelFromUnit(unit: string): PackLevel | undefined {
   return UNIT_TO_PACK_LEVEL[unit.trim().toLowerCase()];
 }
 
-export function itemToForm(item: Item): ItemMasterFormValues {
+export function itemToForm(item: Item, categories: ItemCategory[] = seedItemCategories): ItemMasterFormValues {
+  const linkedCategory = resolveItemCategory(item.categoryId ?? item.category, categories);
   return {
     barcode: item.barcode,
     // A legacy GTIN is just another printed code, so it joins the list on first edit instead of
@@ -141,7 +148,8 @@ export function itemToForm(item: Item): ItemMasterFormValues {
     gtin: '',
     nameAr: item.nameAr,
     nameEn: item.nameEn,
-    category: item.category,
+    category: linkedCategory ? itemCategoryLabel(linkedCategory) : item.category,
+    categoryId: linkedCategory ? String(linkedCategory.categoryId) : '',
     unit: item.unit,
     basePrice: String(item.basePrice),
     vatRate: String(item.vatRate),
@@ -410,7 +418,10 @@ export function validateItemForm(
 // Converts the form's strings into the persisted Item shape. Empty optional fields become
 // undefined (not '') so "not recorded" stays distinguishable from "recorded as empty", matching
 // how the rest of the catalog treats optional metadata.
-export function formToItemInput(values: ItemMasterFormValues): Omit<Item, 'id' | 'itemNo'> {
+export function formToItemInput(
+  values: ItemMasterFormValues,
+  categories: ItemCategory[] = seedItemCategories,
+): Omit<Item, 'id' | 'itemNo'> {
   const barcode = values.barcode.trim();
   // The list keeps only codes that actually differ from the primary one; `gtin` is retired here
   // (itemToForm folds it into the list), so newly saved items carry one canonical code set.
@@ -425,13 +436,16 @@ export function formToItemInput(values: ItemMasterFormValues): Omit<Item, 'id' |
       ? values.defaultDosageId
       : undefined;
   const nupcoCode = normaliseNupcoCode(values.nupcoCode.trim());
+  const selectedCategory = categories.find((category) => String(category.categoryId) === values.categoryId);
   return {
     barcode,
     barcodes: barcodes.length > 0 ? barcodes : undefined,
     nameAr: values.nameAr.trim(),
     nameEn: values.nameEn.trim(),
     unit: values.unit.trim(),
-    category: values.category.trim(),
+    // The selected master row owns the canonical label; free text remains only for unlinked rows.
+    category: selectedCategory ? itemCategoryLabel(selectedCategory) : values.category.trim(),
+    categoryId: selectedCategory?.categoryId,
     basePrice: Number(values.basePrice),
     vatRate: Number(values.vatRate),
     requiresBatchTracking: values.requiresBatchTracking,

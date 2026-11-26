@@ -1,4 +1,4 @@
-import type { Item, Batch, Offer } from '../types/catalog';
+import type { Item, Batch, Offer, ItemCategory } from '../types/catalog';
 import type { Customer } from '../types/customer';
 import type { Vendor } from '../types/purchasing';
 import type { CostCenter } from '../types/costCenters';
@@ -10,6 +10,40 @@ function isoDaysFromNow(days: number): string {
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+// Offline fallback for dbo.ItemCategories. The SQL master is authoritative and synced on boot;
+// these rows keep the Item Master dropdown and Excel importer usable before that sync completes.
+// CategoryId values match the migration's explicit seed so imported references stay stable.
+export const seedItemCategories: ItemCategory[] = [
+  { categoryId: 1, categoryCode: 'CAT-001', nameAr: 'أدوية', nameEn: 'Medicines', parentCategoryId: null, isActive: true },
+  { categoryId: 2, categoryCode: 'CAT-002', nameAr: 'مستلزمات طبية', nameEn: 'Medical Supplies', parentCategoryId: null, isActive: true },
+  { categoryId: 3, categoryCode: 'CAT-003', nameAr: 'حفائض', nameEn: 'Diapers', parentCategoryId: null, isActive: true },
+  { categoryId: 4, categoryCode: 'CAT-004', nameAr: 'مستحضرات تجميل', nameEn: 'Cosmetics', parentCategoryId: null, isActive: true },
+  { categoryId: 5, categoryCode: 'CAT-005', nameAr: 'منتجات العناية بالبشرة', nameEn: 'Skin Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 6, categoryCode: 'CAT-006', nameAr: 'منتجات العناية بالشعر', nameEn: 'Hair Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 7, categoryCode: 'CAT-007', nameAr: 'منتجات العناية بالفم والأسنان', nameEn: 'Oral & Dental Care', parentCategoryId: null, isActive: true },
+  { categoryId: 8, categoryCode: 'CAT-008', nameAr: 'الفيتامينات والمكملات الغذائية', nameEn: 'Vitamins & Supplements', parentCategoryId: null, isActive: true },
+  { categoryId: 9, categoryCode: 'CAT-009', nameAr: 'منتجات الأطفال والرضع', nameEn: 'Baby Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 10, categoryCode: 'CAT-010', nameAr: 'منتجات الأمومة', nameEn: 'Maternity Products', parentCategoryId: null, isActive: true },
+  { categoryId: 11, categoryCode: 'CAT-011', nameAr: 'منتجات النظافة الشخصية', nameEn: 'Personal Hygiene Products', parentCategoryId: null, isActive: true },
+  { categoryId: 12, categoryCode: 'CAT-012', nameAr: 'المطهرات والمعقمات', nameEn: 'Disinfectants & Sanitizers', parentCategoryId: null, isActive: true },
+  { categoryId: 13, categoryCode: 'CAT-013', nameAr: 'الإسعافات الأولية', nameEn: 'First Aid Products', parentCategoryId: null, isActive: true },
+  { categoryId: 14, categoryCode: 'CAT-014', nameAr: 'الأجهزة والمعدات الطبية', nameEn: 'Medical Devices & Equipment', parentCategoryId: null, isActive: true },
+  { categoryId: 15, categoryCode: 'CAT-015', nameAr: 'أجهزة قياس السكر والضغط', nameEn: 'Glucose & Blood Pressure Monitors', parentCategoryId: null, isActive: true },
+  { categoryId: 16, categoryCode: 'CAT-016', nameAr: 'مستلزمات مرضى السكري', nameEn: 'Diabetic Supplies', parentCategoryId: null, isActive: true },
+  { categoryId: 17, categoryCode: 'CAT-017', nameAr: 'مستلزمات العظام والمفاصل', nameEn: 'Orthopedic Supplies', parentCategoryId: null, isActive: true },
+  { categoryId: 18, categoryCode: 'CAT-018', nameAr: 'مستلزمات الجروح والضمادات', nameEn: 'Wound Care & Dressings', parentCategoryId: null, isActive: true },
+  { categoryId: 19, categoryCode: 'CAT-019', nameAr: 'منتجات العناية بالعيون', nameEn: 'Eye Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 20, categoryCode: 'CAT-020', nameAr: 'منتجات العناية بالأذن', nameEn: 'Ear Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 21, categoryCode: 'CAT-021', nameAr: 'منتجات التخسيس والتغذية', nameEn: 'Weight Management & Nutrition', parentCategoryId: null, isActive: true },
+  { categoryId: 22, categoryCode: 'CAT-022', nameAr: 'منتجات العناية بالقدم', nameEn: 'Foot Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 23, categoryCode: 'CAT-023', nameAr: 'منتجات الحماية والوقاية', nameEn: 'Protective Products', parentCategoryId: null, isActive: true },
+  { categoryId: 24, categoryCode: 'CAT-024', nameAr: 'مستلزمات كبار السن', nameEn: 'Elderly Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 25, categoryCode: 'CAT-025', nameAr: 'مستلزمات طبية استهلاكية', nameEn: 'Disposable Medical Supplies', parentCategoryId: null, isActive: true },
+  { categoryId: 26, categoryCode: 'CAT-026', nameAr: 'أغذية ومشروبات صحية', nameEn: 'Health Foods & Beverages', parentCategoryId: null, isActive: true },
+  { categoryId: 27, categoryCode: 'CAT-027', nameAr: 'منتجات طبيعية وعشبية', nameEn: 'Herbal & Natural Products', parentCategoryId: null, isActive: true },
+  { categoryId: 28, categoryCode: 'CAT-028', nameAr: 'منتجات موسمية', nameEn: 'Seasonal Products', parentCategoryId: null, isActive: true },
+];
 
 // VAT rate is set per item, read from the item master, exactly like the legacy system's own
 // Wfcodstock_vat_percent field - never a single invoice-wide rate. In KSA, SFDA-registered

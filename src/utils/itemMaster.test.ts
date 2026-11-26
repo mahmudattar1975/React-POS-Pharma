@@ -124,6 +124,26 @@ describe('item form conversion', () => {
   });
 });
 
+describe('item category master link', () => {
+  it('writes CategoryID and the canonical CategoryNameEn into the item', () => {
+    const saved = formToItemInput(form({ category: 'Ignored text', categoryId: '8' }));
+    expect(saved.categoryId).toBe(8);
+    expect(saved.category).toBe('Vitamins & Supplements');
+  });
+
+  it('resolves an old free-text label when the item has no stored CategoryID', () => {
+    const values = itemToForm(item({ category: 'Medicines' }));
+    expect(values.categoryId).toBe('1');
+    expect(formToItemInput(values).category).toBe('Medicines');
+  });
+
+  it('keeps free text when no master category is linked', () => {
+    const saved = formToItemInput(form({ category: 'Analgesics', categoryId: '' }));
+    expect(saved.categoryId).toBeUndefined();
+    expect(saved.category).toBe('Analgesics');
+  });
+});
+
 describe('item Wasfaty mapping', () => {
   it('round-trips a NUPCO code, approved price and eligibility', () => {
     const source = item({

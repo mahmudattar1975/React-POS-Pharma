@@ -31,7 +31,7 @@ import WarehouseOutlinedIcon from '@mui/icons-material/WarehouseOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
-import type { Batch, Item } from '../../types/catalog';
+import type { Batch, Item, ItemCategory } from '../../types/catalog';
 import type { Vendor } from '../../types/purchasing';
 import type { Manufacturer } from '../../types/manufacturer';
 import type { ReceivingEvent } from '../../store/catalogStore';
@@ -39,6 +39,7 @@ import {
   EMPTY_ITEM_FORM, ITEM_VAT_RATES, codeConflictMessage, formPack, formToItemInput, isValidBarcode,
   itemMovementTotals, itemNumberOf, itemToForm, validateItemForm, type ItemMasterFormValues,
 } from '../../utils/itemMaster';
+import { activeItemCategories, itemCategoryLabel, itemCategoryOptionLabel } from '../../utils/itemCategories';
 import {
   describePack, formatPackBreakdown, formatUnitPrice, priceForLevel, tabletsPerUnit, PACK_LEVELS,
   PACK_LEVEL_LABEL_PLURAL,
@@ -52,6 +53,7 @@ interface Props {
   open: boolean;
   item: Item | null; // null = creating a new item
   items: Item[];
+  itemCategories: ItemCategory[];
   vendors: Vendor[];
   manufacturers: Manufacturer[];
   batches: Batch[];
@@ -76,10 +78,12 @@ const PAIR_GRID = {
 };
 
 export default function ItemMasterFormDialog({
-  open, item, items, vendors, manufacturers, batches, receivingLog, saleLines, onSave, onClose, error,
+  open, item, items, itemCategories, vendors, manufacturers, batches, receivingLog, saleLines, onSave, onClose, error,
 }: Props) {
   const tr = useT();
-  const [values, setValues] = useState<ItemMasterFormValues>(() => (item ? itemToForm(item) : EMPTY_ITEM_FORM));
+  const [values, setValues] = useState<ItemMasterFormValues>(() =>
+    item ? itemToForm(item, itemCategories) : EMPTY_ITEM_FORM
+  );
   const [submitted, setSubmitted] = useState(false);
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -126,7 +130,7 @@ export default function ItemMasterFormDialog({
     // `stockFactor` is non-undefined only when an unpacked item is being converted to a packed one
     // and the owner picked the unit its current shelf is counted in; the page applies it after the
     // item row has been updated (see ItemMasterPage.save).
-    onSave(formToItemInput(values), stockFactor > 1 ? stockFactor : undefined);
+    onSave(formToItemInput(values, itemCategories), stockFactor > 1 ? stockFactor : undefined);
   }
 
   // The list is the single source of truth in the UI; row 0 is the canonical `barcode`, the rest
@@ -404,13 +408,42 @@ export default function ItemMasterFormDialog({
             caption="How the item is grouped, stored and sourced"
           >
             <Box sx={FIELD_GRID}>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="item-category-master-label">{tr('CategoryID')}</InputLabel>
+                <Select
+                  labelId="item-category-master-label"
+                  label={tr('CategoryID')}
+                  value={values.categoryId}
+                  onChange={(e) => {
+                    const categoryId = String(e.target.value ?? '');
+                    const selected = itemCategories.find((c) => String(c.categoryId) === categoryId);
+                    setValues((v) => ({
+                      ...v,
+                      categoryId,
+                      // Keep the legacy label in sync so POS/cost-center rules see the master name.
+                      category: selected ? itemCategoryLabel(selected) : v.category,
+                    }));
+                  }}
+                >
+                  <MenuItem value=""><em>{tr('Not linked')}</em></MenuItem>
+                  {activeItemCategories(itemCategories).map((category) => (
+                    <MenuItem key={category.categoryId} value={String(category.categoryId)}>
+                      #{category.categoryId} · {itemCategoryOptionLabel(category)}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{tr('Linked to dbo.ItemCategories')}</FormHelperText>
+              </FormControl>
               <TextField
                 label={tr('Category')}
                 value={values.category}
                 onChange={(e) => patch('category', e.target.value)}
                 size="small"
-                helperText={tr('e.g. Analgesics, Antibiotics')}
+                helperText={values.categoryId
+                  ? tr('Filled from ItemCategories; clear the link to edit manually')
+                  : tr('e.g. Analgesics, Antibiotics')}
                 fullWidth
+                slotProps={{ htmlInput: { readOnly: !!values.categoryId } }}
               />
               <TextField
                 label={tr('Unit')}

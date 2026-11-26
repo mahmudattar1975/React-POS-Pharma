@@ -572,6 +572,7 @@ export const useCatalogStore = create<CatalogState>()(
             nameEn: row.nameEn,
             unit: row.unit,
             category: row.category,
+            categoryId: row.categoryId,
             basePrice: row.basePrice,
             vatRate: row.vatRate,
             requiresBatchTracking: row.requiresBatchTracking,

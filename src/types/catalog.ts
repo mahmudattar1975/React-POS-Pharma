@@ -16,6 +16,18 @@ export interface PackConfig {
   stripSize: number; // tablets per strip
 }
 
+// Shared category master from dotnet_pos.dbo.ItemCategories. IDs are the stable key; the bilingual
+// names are display/import aliases. ParentCategoryID is reserved for future grouping - the seeded
+// 28 rows are all top-level.
+export interface ItemCategory {
+  categoryId: number;
+  categoryCode: string;
+  nameAr: string;
+  nameEn: string;
+  parentCategoryId?: number | null;
+  isActive: boolean;
+}
+
 export interface Item {
   id: string;
   // Legacy FCODSTOCK.ITEM_NO shown as "رقم الصنف" on the Item Master screen. Local seed/created
@@ -37,6 +49,10 @@ export interface Item {
   // without it keep their existing single-unit behaviour, so old catalogs and ERP rows are untouched.
   pack?: PackConfig;
   category: string;
+  // Stable link to dbo.ItemCategories. `category` above remains the free-text label consumed by
+  // POS lines, analytics and cost-center rules, so old catalog rows and XPH scans keep working.
+  // Undefined means the item predates the master or has no category selected.
+  categoryId?: number | null;
   basePrice: number; // unit sale price, VAT-EXCLUSIVE, SAR
   // undefined = no restriction. Set manually per item (Inventory & Expiry page) - there's no
   // reliable source for this in the ERP data, so it's never inferred automatically. Selling an

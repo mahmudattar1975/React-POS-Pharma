@@ -87,6 +87,26 @@ describe('itemImport planning', () => {
     expect(plan.errors).toBe(1);
     expect(plan.apply).toHaveLength(0);
   });
+
+  it('resolves Item Categories by id, code or bilingual name and syncs the free-text label', () => {
+    const categoryColumns = detectItemColumns([...headers, 'CategoryID']);
+    const values = ['8', 'CAT-008', 'Vitamins & Supplements', 'الفيتامينات والمكملات الغذائية'];
+    const plans = values.map((value) =>
+      planItemImport([row({ 'CategoryID': value, Category: 'Ignored text' })], categoryColumns, [])
+    );
+    for (const plan of plans) {
+      expect(plan.errors).toBe(0);
+      expect(plan.apply[0]).toMatchObject({ categoryId: 8, category: 'Vitamins & Supplements' });
+    }
+  });
+
+  it('blocks the file when an Item Categories value is not in the master', () => {
+    const categoryColumns = detectItemColumns([...headers, 'CategoryID']);
+    const plan = planItemImport([row({ 'CategoryID': 'CAT-999' })], categoryColumns, []);
+    expect(plan.errors).toBe(1);
+    expect(plan.rows[0].note).toMatch(/not in the category master/i);
+    expect(plan.apply).toHaveLength(0);
+  });
 });
 
 describe('Excel sample template', () => {
@@ -99,6 +119,7 @@ describe('Excel sample template', () => {
       basePrice: 'Sale Price',
       vatRate: 'VAT %',
       category: 'Category',
+      itemCategories: 'CategoryID',
       unit: 'Unit',
       reorderLevel: 'Reorder Level',
       controlledStatus: 'Controlled Status',
@@ -110,6 +131,8 @@ describe('Excel sample template', () => {
     expect(plan.create).toBe(1);
     expect(plan.apply[0]).toMatchObject({
       barcode: 'SAMPLE-0001',
+      categoryId: 1,
+      category: 'Medicines',
       basePrice: 12.5,
       vatRate: 0.15,
       requiresBatchTracking: true,

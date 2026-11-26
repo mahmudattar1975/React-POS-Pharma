@@ -229,10 +229,10 @@ Terminal branch: br-ph001 (from config/branch.json)
 ```powershell
 # من جذر المشروع
 npx tsc -b
-npm test -- --run          # 552 / 552 بعد قالب Excel وتوسيع الباركود العلمي
+npm test -- --run          # 559 / 559 بعد ItemCategories وربط CategoryID في الاستيراد
 npm run build
 npm run lint               # تحذيرات فقط
-npm run test:e2e           # 46 / 46 (بعد stub الكتالوج المشترك + اختباري القالب والباركود العلمي)
+npm run test:e2e           # 47 / 47 (بعد stub الكتالوج والفئات + اختبار ربط CategoryID في Item Master)
 
 # من server
 npm run build
@@ -346,3 +346,38 @@ GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-lo
 ### الملفات
 
 `server/src/items/import.ts`, `server/src/routes/items.ts`, `server/src/index.ts`, `src/utils/itemImport.ts`, `src/utils/itemImportSample.ts`, `src/api/itemImportApi.ts`, `src/api/catalogApi.ts`, `src/components/Inventory/ItemImportDialog.tsx`, `src/components/Inventory/ItemMasterPage.tsx`, `src/store/catalogStore.ts`, `src/App.tsx`, `server/prisma/dotnet-pos-schema.prisma`، مع اختبارات في `src/utils/itemImport.test.ts`, `server/tests/items/import.test.ts`, `src/store/itemMasterStore.test.ts`, `e2e/item-import-sample.spec.ts`.
+
+---
+
+## 12. جدول الفئات ItemCategories
+
+بناءً على طلب صاحب الصيدلية أُضيف جدول رئيسي حقيقي في `dotnet_pos.dbo.ItemCategories`:
+
+| العمود | المعنى |
+|---|---|
+| `CategoryID` | المفتاح الرقمي (`IDENTITY`) |
+| `CategoryCode` | كود فريد (`CAT-001` … `CAT-028`) |
+| `CategoryNameAr` | اسم الفئة بالعربية |
+| `CategoryNameEn` | اسم الفئة بالإنجليزية |
+| `ParentCategoryID` | الفئة الأعلى؛ كل الصفوف الـ28 حالياً بلا أب |
+| `IsActive` | حالة التفعيل |
+
+الهجرة `20261126140000_add_item_categories` طبّقت على قاعدة الحية، وتحقّق أنها زرعت **28 صفاً** بالأسماء العربية والإنجليزية المطلوبة. أضافت أيضاً `items.categoryId` مع FK وفهرس. علاقة Prisma تستخدم `NoAction` على التحديث والحذف لتفادي سلسلة referential actions الدائرية؛ حذف فئة مستخدمة يُرفض بدل تعديل الأصناف تلقائياً.
+
+### القرار التصميمي
+
+- **`categoryId` هو المصدر الأساسي للربط.** `items.category` يبقى نصاً حراً لأسباب التوافق: قواعد مراكز التكلفة، ختم الفئة على سطر البيع، والتقارير ومستورد XPH تقرأ هذا النص منذ سنوات.
+- عند اختيار فئة (من شاشة Item Master أو من Excel) يُكتب `CategoryID` في `items.categoryId`، ويُكتب `CategoryNameEn` تلقائياً في `items.category`. لا يُكتب اسم الفئة مباشرةً من الملف عند وجود رابط.
+- الأصناف القديمة أو أصناف XPH التي بلا `categoryId` تحتفظ بنصها الحر كما هو؛ يمكن ربطها لاحقاً من القائمة إذا طابق اسمها إحدى الفئات.
+- جدول `.NET` القديم `dbo.item` **لم يُلمس**: لا يوجد فيه عمود فئة في المخطط المعروف، ولم نضف أعمدة غير مؤكدة إليه.
+
+### Excel
+
+- العمود الذي يُملأ في القالب هو **`CategoryID`** (رقم الفئة من الجدول). القيم `CAT-008` أو الاسم الإنجليزي أو العربي مقبولة أيضاً كراحة للمستخدم، لكن الرقم هو المرجع المهني.
+- عمود `Category` في القالب يُترك فارغاً؛ المعاينة تملؤه من `CategoryNameEn`. إذا تعارض نص يدوي مع `CategoryID`، فالفئة المختارة هي التي تفوز.
+- قيمة غير موجودة في جدول الفئات تمنع تطبيق الملف بالكامل، تماماً كالباركود المكرر.
+- `GET /api/item-categories` يُزامن القائمة عند إقلاع التطبيق، مع نسخة محلية احتياطية من 28 صفاً (`src/store/itemCategoryStore.ts`) حتى يعمل الجهاز بدون سيرفر. في E2E يُStub المسار بقائمة فارغة لتبقى البيانات ثابتة.
+
+### الملفات
+
+`server/prisma/migrations/20261126140000_add_item_categories/migration.sql`, `server/prisma/schema.prisma`, `server/src/routes/itemCategories.ts`, `server/src/routes/items.ts`, `server/src/items/import.ts`, `src/types/catalog.ts`, `src/utils/itemCategories.ts`, `src/utils/seedData.ts`, `src/api/itemCategoryApi.ts`, `src/store/itemCategoryStore.ts`, `src/App.tsx`, `src/components/Inventory/ItemMasterFormDialog.tsx`, `src/components/Inventory/ItemMasterPage.tsx`, `src/utils/itemMaster.ts`, `src/utils/itemImport.ts`, `src/utils/itemImportSample.ts`, `e2e/fixtures.ts`، مع اختبارات في `src/utils/itemImport.test.ts`, `src/utils/itemMaster.test.ts`, `server/tests/items/import.test.ts`.
