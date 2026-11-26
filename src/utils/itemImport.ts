@@ -6,7 +6,7 @@
 // writes anything: every row becomes a reviewable `create`, `update` or `error` before Apply.
 import type { ControlledStatus, Item, ItemCategory } from '../types/catalog';
 import { isValidBarcode, itemCodes } from './itemMaster';
-import { itemCategoryLabel, resolveItemCategory } from './itemCategories';
+import { isIgnoredItemCategoryValue, itemCategoryLabel, resolveItemCategory } from './itemCategories';
 import { seedItemCategories } from './seedData';
 
 export type ItemImportField =
@@ -103,7 +103,7 @@ export interface ItemImportPayloadRow {
   nameAr: string;
   unit: string;
   category: string;
-  // Resolved from the ItemCategories column; the canonical English name is written to `category`.
+  // Resolved from the Categories column; the canonical English name is written to `category`.
   categoryId?: number;
   basePrice: number;
   vatRate: number;
@@ -334,14 +334,15 @@ export function planItemImport(
       return;
     }
 
-    // ItemCategories is an explicit lookup column: a value must resolve to one seeded/SQL row, or
-    // the whole file is blocked. Free-text Category remains usable on its own for legacy sheets.
+    // CategoryID is an explicit lookup column: a value must resolve to one seeded/SQL row, or the
+    // whole file is blocked. Known scope flags ("All", "Saleable / PoS") are treated as unlinked.
+    // Free-text Category remains usable on its own for legacy sheets.
     const itemCategoriesCell = cell(sheetRow, columns.itemCategories);
     const matchedCategory = resolveItemCategory(itemCategoriesCell, categories);
-    if (itemCategoriesCell && !matchedCategory) {
+    if (itemCategoriesCell && !matchedCategory && !isIgnoredItemCategoryValue(itemCategoriesCell)) {
       rows.push(rowError(
         row,
-        `ItemCategories value "${itemCategoriesCell}" is not in the category master.`,
+        `CategoryID value "${itemCategoriesCell}" is not in the category master.`,
         barcode,
       ));
       return;

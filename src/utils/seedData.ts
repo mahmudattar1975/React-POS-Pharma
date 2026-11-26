@@ -11,9 +11,9 @@ function isoDaysFromNow(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Offline fallback for dbo.ItemCategories. The SQL master is authoritative and synced on boot;
-// these rows keep the Item Master dropdown and Excel importer usable before that sync completes.
-// CategoryId values match the migration's explicit seed so imported references stay stable.
+// Offline fallback for the shared category master. The SQL master is authoritative and synced on
+// boot; these rows keep the Item Master dropdown and Excel importer usable before that sync
+// completes. CategoryId values match the migration's explicit seed so imports stay stable.
 export const seedItemCategories: ItemCategory[] = [
   { categoryId: 1, categoryCode: 'CAT-001', nameAr: 'أدوية', nameEn: 'Medicines', parentCategoryId: null, isActive: true },
   { categoryId: 2, categoryCode: 'CAT-002', nameAr: 'مستلزمات طبية', nameEn: 'Medical Supplies', parentCategoryId: null, isActive: true },
@@ -23,12 +23,12 @@ export const seedItemCategories: ItemCategory[] = [
   { categoryId: 6, categoryCode: 'CAT-006', nameAr: 'منتجات العناية بالشعر', nameEn: 'Hair Care Products', parentCategoryId: null, isActive: true },
   { categoryId: 7, categoryCode: 'CAT-007', nameAr: 'منتجات العناية بالفم والأسنان', nameEn: 'Oral & Dental Care', parentCategoryId: null, isActive: true },
   { categoryId: 8, categoryCode: 'CAT-008', nameAr: 'الفيتامينات والمكملات الغذائية', nameEn: 'Vitamins & Supplements', parentCategoryId: null, isActive: true },
-  { categoryId: 9, categoryCode: 'CAT-009', nameAr: 'منتجات الأطفال والرضع', nameEn: 'Baby Care Products', parentCategoryId: null, isActive: true },
+  { categoryId: 9, categoryCode: 'CAT-009', nameAr: 'منتجات الأطفال', nameEn: 'Baby Products', parentCategoryId: null, isActive: true },
   { categoryId: 10, categoryCode: 'CAT-010', nameAr: 'منتجات الأمومة', nameEn: 'Maternity Products', parentCategoryId: null, isActive: true },
-  { categoryId: 11, categoryCode: 'CAT-011', nameAr: 'منتجات النظافة الشخصية', nameEn: 'Personal Hygiene Products', parentCategoryId: null, isActive: true },
+  { categoryId: 11, categoryCode: 'CAT-011', nameAr: 'عناية شخصية', nameEn: 'Personal Hygiene, Body Care', parentCategoryId: null, isActive: true },
   { categoryId: 12, categoryCode: 'CAT-012', nameAr: 'المطهرات والمعقمات', nameEn: 'Disinfectants & Sanitizers', parentCategoryId: null, isActive: true },
   { categoryId: 13, categoryCode: 'CAT-013', nameAr: 'الإسعافات الأولية', nameEn: 'First Aid Products', parentCategoryId: null, isActive: true },
-  { categoryId: 14, categoryCode: 'CAT-014', nameAr: 'الأجهزة والمعدات الطبية', nameEn: 'Medical Devices & Equipment', parentCategoryId: null, isActive: true },
+  { categoryId: 14, categoryCode: 'CAT-014', nameAr: 'أجهزة طبية', nameEn: 'Medical Devices', parentCategoryId: null, isActive: true },
   { categoryId: 15, categoryCode: 'CAT-015', nameAr: 'أجهزة قياس السكر والضغط', nameEn: 'Glucose & Blood Pressure Monitors', parentCategoryId: null, isActive: true },
   { categoryId: 16, categoryCode: 'CAT-016', nameAr: 'مستلزمات مرضى السكري', nameEn: 'Diabetic Supplies', parentCategoryId: null, isActive: true },
   { categoryId: 17, categoryCode: 'CAT-017', nameAr: 'مستلزمات العظام والمفاصل', nameEn: 'Orthopedic Supplies', parentCategoryId: null, isActive: true },
@@ -43,6 +43,14 @@ export const seedItemCategories: ItemCategory[] = [
   { categoryId: 26, categoryCode: 'CAT-026', nameAr: 'أغذية ومشروبات صحية', nameEn: 'Health Foods & Beverages', parentCategoryId: null, isActive: true },
   { categoryId: 27, categoryCode: 'CAT-027', nameAr: 'منتجات طبيعية وعشبية', nameEn: 'Herbal & Natural Products', parentCategoryId: null, isActive: true },
   { categoryId: 28, categoryCode: 'CAT-028', nameAr: 'منتجات موسمية', nameEn: 'Seasonal Products', parentCategoryId: null, isActive: true },
+  // Added from the owner's legacy Excel labels. A new master row is preferred over forcing these
+  // descriptions into an existing category; the importer writes NameEn into items.category.
+  // Ids 43-47 continue after the hierarchy's subcategories 32-42; codes 29-33 are already taken.
+  { categoryId: 43, categoryCode: 'CAT-043', nameAr: 'حليب', nameEn: 'Milk', parentCategoryId: null, isActive: true },
+  { categoryId: 44, categoryCode: 'CAT-044', nameAr: 'مستحضرات تجميل طبية', nameEn: 'Medicated Cosmetics', parentCategoryId: null, isActive: true },
+  { categoryId: 45, categoryCode: 'CAT-045', nameAr: 'مكياج', nameEn: 'Make Up', parentCategoryId: null, isActive: true },
+  { categoryId: 46, categoryCode: 'CAT-046', nameAr: 'العناية النسائية', nameEn: 'Feminine Care', parentCategoryId: null, isActive: true },
+  { categoryId: 47, categoryCode: 'CAT-047', nameAr: 'منتج خدمة البيع بالتجزئة', nameEn: 'Retail Service Product', parentCategoryId: null, isActive: true },
 ];
 
 // VAT rate is set per item, read from the item master, exactly like the legacy system's own

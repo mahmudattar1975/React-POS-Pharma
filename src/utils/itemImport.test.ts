@@ -100,12 +100,39 @@ describe('itemImport planning', () => {
     }
   });
 
-  it('blocks the file when an Item Categories value is not in the master', () => {
+  it('blocks the file when a CategoryID value is not in the master', () => {
     const categoryColumns = detectItemColumns([...headers, 'CategoryID']);
     const plan = planItemImport([row({ 'CategoryID': 'CAT-999' })], categoryColumns, []);
     expect(plan.errors).toBe(1);
     expect(plan.rows[0].note).toMatch(/not in the category master/i);
     expect(plan.apply).toHaveLength(0);
+  });
+
+  it('resolves legacy category descriptions but still writes the canonical English label', () => {
+    const categoryColumns = detectItemColumns([...headers, 'CategoryID']);
+    const cases: Array<[string, number, string]> = [
+      ['RX - riadh', 1, 'Medicines'],
+      ['DIAPPERS', 3, 'Diapers'],
+      ['COSMOTICS', 4, 'Cosmetics'],
+      ['BODY CARE', 11, 'Personal Hygiene, Body Care'],
+      ['MILK', 43, 'Milk'],
+      ['MEDICATED COSMOTICS', 44, 'Medicated Cosmetics'],
+    ];
+    for (const [value, categoryId, category] of cases) {
+      const plan = planItemImport([row({ CategoryID: value, Category: 'Ignored text' })], categoryColumns, []);
+      expect(plan.errors, value).toBe(0);
+      expect(plan.apply[0], value).toMatchObject({ categoryId, category });
+    }
+  });
+
+  it('treats legacy scope flags as unlinked instead of blocking the whole file', () => {
+    const categoryColumns = detectItemColumns([...headers, 'CategoryID']);
+    for (const value of ['All', 'Saleable / PoS']) {
+      const plan = planItemImport([row({ CategoryID: value, Category: 'Walk-ins' })], categoryColumns, []);
+      expect(plan.errors, value).toBe(0);
+      expect(plan.apply[0], value).toMatchObject({ category: 'Walk-ins' });
+      expect(plan.apply[0].categoryId, value).toBeUndefined();
+    }
   });
 });
 
