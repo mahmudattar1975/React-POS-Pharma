@@ -18,19 +18,22 @@ test('Excel sample button downloads a usable item-import template', async ({ pag
   expect(existsSync(saved)).toBe(true);
 
   // The importer reads the first sheet, so the downloaded file must have the exact headers the
-  // dialog auto-detects and a single example row the owner can delete. Read the bytes directly so
-  // this is independent of how xlsx resolves file paths inside the Playwright worker.
+  // dialog auto-detects and two example rows the owner can delete. The rows share an English name
+  // so the sample shows how repeated barcodes become one item with aliases.
   const workbook = XLSX.read(readFileSync(saved), { type: 'buffer' });
   expect(workbook.SheetNames).toEqual(['Items', 'How to fill']);
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Items, { defval: '' });
-  expect(rows).toHaveLength(1);
+  expect(rows).toHaveLength(2);
   expect(rows[0]).toMatchObject({
-    Barcode: 'SAMPLE-0001',
-    'Item Name (English)': 'Sample Item - replace or delete this row',
-    'VAT %': '15%',
-    CategoryID: 1,
-    Category: '',
-    Active: 'Yes',
+    Barcode: '5247619187585',
+    Name: 'Sample Item - replace or delete these rows',
+    'Product Category': 'All / COSMOTICS',
+    'Sales Price': 99,
+    'Customer Taxes': '15 Sales',
+  });
+  expect(rows[1]).toMatchObject({
+    Barcode: '5281018089071',
+    Name: 'Sample Item - replace or delete these rows',
   });
   rmSync(saved, { force: true });
 });

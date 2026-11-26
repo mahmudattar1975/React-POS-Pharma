@@ -40,6 +40,7 @@ const STATUS_COLOR: Record<ItemImportStatus, 'success' | 'primary' | 'error'> = 
 
 const FIELD_LABEL: Record<ItemImportField, string> = {
   barcode: 'Barcode / code *',
+  extraBarcodes: 'Extra barcodes (same item)',
   nameEn: 'English name *',
   nameAr: 'Arabic name',
   basePrice: 'Sale price',
@@ -51,6 +52,8 @@ const FIELD_LABEL: Record<ItemImportField, string> = {
   controlledStatus: 'Controlled status',
   requiresBatchTracking: 'Batch tracking',
   isActive: 'Active',
+  vendorNo: 'Vendor',
+  manufacturerNo: 'Manufactured',
 };
 
 const STATUS_LABEL: Record<ItemImportStatus, string> = {
@@ -180,8 +183,10 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
             <T>Choose the spreadsheet, check the detected columns, then review every row before
-            applying. New codes are created; existing barcodes are updated. The import writes to
-            both the POS catalogue and the .NET item master — no batches or stock are created.</T>
+            applying. New codes are created; existing barcodes are updated. Rows with the same
+            English name become one item: the first barcode is the main code and the others are
+            aliases. The import writes to both the POS catalogue and the .NET item master — no
+            batches or stock are created.</T>
           </Typography>
 
           <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start', flexWrap: 'wrap' }}>
@@ -285,7 +290,14 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
                             <TableCell>
                               <Chip size="small" color={STATUS_COLOR[row.status]} label={tr(STATUS_LABEL[row.status])} />
                             </TableCell>
-                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.barcode || '—'}</TableCell>
+                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+                              {row.barcode || '—'}
+                              {!!row.barcodes?.length && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                  +{row.barcodes.join(', ')}
+                                </Typography>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Typography variant="body2">{row.nameEn || '—'}</Typography>
                               {row.nameAr && (

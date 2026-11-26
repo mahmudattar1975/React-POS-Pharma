@@ -4,7 +4,7 @@ import {
   detectItemColumns, normaliseBarcodeCell, planItemImport, type ItemColumnMapping,
 } from './itemImport';
 import {
-  buildItemImportSampleWorkbook, ITEM_IMPORT_SAMPLE_HEADERS, ITEM_IMPORT_SAMPLE_ROW,
+  buildItemImportSampleWorkbook, ITEM_IMPORT_SAMPLE_HEADERS, ITEM_IMPORT_SAMPLE_ROWS,
 } from './itemImportSample';
 
 function item(barcode: string, nameEn: string): Item {
@@ -65,6 +65,85 @@ describe('itemImport planning', () => {
       isActive: true,
       reorderLevel: 0,
     });
+  });
+
+  it('keeps several printed codes on one row and parses ; and , separators', () => {
+    const extraColumns = detectItemColumns([...headers, 'Extra Barcodes']);
+    expect(extraColumns.extraBarcodes).toBe('Extra Barcodes');
+    const plan = planItemImport([
+      row({
+        Barcode: '77777770585',
+        'Extra Barcodes': '77777770586; 77777770587',
+        'Item Name': 'AL SHAROUQ LOOFA 418',
+      }),
+      row({ Barcode: '8850851510607', 'Extra Barcodes': '8850851510584, 8850851510591', 'Item Name': 'ANGEL SILICONE NIPPLE 3 PCS' }),
+    ], extraColumns, []);
+    expect(plan.errors).toBe(0);
+    expect(plan.apply).toHaveLength(2);
+    expect(plan.apply[0]).toMatchObject({
+      barcode: '77777770585',
+      barcodes: ['77777770586', '77777770587'],
+    });
+    expect(plan.apply[1]).toMatchObject({
+      barcode: '8850851510607',
+      barcodes: ['8850851510584', '8850851510591'],
+    });
+  });
+
+  it('merges repeated English names into one item and keeps every row barcode as an alias', () => {
+    const plan = planItemImport([
+      row({ Barcode: '77777770585', 'Item Name': 'AL SHAROUQ LOOFA 418' }),
+      row({ Barcode: '77777770586', 'Item Name': 'AL SHAROUQ LOOFA 418' }),
+      row({ Barcode: '8850851510607', 'Item Name': 'ANGEL SILICONE NIPPLE 3 PCS' }),
+      row({ Barcode: '8850851510584', 'Item Name': 'Angel Silicone Nipple 3 PCS' }),
+    ], columns, []);
+    expect(plan.errors).toBe(0);
+    expect(plan.create).toBe(2);
+    expect(plan.apply).toHaveLength(2);
+    expect(plan.apply[0]).toMatchObject({
+      barcode: '77777770585',
+      barcodes: ['77777770586'],
+    });
+    expect(plan.apply[1]).toMatchObject({
+      barcode: '8850851510607',
+      barcodes: ['8850851510584'],
+    });
+    expect(plan.rows[0].note).toMatch(/Rows 3 .*same English name/i);
+    expect(plan.rows.find((row) => row.barcode === '8850851510607')?.note)
+      .toMatch(/Rows 5 .*same English name/i);
+  });
+
+  it('does not let one row list the same code twice or use its main barcode as an alias', () => {
+    const extraColumns = detectItemColumns([...headers, 'Extra Barcodes']);
+    const plan = planItemImport([
+      row({ Barcode: '6281007320666', 'Extra Barcodes': '77777770586;77777770586' }),
+      row({ Barcode: '6281007320777', 'Extra Barcodes': '6281007320777', 'Item Name': 'Second Item' }),
+    ], extraColumns, []);
+    expect(plan.errors).toBe(2);
+    expect(plan.rows[0].note).toMatch(/listed twice/i);
+    expect(plan.rows[1].note).toMatch(/main barcode or is listed twice/i);
+    expect(plan.apply).toHaveLength(0);
+  });
+
+  it('blocks the file when an extra code is also used as another row main barcode', () => {
+    const extraColumns = detectItemColumns([...headers, 'Extra Barcodes']);
+    const plan = planItemImport([
+      row({ 'Extra Barcodes': '6281007320888' }),
+      row({ Barcode: '6281007320888', 'Item Name': 'Second Item' }),
+    ], extraColumns, []);
+    expect(plan.errors).toBe(1);
+    expect(plan.rows[1].note).toMatch(/already used as an extra code on row/i);
+  });
+
+  it('blocks an extra code that already belongs to a different local item', () => {
+    const extraColumns = detectItemColumns([...headers, 'Extra Barcodes']);
+    const other = { ...item('77777770586', 'Other Item'), barcodes: [] };
+    const plan = planItemImport([
+      row({ 'Extra Barcodes': '77777770586' }),
+    ], extraColumns, [other]);
+    expect(plan.errors).toBe(1);
+    expect(plan.rows[0].note).toMatch(/already belongs to Other Item/i);
+    expect(plan.apply).toHaveLength(0);
   });
 
   it('marks a known barcode as an update and carries the local id for the API', () => {
@@ -137,31 +216,28 @@ describe('itemImport planning', () => {
 });
 
 describe('Excel sample template', () => {
-  it('uses headers that are detected automatically and an example row that imports cleanly', () => {
-    const sampleColumns = detectItemColumns(ITEM_IMPORT_SAMPLE_HEADERS);
+  const sampleColumns = detectItemColumns(ITEM_IMPORT_SAMPLE_HEADERS);
+
+  it('detects the owner ERP headers automatically and merges the two example rows', () => {
     expect(sampleColumns).toMatchObject({
       barcode: 'Barcode',
-      nameEn: 'Item Name (English)',
-      nameAr: 'Arabic Name',
-      basePrice: 'Sale Price',
-      vatRate: 'VAT %',
-      category: 'Category',
-      itemCategories: 'CategoryID',
-      unit: 'Unit',
-      reorderLevel: 'Reorder Level',
-      controlledStatus: 'Controlled Status',
-      requiresBatchTracking: 'Requires Batch Tracking',
-      isActive: 'Active',
+      nameEn: 'Name',
+      category: 'Product Category',
+      basePrice: 'Sales Price',
+      vatRate: 'Customer Taxes',
+      vendorNo: 'Vendor',
+      manufacturerNo: 'Manufactured',
     });
-    const plan = planItemImport([ITEM_IMPORT_SAMPLE_ROW], sampleColumns, []);
+    const plan = planItemImport(ITEM_IMPORT_SAMPLE_ROWS, sampleColumns, []);
     expect(plan.errors).toBe(0);
     expect(plan.create).toBe(1);
     expect(plan.apply[0]).toMatchObject({
-      barcode: 'SAMPLE-0001',
-      categoryId: 1,
-      category: 'Medicines',
-      basePrice: 12.5,
+      barcode: '5247619187585',
+      barcodes: ['5281018089071'],
+      category: 'All / COSMOTICS',
+      basePrice: 99,
       vatRate: 0.15,
+      manufacturerNo: 'BEESLINE',
       requiresBatchTracking: true,
       isActive: true,
     });
@@ -172,8 +248,58 @@ describe('Excel sample template', () => {
     expect(workbook.SheetNames).toEqual(['Items', 'How to fill']);
     const XLSX = await import('xlsx');
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Items, { defval: '' });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject(ITEM_IMPORT_SAMPLE_ROW);
+    expect(rows).toHaveLength(ITEM_IMPORT_SAMPLE_ROWS.length);
+    rows.forEach((row, index) => expect(row).toMatchObject(ITEM_IMPORT_SAMPLE_ROWS[index]));
+  });
+
+  it('merges the owner sample into four items and keeps @ and 15 Sales codes valid', () => {
+    const erpRow = (
+      barcode: string,
+      name: string,
+      category: string,
+      brand: string,
+      price: number,
+      taxes: string,
+    ) => ({
+      Barcode: barcode,
+      Name: name,
+      'Product Category': category,
+      Brand: brand,
+      Vendor: '',
+      Manufactured: brand,
+      Cost: 0,
+      'Sales Price': price,
+      'Customer Taxes': taxes,
+    });
+
+    const plan = planItemImport([
+      erpRow('5247619187585', 'BEESLINE SUN SCREEN F/ FLUID 50 40ML', 'All / COSMOTICS', 'BEESLINE', 99, '15 Sales'),
+      erpRow('5281018089071', 'BEESLINE SUN SCREEN F/ FLUID 50 40ML', 'All / COSMOTICS', 'BEESLINE', 99, '15 Sales'),
+      erpRow('04694@43983', 'BODY CARE SLIMMING MASSAGE BELT', 'All / MEDICAL SUPPLIES', '', 250, '0 Sales'),
+      erpRow('6947349600925', 'body care slimming massage belt', 'All / MEDICAL SUPPLIES', 'BODY', 0, '0 Sales'),
+      ...['6974482590271', '6974482590257', '6974482590240', '6974482590301', '6974482590295']
+        .map((code) => erpRow(code, 'Christine Lip Gloss and Plumper', 'All / COSMOTICS', 'CHRISTINE', 0, '0 Sales')),
+      ...['746092082240', '746092082226', '746092081618', '746092082233', '746092081601', '746092081625', '746092082257']
+        .map((code) => erpRow(code, 'Christine Liquid Concealer', 'All / COSMOTICS', 'CHRISTINE', 0, '0 Sales')),
+    ], sampleColumns, []);
+
+    expect(plan.errors).toBe(0);
+    expect(plan.create).toBe(4);
+    expect(plan.apply).toHaveLength(4);
+    expect(plan.apply.map((row) => row.barcode)).toEqual([
+      '5247619187585',
+      '04694@43983',
+      '6974482590271',
+      '746092082240',
+    ]);
+    expect(plan.apply.map((row) => row.barcodes)).toEqual([
+      ['5281018089071'],
+      ['6947349600925'],
+      ['6974482590257', '6974482590240', '6974482590301', '6974482590295'],
+      ['746092082226', '746092081618', '746092082233', '746092081601', '746092081625', '746092082257'],
+    ]);
+    expect(plan.apply[0]).toMatchObject({ basePrice: 99, vatRate: 0.15, category: 'All / COSMOTICS' });
+    expect(plan.apply[1]).toMatchObject({ basePrice: 250, vatRate: 0, category: 'All / MEDICAL SUPPLIES' });
   });
 });
 

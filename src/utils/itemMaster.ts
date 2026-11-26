@@ -195,7 +195,9 @@ export function itemTracksExpiry(item: Pick<Item, 'hasExpiry'>): boolean {
 // The Barcode field is an internal identifier (the legacy screen's "القارئ الضوئي"), not
 // necessarily a strict GTIN - keep it alphanumeric but forbid spaces and symbols that would make it
 // impossible to scan/type back. GTIN is stricter (digits only) because it is a real GS1 key.
-const BARCODE_RE = /^[0-9A-Za-z._-]{4,32}$/;
+// '@' appears in the owner's legacy supplier codes (e.g. 04694@43983), so it is a valid printed
+// code character alongside the usual GS1 digits and internal SKU punctuation.
+const BARCODE_RE = /^[0-9A-Za-z._@-]{4,32}$/;
 
 // All scannable codes an item answers to: the primary one, any legacy GTIN, and the extra codes
 // typed into the Item Master list. Used for duplicate checks and for the POS scan lookup, so a
@@ -300,7 +302,7 @@ export function validateItemForm(
 
   const barcode = values.barcode.trim();
   if (!barcode) errors.barcode = 'Barcode is required.';
-  else if (!isValidBarcode(barcode)) errors.barcode = 'Use 4-32 letters, digits, dots, dashes or underscores (no spaces).';
+  else if (!isValidBarcode(barcode)) errors.barcode = 'Use 4-32 letters, digits, dots, dashes, @ or underscores (no spaces).';
 
   // Extra codes: trimmed, blank rows ignored, duplicates inside the list rejected, and every code
   // checked against the rest of the catalog so two products can never answer to the same scan.
@@ -310,7 +312,7 @@ export function validateItemForm(
   const seen = new Set<string>([barcode.toLowerCase()]);
   for (const code of extras) {
     if (!isValidBarcode(code)) {
-      errors.barcodes = `"${code}" is not a valid barcode — use 4-32 letters, digits, dots, dashes or underscores.`;
+      errors.barcodes = `"${code}" is not a valid barcode — use 4-32 letters, digits, dots, dashes, @ or underscores.`;
       break;
     }
     const key = code.toLowerCase();

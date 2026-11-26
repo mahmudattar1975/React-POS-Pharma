@@ -566,8 +566,26 @@ export const useCatalogStore = create<CatalogState>()(
         for (const row of imported) {
           const key = row.barcode.trim().toLowerCase();
           const existing = byCode.get(key);
+          // barcode can arrive as an alias on the same product, so the incoming primary may differ
+          // from the local one. Union the old codes with the SQL aliases, then drop every spelling of
+          // the new primary: itemCodes() must never claim the same code twice.
+          const primaryKey = row.barcode.trim().toLowerCase();
+          const aliasKeys = new Set<string>([primaryKey]);
+          const barcodes: string[] = [];
+          for (const code of [
+            ...(existing ? itemCodes(existing) : []),
+            ...(row.barcodes ?? []),
+          ]) {
+            const value = code?.trim();
+            if (!value) continue;
+            const aliasKey = value.toLowerCase();
+            if (aliasKeys.has(aliasKey)) continue;
+            aliasKeys.add(aliasKey);
+            barcodes.push(value);
+          }
           const master = {
             barcode: row.barcode,
+            barcodes: barcodes.length > 0 ? barcodes : undefined,
             nameAr: row.nameAr,
             nameEn: row.nameEn,
             unit: row.unit,
@@ -578,6 +596,8 @@ export const useCatalogStore = create<CatalogState>()(
             requiresBatchTracking: row.requiresBatchTracking,
             reorderLevel: row.reorderLevel,
             controlledStatus: row.controlledStatus ?? undefined,
+            vendorNo: row.vendorNo ?? undefined,
+            manufacturerNo: row.manufacturerNo ?? undefined,
           } as Partial<Item>;
           // A boot sync has no branch-local active flag: keep this terminal's current choice
           // instead of silently re-enabling an item it had discontinued.

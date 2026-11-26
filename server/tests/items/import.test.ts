@@ -27,8 +27,45 @@ describe('item import server validation', () => {
     expect(() => validateItemImportBody({ items: [row({ barcode: 'bad code' })] })).toThrow(/barcode/i);
   });
 
-  it('rejects duplicate barcodes in one file', () => {
+  it('accepts legacy supplier codes containing @', () => {
+    const result = validateItemImportBody({ items: [row({ barcode: '04694@43983' })] });
+    expect(result.items[0].barcode).toBe('04694@43983');
+  });
+
+  it('accepts vendor and manufacturer metadata from the ERP sheet', () => {
+    const result = validateItemImportBody({
+      items: [row({ vendorNo: 'VENDOR-001', manufacturerNo: 'BEESLINE' })],
+    });
+    expect(result.items[0]).toMatchObject({ vendorNo: 'VENDOR-001', manufacturerNo: 'BEESLINE' });
+  });
+
+  it('accepts extra barcodes as aliases of one item', () => {
+    const result = validateItemImportBody({
+      items: [row({ barcode: '77777770585', barcodes: ['77777770586', '77777770587'] })],
+    });
+    expect(result.items[0]).toMatchObject({
+      barcode: '77777770585',
+      barcodes: ['77777770586', '77777770587'],
+    });
+  });
+
+  it('rejects a malformed or repeated extra barcode', () => {
+    expect(() => validateItemImportBody({
+      items: [row({ barcodes: ['bad code'] })],
+    })).toThrow(/extra barcode/i);
+    expect(() => validateItemImportBody({
+      items: [row({ barcodes: ['77777770586', '77777770586'] })],
+    })).toThrow(/listed twice/i);
+    expect(() => validateItemImportBody({
+      items: [row({ barcodes: ['6281007320999'] })],
+    })).toThrow(/main barcode/i);
+  });
+
+  it('rejects duplicate barcodes in one file, including aliases', () => {
     expect(() => validateItemImportBody({ items: [row(), row()] })).toThrow(/more than once/i);
+    expect(() => validateItemImportBody({
+      items: [row({ barcodes: ['77777770586'] }), row({ barcode: '77777770586' })],
+    })).toThrow(/more than once/i);
   });
 
   it('rejects an out-of-range VAT rate', () => {

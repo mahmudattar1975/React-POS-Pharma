@@ -1,53 +1,54 @@
 // Downloadable template for the Excel item import. The first sheet is the one the dialog reads, so
-// its headers must match the aliases in itemImport.ts; the second sheet is guidance only and is
+// its headers match the owner's ERP export exactly; the second sheet is guidance only and is
 // ignored by the importer. Keeping this here (rather than inside the dialog) makes the template
 // testable without a browser and keeps `xlsx` out of the initial bundle.
 export const ITEM_IMPORT_SAMPLE_HEADERS: string[] = [
   'Barcode',
-  'Item Name (English)',
-  'Arabic Name',
-  'Sale Price',
-  'VAT %',
-  'CategoryID',
-  'Category',
-  'Unit',
-  'Reorder Level',
-  'Controlled Status',
-  'Requires Batch Tracking',
-  'Active',
+  'Name',
+  'Product Category',
+  'Brand',
+  'Vendor',
+  'Manufactured',
+  'Cost',
+  'Sales Price',
+  'Customer Taxes',
 ];
 
+// Two lines with the same English name demonstrate the real sheets: the importer creates ONE item
+// and stores the second barcode as an alias in dbo.ItemBarcodes.
 export const ITEM_IMPORT_SAMPLE_ROW: Record<string, string | number> = {
-  Barcode: 'SAMPLE-0001',
-  'Item Name (English)': 'Sample Item - replace or delete this row',
-  'Arabic Name': 'صنف تجريبي - استبدله أو احذفه',
-  'Sale Price': 12.5,
-  'VAT %': '15%',
-  CategoryID: 1,
-  Category: '',
-  Unit: 'Box',
-  'Reorder Level': 10,
-  'Controlled Status': '',
-  'Requires Batch Tracking': 'Yes',
-  Active: 'Yes',
+  Barcode: '5247619187585',
+  Name: 'Sample Item - replace or delete these rows',
+  'Product Category': 'All / COSMOTICS',
+  Brand: 'BEESLINE',
+  Vendor: '',
+  Manufactured: 'BEESLINE',
+  Cost: 0,
+  'Sales Price': 99,
+  'Customer Taxes': '15 Sales',
 };
+
+export const ITEM_IMPORT_SAMPLE_ROWS: Record<string, string | number>[] = [
+  ITEM_IMPORT_SAMPLE_ROW,
+  {
+    ...ITEM_IMPORT_SAMPLE_ROW,
+    Barcode: '5281018089071',
+  },
+];
 
 const GUIDE_ROWS: (string | number)[][] = [
   ['Column', 'Required', 'Example', 'Notes'],
-  ['Barcode', 'Yes', '6281007320999', '4-32 letters/digits/dot/dash/underscore. Format the Excel column as Text before pasting; scientific notation such as 6.9442E+12 is expanded on import, but re-enter the code if Excel has already rounded its digits.'],
-  ['Item Name (English)', 'Yes', 'Paracetamol 500mg', 'Used by the .NET item master and POS search.'],
-  ['Arabic Name', 'No', 'باراسيتامول 500 مجم', 'Optional, but recommended for receipts and labels.'],
-  ['Sale Price', 'No', '12.50', 'Blank becomes 0.00; the preview will flag it.'],
-  ['VAT %', 'No', '15%', 'Accepts 0.15, 15 or 15%. Zero-rated items can use 0.'],
-  ['CategoryID', 'No', '1', 'Fill this column. It is the CategoryID from dbo.ItemCategories; CategoryCode (CAT-001), English name or Arabic name are also accepted. Unknown values block the whole file.'],
-  ['Category', 'No', '', 'Leave blank when CategoryID is filled: the importer writes CategoryNameEn from ItemCategories here. Free text is only for legacy rows with no CategoryID.'],
-  ['Unit', 'No', 'Box', 'Free text, e.g. Box, Strip, Tablet.'],
-  ['Reorder Level', 'No', '10', 'Whole number, 0 or more.'],
-  ['Controlled Status', 'No', 'prescription', 'Blank = none. Also accepts schedule_a ... schedule_e.'],
-  ['Requires Batch Tracking', 'No', 'Yes', 'Yes/No. Defaults to Yes when blank.'],
-  ['Active', 'No', 'Yes', 'Yes/No. Defaults to Yes when blank.'],
+  ['Barcode', 'Yes', '6281007320999', '4-32 letters/digits/dot/dash/@/underscore. Format the Excel column as Text before pasting; scientific notation such as 6.9442E+12 is expanded on import. Legacy codes like 04694@43983 are accepted.'],
+  ['Name', 'Yes', 'BEESLINE SUN SCREEN F/ FLUID 50 40ML', 'Case and extra spaces do not matter. Rows with the SAME name become one item; each row barcode is saved as an alias on that item.'],
+  ['Product Category', 'No', 'All / COSMOTICS', 'Free text from the ERP, e.g. All / MEDICAL SUPPLIES. Written as-is to the item category label.'],
+  ['Brand', 'No', 'BEESLINE', 'Ignored by the item master (no brand column is written).'],
+  ['Vendor', 'No', 'VENDOR-001', 'Saved as the item preferred vendor number when present.'],
+  ['Manufactured', 'No', 'BEESLINE', 'Saved as the item manufacturer number when present.'],
+  ['Cost', 'No', '0.00', 'Ignored: purchase cost belongs to a batch, and this import creates no batches or stock.'],
+  ['Sales Price', 'No', '99.00', 'Blank becomes 0.00; the preview shows the value before you apply.'],
+  ['Customer Taxes', 'No', '15 Sales', 'The numeric part is the VAT rate: 15 or 15% means 15%, 0 means zero-rated. The trailing tax label is ignored.'],
   ['', '', '', ''],
-  ['TIP', '', '', 'Delete the sample row before importing your own items. Arabic headers are also recognised.'],
+  ['TIP', '', '', 'Delete both sample rows before importing your own items. Rows 1 and 2 have the same name on purpose: they become one item with two scannable barcodes.'],
 ];
 
 // Exported for tests so the template's first sheet can be inspected without downloading a file.
@@ -57,16 +58,16 @@ export async function buildItemImportSampleWorkbook() {
 
   const items = XLSX.utils.aoa_to_sheet([
     ITEM_IMPORT_SAMPLE_HEADERS,
-    ITEM_IMPORT_SAMPLE_HEADERS.map((header) => ITEM_IMPORT_SAMPLE_ROW[header] ?? ''),
+    ...ITEM_IMPORT_SAMPLE_ROWS.map((row) => ITEM_IMPORT_SAMPLE_HEADERS.map((header) => row[header] ?? '')),
   ]);
   items['!cols'] = [
-    { wch: 18 }, { wch: 38 }, { wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 14 },
-    { wch: 30 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 24 }, { wch: 10 },
+    { wch: 18 }, { wch: 42 }, { wch: 26 }, { wch: 16 }, { wch: 16 },
+    { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 16 },
   ];
   XLSX.utils.book_append_sheet(workbook, items, 'Items');
 
   const guide = XLSX.utils.aoa_to_sheet(GUIDE_ROWS);
-  guide['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 24 }, { wch: 68 }];
+  guide['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 40 }, { wch: 84 }];
   XLSX.utils.book_append_sheet(workbook, guide, 'How to fill');
 
   return workbook;

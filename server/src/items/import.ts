@@ -1,7 +1,8 @@
 // Validation for the Excel item import. The browser plans the import (column detection, previews,
 // duplicate detection) and sends the normalised rows here; these rules run again on the server so a
 // direct POST cannot write a malformed master into either dotnet_pos.dbo.items or dbo.item.
-const BARCODE_RE = /^[0-9A-Za-z._-]{4,32}$/;
+// '@' is valid in the owner's legacy supplier codes (04694@43983).
+const BARCODE_RE = /^[0-9A-Za-z._@-]{4,32}$/;
 const CONTROLLED_STATUSES = new Set([
   'prescription',
   'schedule_a',
@@ -15,6 +16,9 @@ const MAX_ROWS = 1000;
 export interface ItemImportInput {
   preferredId?: string;
   barcode: string;
+  // Other printed codes for the same item. Stored in the app's ItemBarcodes child table; the .NET
+  // dbo.item master keeps its single Code column unchanged.
+  barcodes?: string[];
   nameEn: string;
   nameAr: string;
   unit: string;
@@ -27,6 +31,9 @@ export interface ItemImportInput {
   reorderLevel: number;
   controlledStatus?: string | null;
   isActive: boolean;
+  // Optional item-master metadata. Blank cells stay undefined so an update keeps the SQL value.
+  vendorNo?: string;
+  manufacturerNo?: string;
 }
 
 function text(value: unknown, label: string, max: number, required = false): string {
@@ -51,6 +58,28 @@ function boolean(value: unknown, label: string): boolean {
   return value;
 }
 
+function extraBarcodes(value: unknown, barcode: string, at: (label: string) => string): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new Error(`${at('extra barcodes')} must be an array of codes.`);
+  if (value.length > 10) throw new Error(`${at('extra barcodes')} can contain at most 10 codes.`);
+
+  const seen = new Set<string>([barcode.toLowerCase()]);
+  const codes: string[] = [];
+  for (const raw of value) {
+    const code = text(raw, at('extra barcode'), 32, true);
+    if (!BARCODE_RE.test(code)) {
+      throw new Error(`${at('extra barcode')} ${code} must be 4-32 letters, digits, dots, dashes, @ or underscores.`);
+    }
+    const key = code.toLowerCase();
+    if (seen.has(key)) {
+      throw new Error(`${at('extra barcode')} ${code} is the main barcode or is listed twice.`);
+    }
+    seen.add(key);
+    codes.push(code);
+  }
+  return codes.length > 0 ? codes : undefined;
+}
+
 function validateRow(raw: unknown, index: number): ItemImportInput {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error(`Row ${index + 2} is not an object.`);
@@ -60,8 +89,9 @@ function validateRow(raw: unknown, index: number): ItemImportInput {
 
   const barcode = text(row.barcode, at('barcode'), 32, true);
   if (!BARCODE_RE.test(barcode)) {
-    throw new Error(`${at('barcode')} must be 4-32 letters, digits, dots, dashes or underscores.`);
+    throw new Error(`${at('barcode')} must be 4-32 letters, digits, dots, dashes, @ or underscores.`);
   }
+  const barcodes = extraBarcodes(row.barcodes, barcode, at);
   const nameEn = text(row.nameEn, at('English name'), 150, true);
   const nameAr = text(row.nameAr, at('Arabic name'), 150);
   const unit = text(row.unit, at('unit'), 100);
@@ -99,10 +129,13 @@ function validateRow(raw: unknown, index: number): ItemImportInput {
   if (preferredId && !/^[A-Za-z0-9._:-]+$/.test(preferredId)) {
     throw new Error(`${at('preferred id')} contains unsupported characters.`);
   }
+  const vendorNo = text(row.vendorNo, at('vendor'), 50) || undefined;
+  const manufacturerNo = text(row.manufacturerNo, at('manufactured'), 50) || undefined;
 
   return {
     preferredId,
     barcode,
+    barcodes,
     nameEn,
     nameAr,
     unit,
@@ -114,12 +147,14 @@ function validateRow(raw: unknown, index: number): ItemImportInput {
     reorderLevel,
     controlledStatus: controlledRaw ? String(controlledRaw) : null,
     isActive: boolean(row.isActive, at('active status')),
+    vendorNo,
+    manufacturerNo,
   };
 }
 
-// Anything the client sends must pass here before a single write happens. Duplicate barcodes are
-// rejected rather than "last row wins": two spreadsheet rows with one code is almost always a typo,
-// and both tables treat the code as the item identity.
+// Anything the client sends must pass here before a single write happens. Duplicate codes are
+// rejected rather than "last row wins": a code must resolve to exactly one item, whether it is a
+// main barcode or an alias on another row.
 export function validateItemImportBody(body: unknown): { items: ItemImportInput[] } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new Error('Expected an object with an items array.');
@@ -132,9 +167,13 @@ export function validateItemImportBody(body: unknown): { items: ItemImportInput[
   const items = rows.map(validateRow);
   const seen = new Set<string>();
   for (const item of items) {
-    const key = item.barcode.toLowerCase();
-    if (seen.has(key)) throw new Error(`Barcode ${item.barcode} appears more than once in this import.`);
-    seen.add(key);
+    for (const code of [item.barcode, ...(item.barcodes ?? [])]) {
+      const key = code.toLowerCase();
+      if (seen.has(key)) {
+        throw new Error(`Barcode ${code} appears more than once in this import (as a main or extra code).`);
+      }
+      seen.add(key);
+    }
   }
   return { items };
 }

@@ -275,7 +275,7 @@ export default function ItemMasterFormDialog({
                       ? tr("Main scannable code — usually the box barcode")
                       : isValidBarcode(code)
                         ? tr("Available — no other item uses this code.")
-                        : tr("Use 4-32 letters, digits, dots, dashes or underscores.")
+                        : tr("Use 4-32 letters, digits, dots, dashes, @ or underscores.")
                     : undefined);
                 return (
                   <TextField

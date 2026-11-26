@@ -11,6 +11,7 @@ import { seedItemCategories } from './seedData';
 
 export type ItemImportField =
   | 'barcode'
+  | 'extraBarcodes'
   | 'nameEn'
   | 'nameAr'
   | 'basePrice'
@@ -21,10 +22,13 @@ export type ItemImportField =
   | 'reorderLevel'
   | 'controlledStatus'
   | 'requiresBatchTracking'
-  | 'isActive';
+  | 'isActive'
+  | 'vendorNo'
+  | 'manufacturerNo';
 
 export const ITEM_IMPORT_FIELDS: readonly ItemImportField[] = [
   'barcode',
+  'extraBarcodes',
   'nameEn',
   'nameAr',
   'basePrice',
@@ -36,6 +40,8 @@ export const ITEM_IMPORT_FIELDS: readonly ItemImportField[] = [
   'controlledStatus',
   'requiresBatchTracking',
   'isActive',
+  'vendorNo',
+  'manufacturerNo',
 ];
 
 export const ITEM_IMPORT_REQUIRED: readonly ItemImportField[] = ['barcode', 'nameEn'];
@@ -44,6 +50,15 @@ export const ITEM_IMPORT_ALIASES: Record<ItemImportField, string[]> = {
   barcode: [
     'barcode', 'bar code', 'gtin', 'gtin no', 'item code', 'item no', 'item number', 'sku',
     'product code', 'code', 'الباركود', 'رمز الصنف', 'كود الصنف', 'رقم الصنف', 'الرمز',
+  ],
+  // One row stays one item even when the pack prints several codes. The column may hold one code or
+  // several separated by ; , | or the Arabic comma, so legacy sheets with "Barcode 2 / Barcode 3"
+  // columns can be merged into one cell without losing a code.
+  extraBarcodes: [
+    'extra barcodes', 'extra barcode', 'additional barcodes', 'additional barcode',
+    'alternate barcode', 'alternative barcode', 'secondary barcode', 'other barcodes',
+    'barcode 2', 'barcode2', 'barcode 3', 'barcode3', 'barcodes',
+    'الباركود الإضافي', 'باركود إضافي', 'كود إضافي', 'رموز إضافية', 'الباركود 2', 'الباركود 3',
   ],
   nameEn: [
     'name english', 'english name', 'name en', 'nameen', 'item name', 'item name english',
@@ -55,15 +70,16 @@ export const ITEM_IMPORT_ALIASES: Record<ItemImportField, string[]> = {
     'الاسم العربي', 'اسم المنتج', 'الوصف', 'الاسم',
   ],
   basePrice: [
-    'sale price', 'price', 'unit price', 'retail price', 'base price', 'sale price sar',
-    'price sar', 'سعر البيع', 'السعر', 'سعر الوحدة', 'سعر القطعة',
+    'sale price', 'sales price', 'price', 'unit price', 'retail price', 'base price',
+    'sale price sar', 'price sar', 'سعر البيع', 'السعر', 'سعر الوحدة', 'سعر القطعة',
   ],
   vatRate: [
-    'vat', 'vat rate', 'vat %', 'vat percent', 'tax rate', 'ضريبة', 'نسبة الضريبة',
-    'ضريبة القيمة المضافة',
+    'vat', 'vat rate', 'vat %', 'vat percent', 'tax rate', 'customer taxes', 'customer tax',
+    'ضريبة', 'نسبة الضريبة', 'ضريبة القيمة المضافة',
   ],
   category: [
-    'category', 'item category', 'group', 'item group', 'تصنيف', 'مجموعة الصنف', 'المجموعة',
+    'category', 'product category', 'item category', 'group', 'item group', 'تصنيف',
+    'مجموعة الصنف', 'المجموعة',
   ],
   itemCategories: [
     'itemcategories', 'item categories', 'item category id', 'itemcategoryid', 'category id',
@@ -88,6 +104,13 @@ export const ITEM_IMPORT_ALIASES: Record<ItemImportField, string[]> = {
   isActive: [
     'active', 'is active', 'status', 'item status', 'نشط', 'الحالة', 'حالة الصنف',
   ],
+  vendorNo: [
+    'vendor', 'vendor no', 'vendor name', 'preferred vendor', 'المورد', 'اسم المورد',
+  ],
+  manufacturerNo: [
+    'manufactured', 'manufacturer', 'manufacturer no', 'manufacturer name', 'company',
+    'الشركة المصنعة', 'الشركة',
+  ],
 };
 
 export type ItemColumnMapping = Partial<Record<ItemImportField, string>>;
@@ -99,6 +122,9 @@ export type ItemImportStatus = 'create' | 'update' | 'error';
 export interface ItemImportPayloadRow {
   preferredId?: string;
   barcode: string;
+  // Other codes printed on the same pack: either from the Extra Barcodes column or from later rows
+  // with the same English name. The server mirrors them into ItemBarcodes for every branch.
+  barcodes?: string[];
   nameEn: string;
   nameAr: string;
   unit: string;
@@ -111,6 +137,9 @@ export interface ItemImportPayloadRow {
   reorderLevel: number;
   controlledStatus?: ControlledStatus | null;
   isActive: boolean;
+  // Optional item-master metadata from the owner's sheet. Blank cells keep an existing value.
+  vendorNo?: string;
+  manufacturerNo?: string;
 }
 
 export interface ItemImportRow extends ItemImportPayloadRow {
@@ -190,6 +219,30 @@ export function normaliseBarcodeCell(value: string): string {
   return /^(\d+)\.0+$/.exec(expanded)?.[1] ?? expanded;
 }
 
+// One cell can carry several alternate codes; the separators cover both Excel habits and the
+// Arabic comma. Whitespace is removed inside normaliseBarcodeCell, so "77777770585; 77777770586"
+// and "77777770585;77777770586" behave the same.
+const EXTRA_BARCODE_SEPARATORS = /[;|،,]+/;
+
+function extraBarcodesFromCell(value: string): string[] {
+  if (!value.trim()) return [];
+  return value
+    .split(EXTRA_BARCODE_SEPARATORS)
+    .map((code) => normaliseBarcodeCell(code))
+    .filter((code) => code !== '');
+}
+
+// The owner's sheets repeat one product on several lines, each line with its own printed barcode.
+// English name is the merge key (confirmed with the owner); case and repeated spaces are ignored so
+// "AL SHAROUQ  LOOFA" and "al sharouq loofa" stay one item.
+function itemNameKey(nameEn: string): string {
+  return nameEn.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function appendNote(existing: string | undefined, addition: string): string {
+  return existing ? `${existing} ${addition}` : addition;
+}
+
 export function detectItemColumns(headers: string[]): ItemColumnMapping {
   const byNormalised = new Map(headers.map((header) => [normaliseItemHeader(header), header]));
   const mapping: ItemColumnMapping = {};
@@ -213,7 +266,11 @@ function parseBoolean(value: string, fallback: boolean): boolean {
 function parseRate(value: string): number {
   const text = arabicDigits(value).trim();
   const isPercent = /[%٪]/.test(text);
-  const parsed = numberFrom(text);
+  // The owner's ERP exports values like "15 Sales": take the numeric part and ignore the trailing
+  // tax-type label instead of treating the whole cell as malformed.
+  const match = text.replace(/[٫]/g, '.').match(/[-+]?\d+(?:\.\d+)?/);
+  if (!match) return Number.NaN;
+  const parsed = Number(match[0]);
   if (!Number.isFinite(parsed)) return Number.NaN;
   // Excel stores 15% either as 0.15 or as the displayed number 15. Both mean the same rate.
   return isPercent || parsed > 1 ? parsed / 100 : parsed;
@@ -269,6 +326,13 @@ export function planItemImport(
 ): ItemImportPlan {
   const byCode = localItemsByCode(items);
   const seen = new Map<string, number>();
+  // Alternate codes claim a barcode too: a file must never make two items answer to the same code,
+  // whether it is printed as a main barcode or in the extra-barcode column.
+  const seenExtras = new Map<string, number>();
+  // Repeated English names are the same product. The first line supplies the master fields; every
+  // later line only contributes its barcode(s), so the file creates one dbo.items row per name.
+  const byName = new Map<string, ItemImportRow>();
+  const mergedRows = new Map<ItemImportRow, number[]>();
   const rows: ItemImportRow[] = [];
 
   sheetRows.forEach((sheetRow, index) => {
@@ -292,7 +356,7 @@ export function planItemImport(
       return;
     }
     if (!isValidBarcode(barcode)) {
-      rows.push(rowError(row, 'Barcode must be 4-32 letters, digits, dots, dashes or underscores.', barcode));
+      rows.push(rowError(row, 'Barcode must be 4-32 letters, digits, dots, dashes, @ or underscores.', barcode));
       return;
     }
     const firstRow = seen.get(key);
@@ -300,7 +364,47 @@ export function planItemImport(
       rows.push(rowError(row, `Barcode already used on row ${firstRow}.`, barcode));
       return;
     }
+    const extraRow = seenExtras.get(key);
+    if (extraRow !== undefined) {
+      rows.push(rowError(row, `Barcode already used as an extra code on row ${extraRow}.`, barcode));
+      return;
+    }
     seen.set(key, row);
+
+    const existing = byCode.get(key);
+    const barcodes = extraBarcodesFromCell(cell(sheetRow, columns.extraBarcodes));
+    const claimed = new Set<string>([key]);
+    for (const extra of barcodes) {
+      const extraKey = extra.toLowerCase();
+      if (!isValidBarcode(extra)) {
+        rows.push(rowError(
+          row,
+          `Extra barcode "${extra}" must be 4-32 letters, digits, dots, dashes, @ or underscores.`,
+          barcode,
+        ));
+        return;
+      }
+      if (claimed.has(extraKey)) {
+        rows.push(rowError(
+          row,
+          `Extra barcode "${extra}" is the main barcode or is listed twice on this row.`,
+          barcode,
+        ));
+        return;
+      }
+      const ownerRow = seen.get(extraKey) ?? seenExtras.get(extraKey);
+      if (ownerRow !== undefined) {
+        rows.push(rowError(row, `Barcode "${extra}" is already used on row ${ownerRow}.`, barcode));
+        return;
+      }
+      const owner = byCode.get(extraKey);
+      if (owner && owner.id !== existing?.id) {
+        rows.push(rowError(row, `Extra barcode "${extra}" already belongs to ${owner.nameEn}.`, barcode));
+        return;
+      }
+      claimed.add(extraKey);
+      seenExtras.set(extraKey, row);
+    }
 
     const nameEn = cell(sheetRow, columns.nameEn);
     const nameAr = cell(sheetRow, columns.nameAr);
@@ -310,6 +414,13 @@ export function planItemImport(
     }
     if (nameEn.length > 150 || nameAr.length > 150) {
       rows.push(rowError(row, 'A name is longer than 150 characters.', barcode));
+      return;
+    }
+
+    const vendorNo = cell(sheetRow, columns.vendorNo);
+    const manufacturerNo = cell(sheetRow, columns.manufacturerNo);
+    if (vendorNo.length > 50 || manufacturerNo.length > 50) {
+      rows.push(rowError(row, 'Vendor or Manufactured is longer than 50 characters.', barcode));
       return;
     }
 
@@ -355,13 +466,49 @@ export function planItemImport(
       return;
     }
 
-    const existing = byCode.get(key);
     const priceNote = rawPrice ? undefined : 'No price column/value — imported at 0.';
-    rows.push({
+    const target = byName.get(itemNameKey(nameEn));
+    if (target) {
+      // A repeated name is not a second item. Its data fields are ignored; only its codes are
+      // attached to the first row, which keeps one item master and one stock ledger per product.
+      if (existing && (!target.preferredId || existing.id !== target.preferredId)) {
+        rows.push(rowError(row, `Barcode ${barcode} already belongs to ${existing.nameEn}.`, barcode));
+        return;
+      }
+      const claimed = new Set<string>([
+        target.barcode.toLowerCase(),
+        ...(target.barcodes ?? []).map((code) => code.toLowerCase()),
+      ]);
+      for (const code of [barcode, ...barcodes]) {
+        const codeKey = code.toLowerCase();
+        if (claimed.has(codeKey)) {
+          rows.push(rowError(row, `Barcode ${code} is already listed on row ${target.row}.`, barcode));
+          return;
+        }
+        const owner = byCode.get(codeKey);
+        if (owner && (!target.preferredId || owner.id !== target.preferredId)) {
+          rows.push(rowError(row, `Barcode ${code} already belongs to ${owner.nameEn}.`, barcode));
+          return;
+        }
+        claimed.add(codeKey);
+        target.barcodes = [...(target.barcodes ?? []), code];
+        if (codeKey !== key) seenExtras.set(codeKey, row);
+      }
+      const sources = [...(mergedRows.get(target) ?? []), row];
+      mergedRows.set(target, sources);
+      target.note = appendNote(
+        target.note,
+        `Rows ${sources.join(', ')} have the same English name; their barcodes are aliases on this item.`,
+      );
+      return;
+    }
+
+    const newRow: ItemImportRow = {
       row,
       status: existing ? 'update' : 'create',
       preferredId: existing?.id,
       barcode,
+      barcodes: barcodes.length > 0 ? barcodes : undefined,
       nameEn,
       nameAr,
       unit: cell(sheetRow, columns.unit),
@@ -373,15 +520,20 @@ export function planItemImport(
       reorderLevel,
       controlledStatus: parseControlled(cell(sheetRow, columns.controlledStatus)),
       isActive: parseBoolean(cell(sheetRow, columns.isActive), true),
+      vendorNo: vendorNo || undefined,
+      manufacturerNo: manufacturerNo || undefined,
       note: priceNote,
-    });
+    };
+    rows.push(newRow);
+    byName.set(itemNameKey(nameEn), newRow);
   });
 
   const apply = rows
     .filter((row): row is ItemImportRow & { status: 'create' | 'update' } => row.status !== 'error')
-    .map(({ preferredId, barcode, nameEn, nameAr, unit, category, categoryId, basePrice, vatRate, requiresBatchTracking, reorderLevel, controlledStatus, isActive }) => ({
+    .map(({ preferredId, barcode, barcodes, nameEn, nameAr, unit, category, categoryId, basePrice, vatRate, requiresBatchTracking, reorderLevel, controlledStatus, isActive, vendorNo, manufacturerNo }) => ({
       preferredId,
       barcode,
+      barcodes,
       nameEn,
       nameAr,
       unit,
@@ -393,6 +545,8 @@ export function planItemImport(
       reorderLevel,
       controlledStatus,
       isActive,
+      vendorNo,
+      manufacturerNo,
     }));
 
   return {

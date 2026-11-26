@@ -14,5 +14,13 @@ export async function getSharedCatalog(signal?: AbortSignal): Promise<SharedCata
   const res = await fetch(`${BASE_URL}/api/items`, { cache: 'no-store', signal });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `Catalog sync failed (${res.status})`);
-  return Array.isArray(body.items) ? (body.items as SharedCatalogItem[]) : [];
+  if (!Array.isArray(body.items)) return [];
+  // Alias codes are part of the shared master. Normalise the wire shape here so an older server (or
+  // a malformed row) cannot push a non-array into the offline catalogue and break barcode lookup.
+  return (body.items as Array<SharedCatalogItem & { barcodes?: unknown }>).map((row) => ({
+    ...row,
+    barcodes: Array.isArray(row.barcodes)
+      ? row.barcodes.filter((code): code is string => typeof code === 'string')
+      : [],
+  }));
 }

@@ -91,6 +91,10 @@ export default function App() {
           requiresBatchTracking: row.requiresBatchTracking,
           reorderLevel: row.reorderLevel,
           controlledStatus: row.controlledStatus ?? undefined,
+          // Aliases and the optional vendor/manufacturer keys are shared master data.
+          barcodes: row.barcodes,
+          vendorNo: row.vendorNo ?? undefined,
+          manufacturerNo: row.manufacturerNo ?? undefined,
           // isActive is local to each terminal; upsertImportedItems keeps the existing flag and
           // only defaults genuinely new rows to active.
         }));
