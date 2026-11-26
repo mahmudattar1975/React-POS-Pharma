@@ -18,18 +18,18 @@ datasource db {
 // Mirrors src/types/sales.ts's SaleHeader - field-for-field, so mapping to/from the frontend type
 // is a straight copy, not a reshaping exercise.
 model Sale {
-  id          String   @id @default(uuid())
-  invoiceNo   String   @unique
+  id          String @db.NVarChar(100) @id @default(uuid())
+  invoiceNo   String @db.NVarChar(100) @unique
   // Terminal that issued this document. Set explicitly by routes/sales.ts from this PC's
   // branch.json; the default only covers rows written before branch tagging existed.
-  branchId    String   @default("cc-br-001")
-  invoiceType String // 'simplified' | 'standard'
+  branchId    String @db.NVarChar(100) @default("cc-br-001")
+  invoiceType String @db.NVarChar(100)  // 'simplified' | 'standard'
   date        DateTime
   createdAt   DateTime @default(now())
 
-  customerId     String?
-  customerNameAr String?
-  customerNameEn String?
+  customerId     String? @db.NVarChar(100)
+  customerNameAr String? @db.NVarChar(100)
+  customerNameEn String? @db.NVarChar(100)
 
   subtotalExclVat          Decimal  @db.Decimal(12, 3)
   totalDiscount            Decimal  @db.Decimal(12, 3)
@@ -39,9 +39,9 @@ model Sale {
   totalIncentiveClawedBack Decimal? @db.Decimal(12, 3)
 
   zatcaQrBase64 String @db.NVarChar(Max)
-  zatcaStatus   String // ZatcaSubmissionStatus
-  status        String // InvoiceStatus - 'completed' | 'returned' | 'partially_returned'
-  cashierName   String
+  zatcaStatus   String @db.NVarChar(100)  // ZatcaSubmissionStatus
+  status        String @db.NVarChar(100)  // InvoiceStatus - 'completed' | 'returned' | 'partially_returned'
+  cashierName   String @db.NVarChar(100)
 
   pointsEarned           Int?
   pointsRedeemed         Int?
@@ -49,13 +49,13 @@ model Sale {
   pointsRedeemedRefunded Int?
 
   // PrescriptionInfo, inlined - at most one per sale, so no separate table.
-  prescriptionSource       String?
-  prescriptionWasfatyRefNo String?
-  prescriberName           String?
-  prescriberId             String?
-  prescriptionId           String?
+  prescriptionSource       String? @db.NVarChar(100)
+  prescriptionWasfatyRefNo String? @db.NVarChar(100)
+  prescriberName           String? @db.NVarChar(100)
+  prescriberId             String? @db.NVarChar(100)
+  prescriptionId           String? @db.NVarChar(100)
   prescriptionDate         DateTime?
-  patientNationalId        String?
+  patientNationalId        String? @db.NVarChar(100)
 
   lines            SaleLine[]
   payments         Payment[]
@@ -68,23 +68,23 @@ model Sale {
 
 // Mirrors SaleLine.
 model SaleLine {
-  id     String @id @default(uuid())
-  saleId String
+  id     String @db.NVarChar(100) @id @default(uuid())
+  saleId String @db.NVarChar(100)
   sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
-  itemId     String
-  itemNameAr String
-  itemNameEn String
-  batchId    String
-  batchNo    String
+  itemId     String @db.NVarChar(100)
+  itemNameAr String @db.NVarChar(100)
+  itemNameEn String @db.NVarChar(100)
+  batchId    String @db.NVarChar(100)
+  batchNo    String @db.NVarChar(100)
   expiryDate DateTime
 
   qty       Int
   unitPrice Decimal @db.Decimal(12, 3)
   vatRate   Decimal @db.Decimal(6, 4)
 
-  offerLabel          String?
-  manualDiscountType  String? // 'amount' | 'percent'
+  offerLabel          String? @db.NVarChar(100)
+  manualDiscountType  String? @db.NVarChar(100)  // 'amount' | 'percent'
   manualDiscountValue Decimal? @db.Decimal(12, 3)
 
   discountAmount   Decimal @db.Decimal(12, 3)
@@ -92,10 +92,10 @@ model SaleLine {
   vatAmount        Decimal @db.Decimal(12, 3)
   totalInclVat     Decimal @db.Decimal(12, 3)
   returnedQty      Int     @default(0)
-  controlledStatus String?
+  controlledStatus String? @db.NVarChar(100)
 
   // ---- Incentive / profit bonus (Phase A) -------------------------------------------
-  incentiveType   String?
+  incentiveType   String? @db.NVarChar(100)
   incentiveRate   Decimal? @db.Decimal(12, 4)
   incentiveAmount Decimal? @db.Decimal(12, 3)
 
@@ -104,30 +104,30 @@ model SaleLine {
 
 // Mirrors Payment.
 model Payment {
-  id     String @id @default(uuid())
-  saleId String
+  id     String @db.NVarChar(100) @id @default(uuid())
+  saleId String @db.NVarChar(100)
   sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
-  method                String // PaymentMethod - 'cash' | 'card' | 'insurance' | 'points' (SQL Server connector doesn't support native enums)
+  method                String @db.NVarChar(100)  // PaymentMethod - 'cash' | 'card' | 'insurance' | 'points' (SQL Server connector doesn't support native enums)
   amount                Decimal @db.Decimal(12, 3)
-  cardNetwork           String?
-  insuranceCompany      String?
-  insuranceApprovalCode String?
+  cardNetwork           String? @db.NVarChar(100)
+  insuranceCompany      String? @db.NVarChar(100)
+  insuranceApprovalCode String? @db.NVarChar(100)
 
   @@map("payments")
 }
 
 // Mirrors ReturnHeader.
 model ReturnRecord {
-  id                String   @id @default(uuid())
-  returnNo          String   @unique
-  branchId          String   @default("cc-br-001")
+  id                String @db.NVarChar(100) @id @default(uuid())
+  returnNo          String @db.NVarChar(100) @unique
+  branchId          String @db.NVarChar(100) @default("cc-br-001")
   date              DateTime
-  originalInvoiceId String
+  originalInvoiceId String @db.NVarChar(100)
   sale              Sale     @relation(fields: [originalInvoiceId], references: [id])
-  originalInvoiceNo String
+  originalInvoiceNo String @db.NVarChar(100)
   totalRefund       Decimal  @db.Decimal(12, 3)
-  reason            String
+  reason            String @db.NVarChar(100)
 
   lines ReturnLine[]
 
@@ -137,12 +137,12 @@ model ReturnRecord {
 
 // Mirrors ReturnLine.
 model ReturnLine {
-  id             String       @id @default(uuid())
-  returnRecordId String
+  id             String @db.NVarChar(100) @id @default(uuid())
+  returnRecordId String @db.NVarChar(100)
   returnRecord   ReturnRecord @relation(fields: [returnRecordId], references: [id], onDelete: Cascade)
 
-  saleLineId   String
-  itemNameEn   String
+  saleLineId   String @db.NVarChar(100)
+  itemNameEn   String @db.NVarChar(100)
   qty          Int
   refundAmount Decimal @db.Decimal(12, 3)
 
@@ -154,16 +154,16 @@ model ReturnLine {
 // by this table alone, so a cashier cannot accidentally post a sale to another pharmacy.
 // Deactivate instead of deleting: invoice prefixes and history still reference the code.
 model Branch {
-  id           String   @id // system id, e.g. cc-br-001
-  code         String   @unique // short prefix used on invoices, e.g. RIY
-  nameEn       String
-  nameAr       String
-  address      String?
-  phone        String?
-  vatNumber    String?
-  crNumber     String?
-  glnNo        String? // GS1 location number for RSD
-  costCenterId String? // links to the app's branch cost center for reporting
+  id           String @db.NVarChar(100) @id  // system id, e.g. cc-br-001
+  code         String @db.NVarChar(100) @unique  // short prefix used on invoices, e.g. RIY
+  nameEn       String @db.NVarChar(100)
+  nameAr       String @db.NVarChar(100)
+  address      String? @db.NVarChar(100)
+  phone        String? @db.NVarChar(100)
+  vatNumber    String? @db.NVarChar(100)
+  crNumber     String? @db.NVarChar(100)
+  glnNo        String? @db.NVarChar(100)  // GS1 location number for RSD
+  costCenterId String? @db.NVarChar(100)  // links to the app's branch cost center for reporting
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
@@ -176,17 +176,17 @@ model Branch {
 // store/catalogStore.ts's upsertErpItem) rather than a generated key, so rows copied from either
 // source need no id translation at all.
 model Item {
-  id                    String  @id
-  barcode               String  @unique
-  nameAr                String
-  nameEn                String
-  unit                  String
-  category              String
+  id                    String @db.NVarChar(100) @id
+  barcode               String @db.NVarChar(100) @unique
+  nameAr                String @db.NVarChar(100)
+  nameEn                String @db.NVarChar(100)
+  unit                  String @db.NVarChar(100)
+  category              String @db.NVarChar(100)
   // Link to the ItemCategories master. `category` above stays as the free-text label used by the
   // POS and cost-center rules; this id is the stable key for reports and future category lookup.
   categoryId            Int?    @map("categoryId")
   basePrice             Decimal @db.Decimal(12, 3)
-  controlledStatus      String?
+  controlledStatus      String? @db.NVarChar(100)
   vatRate               Decimal @db.Decimal(6, 4)
   requiresBatchTracking Boolean
   reorderLevel          Int
@@ -223,20 +223,20 @@ model ItemCategory {
 
 // Mirrors Batch.
 model Batch {
-  id                      String   @id
+  id                      String @db.NVarChar(100) @id
   // Stock is owned by one branch. Two branches can hold the same item/batchNo independently, so
   // every stock lookup (and the "top up vs create" decision) must filter on branchId as well.
-  branchId                String   @default("cc-br-001")
-  itemId                  String
+  branchId                String @db.NVarChar(100) @default("cc-br-001")
+  itemId                  String @db.NVarChar(100)
   item                    Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  batchNo                 String
+  batchNo                 String @db.NVarChar(100)
   expiryDate              DateTime
   receivedDate            DateTime
   qtyOnHand               Int
   purchasePrice           Decimal  @db.Decimal(12, 3)
   purchaseDiscountPercent Decimal  @db.Decimal(6, 4)
   costPrice               Decimal  @db.Decimal(12, 3)
-  gtin                    String?
+  gtin                    String? @db.NVarChar(100)
   salePriceOverride       Decimal? @db.Decimal(12, 3)
 
   @@index([branchId, itemId, batchNo])
@@ -246,27 +246,27 @@ model Batch {
 // Mirrors Offer. No real source for this in XPH at all (confirmed live) - every row here is
 // fictional demo data, copied as-is from seedData.ts, not a snapshot of anything real.
 model Offer {
-  id         String   @id
-  itemId     String
+  id         String @db.NVarChar(100) @id
+  itemId     String @db.NVarChar(100)
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  type       String // OfferType - 'percent' | 'value' | 'bogo'
+  type       String @db.NVarChar(100)  // OfferType - 'percent' | 'value' | 'bogo'
   percent    Decimal? @db.Decimal(6, 4)
   value      Decimal? @db.Decimal(12, 3)
   buyQty     Int?
   freeQty    Int?
   activeFrom DateTime
   activeTo   DateTime
-  label      String
+  label      String @db.NVarChar(100)
 
   @@map("offers")
 }
 
 // ---- Incentive / profit bonus (Phase A) ---------------------------------------------------
 model IncentiveItem {
-  id            String   @id @default(cuid())
-  itemId        String
+  id            String @db.NVarChar(100) @id @default(cuid())
+  itemId        String @db.NVarChar(100)
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  incentiveType String // 'percent' | 'amount'
+  incentiveType String @db.NVarChar(100)  // 'percent' | 'amount'
   rate          Decimal  @db.Decimal(12, 4)
   activeFrom    DateTime
   activeTo      DateTime
@@ -281,23 +281,23 @@ model IncentiveItem {
 }
 
 model IncentiveRecord {
-  id              String   @id @default(cuid())
-  saleId          String
+  id              String @db.NVarChar(100) @id @default(cuid())
+  saleId          String @db.NVarChar(100)
   sale            Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  invoiceNo       String
+  invoiceNo       String @db.NVarChar(100)
   invoiceDate     DateTime
-  itemId          String
-  itemNameEn      String
+  itemId          String @db.NVarChar(100)
+  itemNameEn      String @db.NVarChar(100)
   qty             Int
   saleAmount      Decimal  @db.Decimal(12, 3)
-  incentiveType   String // 'percent' | 'amount'
+  incentiveType   String @db.NVarChar(100)  // 'percent' | 'amount'
   rate            Decimal  @db.Decimal(12, 4)
   incentiveAmount Decimal  @db.Decimal(12, 3)
-  cashierName     String
+  cashierName     String @db.NVarChar(100)
   branchNo        Int?
   createdAt       DateTime @default(now())
 
-  incentiveItemId String?
+  incentiveItemId String? @db.NVarChar(100)
   incentiveItem   IncentiveItem? @relation(fields: [incentiveItemId], references: [id])
 
   @@map("incentive_records")
