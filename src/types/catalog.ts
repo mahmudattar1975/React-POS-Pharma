@@ -97,6 +97,9 @@ export interface Item {
 
 export interface Batch {
   id: string;
+  // Stock is branch-owned even though the item catalog is shared. Missing on batches saved before
+  // branch scoping; those are treated as the original RIY register (cc-br-001).
+  branchId?: string;
   itemId: string;
   batchNo: string;
   expiryDate: string | null; // ISO date (yyyy-mm-dd); null = the item has no expiry date

@@ -12,7 +12,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import PaidIcon from '@mui/icons-material/Paid';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import StarsIcon from '@mui/icons-material/Stars';
-import { useSalesStore } from '../../store/salesStore';
+import { useBranchBatches, useBranchReceivingLog, useBranchSales } from '../../store/branchSelectors';
 import { useCustomerStore } from '../../store/customerStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { round2 } from '../../utils/vat';
@@ -64,9 +64,11 @@ function SectionTitle({
 export default function ReportsPage() {
   const tr = useT();
   const navigate = useNavigate();
-  const { invoices } = useSalesStore();
+  const invoices = useBranchSales();
   const { customers } = useCustomerStore();
-  const { receivingLog, items, batches } = useCatalogStore();
+  const receivingLog = useBranchReceivingLog();
+  const batches = useBranchBatches();
+  const items = useCatalogStore((s) => s.items);
 
   // Receiving events include purchase returns as negative quantities. They are NOT netted into the
   // stock report: a return gets its own report below and is shown as a positive "units returned"

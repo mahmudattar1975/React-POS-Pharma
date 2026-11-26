@@ -18,6 +18,7 @@ import { useCustomerStore } from '../../store/customerStore';
 import { useIncentiveStore } from '../../store/incentiveStore';
 import { computeLineIncentive } from '../../utils/incentive';
 import * as incentiveApi from '../../api/incentiveApi';
+import { getBranchContext } from '../../api/branchApi';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { resolveCenterForCategory } from '../../utils/costCenters';
 import { generateInvoiceQr } from '../../utils/zatcaQr';
@@ -280,6 +281,10 @@ export default function POSPage() {
 
   async function completeSale(patientPayments: Payment[]) {
     setIsSubmittingSale(true);
+    // Refresh the terminal branch before issuing the number. config/branch.json may have changed
+    // without a hard browser refresh; when the server is down this fails silently and the cached
+    // branch from settingsStore is used, so an offline till still sells with a stable prefix.
+    await getBranchContext(1500).catch(() => undefined);
     const invoiceType = customer.vatNumber ? 'standard' : 'simplified';
     const invoiceNo = nextInvoiceNo(invoiceType);
     const date = new Date().toISOString();

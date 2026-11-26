@@ -4,6 +4,7 @@ import {
   List, ListItemButton, ListItemText, Chip,
 } from '@mui/material';
 import { useSalesStore } from '../../store/salesStore';
+import { useBranchSales, useBranchSalesReturns } from '../../store/branchSelectors';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useCustomerStore } from '../../store/customerStore';
 import { useControlledRegisterStore } from '../../store/controlledRegisterStore';
@@ -50,7 +51,9 @@ function applyPointsForReturn(invoice: SaleHeader, updatedLines: SaleHeader['lin
 
 export default function ReturnsPage() {
   const tr = useT();
-  const { invoiceByNo, recordReturn, returns, invoices, updateReturnZatca } = useSalesStore();
+  const { invoiceByNo, recordReturn, updateReturnZatca } = useSalesStore();
+  const returns = useBranchSalesReturns();
+  const invoices = useBranchSales();
   const { items: catalogItems, incrementBatch } = useCatalogStore();
   const recordControlledMovement = useControlledRegisterStore((s) => s.recordMovement);
   const pharmacist = useSettingsStore((s) => s.settings.cashierName);

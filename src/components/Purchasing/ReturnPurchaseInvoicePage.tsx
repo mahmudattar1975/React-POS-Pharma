@@ -25,6 +25,7 @@ import {
 } from '../../utils/purchasing';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
+import { useBranchPurchases } from '../../store/branchSelectors';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import PurchaseInvoiceDocument from './PurchaseInvoiceDocument';
@@ -32,9 +33,9 @@ import PurchaseInvoiceDocument from './PurchaseInvoiceDocument';
 import { T, useT } from '../../i18n';
 export default function ReturnPurchaseInvoicePage() {
   const tr = useT();
+  const invoices = useBranchPurchases();
   const {
     vendors,
-    invoices,
     receiveReturnInvoice,
     updateReturnInvoice,
     deletePurchaseInvoice,

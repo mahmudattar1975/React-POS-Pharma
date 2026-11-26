@@ -23,7 +23,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import { useSalesStore } from '../../store/salesStore';
+import { useBranchBatches, useBranchPurchases, useBranchSales, useBranchSalesReturns } from '../../store/branchSelectors';
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useCustomerStore } from '../../store/customerStore';
@@ -235,9 +235,13 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
 export default function DashboardPage() {
   const tr = useT();
   const navigate = useNavigate();
-  const { invoices: sales, returns: salesReturns } = useSalesStore();
-  const { invoices: purchaseDocs, vendors } = usePurchasingStore();
-  const { items, batches } = useCatalogStore();
+  const sales = useBranchSales();
+  const salesReturns = useBranchSalesReturns();
+  const purchaseDocs = useBranchPurchases();
+  // Vendors are shared master data; invoices above are branch-owned.
+  const vendors = usePurchasingStore((s) => s.vendors);
+  const items = useCatalogStore((s) => s.items);
+  const batches = useBranchBatches();
   const { customers } = useCustomerStore();
   const settings = useSettingsStore((s) => s.settings);
 

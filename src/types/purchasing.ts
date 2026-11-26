@@ -111,6 +111,9 @@ export interface PurchaseLine {
 
 export interface PurchaseInvoice {
   id: string;
+  // Branch whose money and stock this document belongs to. Missing on rows saved before branch
+  // scoping; those are treated as the original RIY register (cc-br-001).
+  branchId?: string;
   // This app's own sequential document number (PUR-xxxxxx) - NOT the supplier's number, which is
   // tracked separately below since it's the key a paper invoice is found by (and the
   // vendor+number pair is what guards against double-posting the same delivery).

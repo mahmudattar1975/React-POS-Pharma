@@ -25,6 +25,7 @@ import { alertWithSound } from '../../utils/alertSound';
 import { formatMoney, formatQty, formatUnitPrice } from '../../utils/format';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
+import { useBranchPurchases } from '../../store/branchSelectors';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import PurchaseInvoiceDocument from './PurchaseInvoiceDocument';
@@ -36,9 +37,9 @@ import { T, useT } from '../../i18n';
 // when part of the delivery has already been sold - use a purchase return / credit note then.
 export default function PurchaseInvoicePage() {
   const tr = useT();
+  const invoices = useBranchPurchases();
   const {
     vendors,
-    invoices,
     addVendor,
     addCustomer,
     nextVendorNo,

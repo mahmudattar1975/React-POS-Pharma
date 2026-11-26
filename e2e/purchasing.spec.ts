@@ -15,7 +15,7 @@ test.describe('purchase invoices', () => {
     await page.getByRole('option', { name: /Al-Noor Medical Center/ }).click();
     await page.getByLabel('Customer document no').fill('CUS-2026-001');
     // The PUR sequence is system-assigned and stays separate from the document the party issued.
-    await expect(page.getByLabel('Invoice seq.')).toHaveValue('PUR-000001');
+    await expect(page.getByLabel('Invoice seq.')).toHaveValue(/PUR-000001$/);
 
     await page.getByLabel('Scan barcode or type item name / SKU, then Enter').fill('Paracetamol');
     await page.getByLabel('Scan barcode or type item name / SKU, then Enter').press('Enter');
@@ -111,8 +111,8 @@ test.describe('purchase invoices', () => {
     await row.getByLabel('Modify purchase invoice').click();
     await expect(page.getByText(/Editing vendor invoice MOD-2026-001/)).toBeVisible();
     await page.getByLabel('Notes (optional)').fill('Corrected after checking the delivery note');
-    await page.getByRole('button', { name: /Save changes to PUR-000001/ }).click();
-    await expect(page.getByText(/Vendor invoice MOD-2026-001 · PUR-000001 received from Al-Hayat/)).toBeVisible();
+    await page.getByRole('button', { name: /Save changes to (?:[A-Z0-9]+-)?PUR-000001/ }).click();
+    await expect(page.getByText(/Vendor invoice MOD-2026-001 · (?:[A-Z0-9]+-)?PUR-000001 received from Al-Hayat/)).toBeVisible();
 
     await page.getByRole('row', { name: /MOD-2026-001/ }).getByLabel('Delete purchase invoice').click();
     await page.getByRole('button', { name: 'Delete Invoice' }).click();

@@ -14,7 +14,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PrintIcon from '@mui/icons-material/Print';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useSalesStore } from '../../store/salesStore';
+import { useBranchSales } from '../../store/branchSelectors';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import {
   buildWasfatyClaimRows, claimMonths, claimsToAoa, claimsToCsv, summariseWasfatyClaims,
@@ -29,7 +29,7 @@ import WasfatyClaimReconcileDialog, { type ReconcileInput } from './WasfatyClaim
 import { T, useT } from '../../i18n';
 export default function WasfatyClaimsPage() {
   const tr = useT();
-  const invoices = useSalesStore((s) => s.invoices);
+  const invoices = useBranchSales();
   const centers = useCostCenterStore((s) => s.centers);
   const [month, setMonth] = useState('');
   const [branchId, setBranchId] = useState('');

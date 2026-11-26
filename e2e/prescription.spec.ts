@@ -88,7 +88,7 @@ test.describe('prescription / controlled-substance gate', () => {
     await page.getByLabel('View RX-E2E-PARTIAL').click();
     await expect(page.getByText('Partially dispensed').first()).toBeVisible();
     await expect(page.getByText('Dispense history')).toBeVisible();
-    await expect(page.getByText(/^SIM-\d{6}$/)).toHaveCount(2);
+    await expect(page.getByText(/^(?:[A-Z0-9]+-)?SIM-\d{6}$/)).toHaveCount(2);
   });
 
   test('an expired prescription needs a written override before it can be dispensed', async ({ page }) => {

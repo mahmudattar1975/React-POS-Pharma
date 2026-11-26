@@ -17,8 +17,7 @@ import {
 } from '@mui/material';
 import type { ExpenseEntry, ExpenseKind } from '../../types/costCenters';
 import { useCostCenterStore } from '../../store/costCenterStore';
-import { useSalesStore } from '../../store/salesStore';
-import { usePurchasingStore } from '../../store/purchasingStore';
+import { useBranchPurchases, useBranchSales } from '../../store/branchSelectors';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { round2 } from '../../utils/vat';
@@ -34,8 +33,8 @@ export default function ExpensesPage() {
   const centers = useCostCenterStore((s) => s.centers);
   const expenses = useCostCenterStore((s) => s.expenses);
   const addExpense = useCostCenterStore((s) => s.addExpense);
-  const sales = useSalesStore((s) => s.invoices);
-  const purchaseInvoices = usePurchasingStore((s) => s.invoices);
+  const sales = useBranchSales();
+  const purchaseInvoices = useBranchPurchases();
   const items = useCatalogStore((s) => s.items);
   const categoryMap = useCostCenterStore((s) => s.categoryMap);
   const defaultCostCenterId = useSettingsStore((s) => s.settings.costCenterId);

@@ -11,6 +11,13 @@ import type { WasfatyMappingChange, WasfatyMappingSnapshot } from '../types/wasf
 import { backupReceiving, reverseReceiving } from '../api/receivingApi';
 import { usePendingSyncStore } from './pendingSyncStore';
 import { useAuthStore } from './authStore';
+import {
+  LEGACY_BRANCH_ID,
+  SHARED_SEED_BRANCH_ID,
+  belongsToBranch,
+  currentBranchId,
+  stampLegacyBranch,
+} from '../utils/branchScope';
 
 // Items pulled in live from XPH get a namespaced id (`erp-<itemNo>`) so they can never collide
 // with the local seed catalog's own ids (`itm-1`, etc.) - the two catalogs coexist in the same
@@ -40,6 +47,8 @@ export type ReceivingSource = 'vendor' | 'head_office';
 
 export interface ReceivingEvent {
   id: string;
+  // Branch whose shelf received (or, for a negative qty, returned) these units.
+  branchId?: string;
   date: string; // ISO datetime, when this receiving event was recorded
   itemId: string;
   itemNameEn: string;
@@ -222,8 +231,12 @@ export const useCatalogStore = create<CatalogState>()(
           itemCodes(i).some((code) => code.toLowerCase() === key)
         );
       },
-      batchesForItem: (itemId) => get().batches.filter((b) => b.itemId === itemId),
-      batchById: (batchId) => get().batches.find((b) => b.id === batchId),
+      // The catalog is shared, stock is not: FEFO and every batch picker only see this terminal's
+      // batches. Rows from before branch scoping belong to the original RIY register.
+      batchesForItem: (itemId) =>
+        get().batches.filter((b) => b.itemId === itemId && belongsToBranch(b, currentBranchId())),
+      batchById: (batchId) =>
+        get().batches.find((b) => b.id === batchId && belongsToBranch(b, currentBranchId())),
       itemById: (itemId) => get().items.find((i) => i.id === itemId),
 
       decrementBatch: (batchId, qty) =>
@@ -251,7 +264,10 @@ export const useCatalogStore = create<CatalogState>()(
         // NET_PUR_PRICE convention (net across paid+bonus units, live XPH: 8100.081/500 = 16.200).
         const costPrice = computeCostPrice(basePurchasePrice, purchaseDiscountPercent);
         const receivedDate = new Date().toISOString().slice(0, 10);
-        const existing = get().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
+        // Same lot number in another branch is a different shelf balance; never top that up.
+        const existing = get().batches.find(
+          (b) => b.itemId === itemId && b.batchNo === batchNo && belongsToBranch(b, currentBranchId()),
+        );
         // Unique suffix, not just Date.now(): one purchase invoice can post several brand-new
         // lots of the SAME item in the same tick, and a shared id would make every sale/list
         // operation treat the two lots as one batch (decrementing both, colliding React keys).
@@ -259,6 +275,7 @@ export const useCatalogStore = create<CatalogState>()(
 
         const event: ReceivingEvent = {
           id: `rcv-${itemId}-${crypto.randomUUID()}`,
+          branchId: currentBranchId(),
           date: new Date().toISOString(),
           itemId,
           itemNameEn: item?.nameEn ?? '',
@@ -289,6 +306,7 @@ export const useCatalogStore = create<CatalogState>()(
           }
           const newBatch: Batch = {
             id: batchId,
+            branchId: currentBranchId(),
             itemId,
             batchNo,
             expiryDate,
@@ -332,7 +350,10 @@ export const useCatalogStore = create<CatalogState>()(
       },
 
       reversePurchaseInvoice: (purchaseInvoiceNo) => {
-        const events = get().receivingLog.filter((e) => e.purchaseInvoiceNo === purchaseInvoiceNo);
+        const branchId = currentBranchId();
+        const events = get().receivingLog.filter(
+          (e) => e.purchaseInvoiceNo === purchaseInvoiceNo && belongsToBranch(e, branchId),
+        );
         // Nothing was posted for this invoice (legacy rows saved before the receiving log tagged
         // invoice numbers) - the document can still be removed without touching stock.
         if (events.length === 0) return;
@@ -348,7 +369,9 @@ export const useCatalogStore = create<CatalogState>()(
         }
 
         for (const { itemId, batchNo, qty } of received.values()) {
-          const batch = get().batches.find((b) => b.itemId === itemId && b.batchNo === batchNo);
+          const batch = get().batches.find(
+            (b) => b.itemId === itemId && b.batchNo === batchNo && belongsToBranch(b, branchId),
+          );
           if (!batch) {
             throw new Error(
               `Batch ${batchNo} for item ${itemId} is no longer in the catalog - invoice ${purchaseInvoiceNo} cannot be reversed safely.`
@@ -368,14 +391,16 @@ export const useCatalogStore = create<CatalogState>()(
           const batches = s.batches.map((b) => {
             const key = `${b.itemId}\u0000${b.batchNo}`;
             const hit = received.get(key);
-            if (!hit) return b;
+            if (!hit || !belongsToBranch(b, branchId)) return b;
             // Kept at zero rather than removed: the batch may predate this invoice (opening stock
             // or another delivery), and its row is the cost reference for anything already sold.
             return { ...b, qtyOnHand: Math.max(0, b.qtyOnHand - hit.qty) };
           });
           return {
             batches,
-            receivingLog: s.receivingLog.filter((e) => e.purchaseInvoiceNo !== purchaseInvoiceNo),
+            receivingLog: s.receivingLog.filter(
+              (e) => e.purchaseInvoiceNo !== purchaseInvoiceNo || !belongsToBranch(e, branchId),
+            ),
           };
         });
 
@@ -615,6 +640,7 @@ export const useCatalogStore = create<CatalogState>()(
         };
         const batches: Batch[] = erpBatches.map((b) => ({
           id: erpBatchId(erpItem.itemNo, b.batchNo),
+          branchId: currentBranchId(),
           itemId: id,
           batchNo: b.batchNo,
           expiryDate: b.expiryDate,
@@ -630,7 +656,12 @@ export const useCatalogStore = create<CatalogState>()(
 
         set((s) => ({
           items: [...s.items.filter((i) => i.id !== id), item],
-          batches: [...s.batches.filter((b) => b.itemId !== id), ...batches],
+          // A rescan replaces only this terminal's batches for the item - another branch may hold
+          // the same item with its own stock and must not be wiped out by an ERP refresh here.
+          batches: [
+            ...s.batches.filter((b) => b.itemId !== id || !belongsToBranch(b, currentBranchId())),
+            ...batches,
+          ],
         }));
 
         return id;
@@ -679,12 +710,21 @@ export const useCatalogStore = create<CatalogState>()(
         // (confirmed live: TypeError, no error boundary catches it). costPrice is the best
         // available stand-in for the old "purchase price" since nothing before this tracked a
         // separate pre-discount price.
+        // The batches shipped in seedData.ts are demo starter stock, not goods any real branch
+        // received. Give them a shared id so a brand-new till can sell on day one even when its
+        // terminal is configured to a branch other than the legacy RIY register. Stock a browser
+        // actually saved before branch scoping had no id and is treated as the old RIY register.
+        const seedBatchIds = new Set(current.batches.map((b) => b.id));
         const persistedBatches = (p.batches ?? current.batches).map((b) => ({
           ...b,
+          branchId:
+            b.branchId ??
+            (seedBatchIds.has(b.id) ? SHARED_SEED_BRANCH_ID : LEGACY_BRANCH_ID),
           purchasePrice: b.purchasePrice ?? b.costPrice ?? 0,
           purchaseDiscountPercent: b.purchaseDiscountPercent ?? 0,
           costPrice: b.costPrice ?? 0,
         }));
+        const persistedReceivingLog = (p.receivingLog ?? current.receivingLog).map(stampLegacyBranch);
         const persistedOffers = p.offers ?? current.offers;
         const itemIds = new Set(persistedItems.map((i) => i.id));
         const batchIds = new Set(persistedBatches.map((b) => b.id));
@@ -693,7 +733,13 @@ export const useCatalogStore = create<CatalogState>()(
           ...current,
           ...p,
           items: [...persistedItems, ...current.items.filter((i) => !itemIds.has(i.id))],
-          batches: [...persistedBatches, ...current.batches.filter((b) => !batchIds.has(b.id))],
+          batches: [
+            ...persistedBatches,
+            ...current.batches
+              .filter((b) => !batchIds.has(b.id))
+              .map((b) => ({ ...b, branchId: b.branchId ?? SHARED_SEED_BRANCH_ID })),
+          ],
+          receivingLog: persistedReceivingLog,
           offers: [...persistedOffers, ...current.offers.filter((o) => !offerIds.has(o.id))],
         };
       },

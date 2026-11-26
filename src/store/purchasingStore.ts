@@ -11,7 +11,37 @@ import { seedVendors } from '../utils/seedData';
 import { batchReceiveDiscount, nextCustomerNumber, nextVendorNumber, purchaseReturnLineKey, returnedQuantitiesByLine } from '../utils/purchasing';
 import { mergeVendorMaster } from '../utils/vendors';
 import { branchNumberPrefix } from '../utils/invoiceNumber';
+import { LEGACY_BRANCH_ID, belongsToBranch, currentBranchId, stampBranch } from '../utils/branchScope';
 import { useCatalogStore } from './catalogStore';
+
+interface BranchPurchaseCounter {
+  purchase: number;
+  return: number;
+}
+
+// Old installs had one global PUR/RET counter for the demo register. Keep it as RIY's sequence;
+// a newly configured branch starts at 1 instead of inheriting 15 purchase documents from it.
+function counterForBranch(
+  counters: Record<string, BranchPurchaseCounter> | undefined,
+  branchId: string,
+  legacy: BranchPurchaseCounter,
+): BranchPurchaseCounter {
+  // The global counters remain authoritative for the original register; branchCounters only
+  // track terminals configured after branch scoping was added.
+  if (branchId === LEGACY_BRANCH_ID) return legacy;
+  return counters?.[branchId] ?? { purchase: 0, return: 0 };
+}
+
+function bumpBranchCounter(
+  counters: Record<string, BranchPurchaseCounter> | undefined,
+  branchId: string,
+  kind: keyof BranchPurchaseCounter,
+): Record<string, BranchPurchaseCounter> {
+  const next = { ...(counters ?? {}) };
+  const current = next[branchId] ?? { purchase: 0, return: 0 };
+  next[branchId] = { ...current, [kind]: current[kind] + 1 };
+  return next;
+}
 
 interface PurchasingState {
   // The FCODCSVN-style party table: vendors (type_flag 1) and business customers (type_flag 2)
@@ -25,6 +55,8 @@ interface PurchasingState {
   // Returns have their own gap-free sequence (RET-000001...). Posting a return must never consume
   // a PUR number, or the purchase sequence would skip one for every credit note.
   returnCounter: number;
+  // Per-branch PUR/RET sequences; the two global counters above remain the RIY (cc-br-001) ones.
+  branchCounters?: Record<string, BranchPurchaseCounter>;
   // Preview of the next system-assigned number on each side; addVendor/addCustomer assigns it for
   // real. Same satisfied-by-recording pattern as nextPurchaseNo below.
   nextVendorNo: () => string;
@@ -205,9 +237,10 @@ function assertReturnStockAvailable(
   restored?: Map<string, ReturnRequestLine>
 ): void {
   for (const [key, req] of requested) {
-    const batch = useCatalogStore.getState().batches.find(
-      (b) => b.itemId === req.itemId && b.batchNo === req.batchNo
-    );
+    const batch = useCatalogStore
+      .getState()
+      .batchesForItem(req.itemId)
+      .find((b) => b.batchNo === req.batchNo);
     if (!batch) {
       throw new Error(`Batch ${req.batchNo} is not in stock - return ${invoice.invoiceNo} cannot be posted.`);
     }
@@ -250,6 +283,7 @@ export const usePurchasingStore = create<PurchasingState>()(
       invoices: [],
       invoiceCounter: 0,
       returnCounter: 0,
+      branchCounters: {},
 
       nextVendorNo: () => nextVendorNumber(get().vendors),
       nextCustomerNo: () => nextCustomerNumber(get().vendors),
@@ -294,29 +328,52 @@ export const usePurchasingStore = create<PurchasingState>()(
         set((s) => ({ vendors: s.vendors.filter((v) => v.id !== id) }));
       },
 
-      nextPurchaseNo: () => `${branchNumberPrefix()}PUR-${String(get().invoiceCounter + 1).padStart(6, '0')}`,
-      nextReturnNo: () => `${branchNumberPrefix()}RET-${String(get().returnCounter + 1).padStart(6, '0')}`,
+      nextPurchaseNo: () => {
+        const state = get();
+        const counter = counterForBranch(state.branchCounters, currentBranchId(), {
+          purchase: state.invoiceCounter,
+          return: state.returnCounter,
+        });
+        return `${branchNumberPrefix()}PUR-${String(counter.purchase + 1).padStart(6, '0')}`;
+      },
+      nextReturnNo: () => {
+        const state = get();
+        const counter = counterForBranch(state.branchCounters, currentBranchId(), {
+          purchase: state.invoiceCounter,
+          return: state.returnCounter,
+        });
+        return `${branchNumberPrefix()}RET-${String(counter.return + 1).padStart(6, '0')}`;
+      },
 
-      isVendorInvoiceNoUsed: (vendorId, vendorInvoiceNo, excludeInvoiceId) =>
-        get().invoices.some(
+      isVendorInvoiceNoUsed: (vendorId, vendorInvoiceNo, excludeInvoiceId) => {
+        const branchId = currentBranchId();
+        return get().invoices.some(
           (i) =>
+            belongsToBranch(i, branchId) &&
             i.id !== excludeInvoiceId &&
             i.vendorId === vendorId &&
             i.vendorInvoiceNo === vendorInvoiceNo.trim()
-        ),
+        );
+      },
 
       receivePurchaseInvoice: (invoice) => {
+        const stamped = stampBranch(invoice);
         // Post the stock first, then record the document (see postInvoiceStock's all-or-nothing
-        // item check).
-        postInvoiceStock(invoice);
+        // item check). catalogStore.receiveStock reads the same terminal branch, so both land
+        // under the same id.
+        postInvoiceStock(stamped);
         set((s) => ({
-          invoices: [...s.invoices, invoice],
-          invoiceCounter: s.invoiceCounter + 1,
+          invoices: [...s.invoices, stamped],
+          invoiceCounter:
+            currentBranchId() === LEGACY_BRANCH_ID ? s.invoiceCounter + 1 : s.invoiceCounter,
+          branchCounters: bumpBranchCounter(s.branchCounters, currentBranchId(), 'purchase'),
         }));
       },
 
       updatePurchaseInvoice: (id, invoice) => {
-        const existing = get().invoices.find((i) => i.id === id);
+        const existing = get().invoices.find(
+          (i) => i.id === id && belongsToBranch(i, currentBranchId()),
+        );
         if (!existing) throw new Error(`Purchase invoice ${id} is no longer in the history.`);
         // Validate the replacement's items before any stock moves, so a bad edit cannot leave the
         // old receipt reversed and the new one unposted.
@@ -335,15 +392,23 @@ export const usePurchasingStore = create<PurchasingState>()(
         set((s) => ({
           invoices: s.invoices.map((i) =>
             i.id === id
-              // Identity and system number stay fixed: they key the stock receipt and the history.
-              ? { ...invoice, id: existing.id, invoiceNo: existing.invoiceNo }
+              // Identity, branch and system number stay fixed: they key the stock receipt and the
+              // history, and an edit must never move a document into another branch.
+              ? {
+                  ...invoice,
+                  id: existing.id,
+                  invoiceNo: existing.invoiceNo,
+                  branchId: existing.branchId ?? invoice.branchId,
+                }
               : i
           ),
         }));
       },
 
       deletePurchaseInvoice: (id) => {
-        const existing = get().invoices.find((i) => i.id === id);
+        const existing = get().invoices.find(
+          (i) => i.id === id && belongsToBranch(i, currentBranchId()),
+        );
         if (!existing) return;
         // Throws (and leaves both the invoice and stock untouched) when the delivery has already
         // been partly sold or moved.
@@ -351,26 +416,40 @@ export const usePurchasingStore = create<PurchasingState>()(
         set((s) => ({ invoices: s.invoices.filter((i) => i.id !== id) }));
       },
       receiveReturnInvoice: (invoice) => {
-        assertReturnItemsExist(invoice);
-        const requested = requestedReturnLines(invoice);
-        assertReturnWithinPurchase(get().invoices, invoice, requested);
-        assertReturnStockAvailable(invoice, requested);
-        postReturnStock(invoice);
+        const stamped = stampBranch(invoice);
+        const branchId = currentBranchId();
+        assertReturnItemsExist(stamped);
+        const requested = requestedReturnLines(stamped);
+        assertReturnWithinPurchase(
+          get().invoices.filter((i) => belongsToBranch(i, branchId)),
+          stamped,
+          requested,
+        );
+        assertReturnStockAvailable(stamped, requested);
+        postReturnStock(stamped);
         set((s) => ({
-          invoices: [...s.invoices, invoice],
-          returnCounter: s.returnCounter + 1,
+          invoices: [...s.invoices, stamped],
+          returnCounter: branchId === LEGACY_BRANCH_ID ? s.returnCounter + 1 : s.returnCounter,
+          branchCounters: bumpBranchCounter(s.branchCounters, branchId, 'return'),
         }));
       },
 
       updateReturnInvoice: (id, invoice) => {
-        const existing = get().invoices.find((i) => i.id === id);
+        const existing = get().invoices.find(
+          (i) => i.id === id && belongsToBranch(i, currentBranchId()),
+        );
         if (!existing) throw new Error(`Purchase return ${id} is no longer in the history.`);
         if (!existing.isReturn) throw new Error(`Invoice ${existing.invoiceNo} is not a purchase return.`);
         assertReturnItemsExist(invoice);
         const requested = requestedReturnLines(invoice);
         // The return being edited no longer counts against the purchase cap, and its own outgoing
         // units count as available stock because saving reverses it before posting the replacement.
-        assertReturnWithinPurchase(get().invoices, invoice, requested, existing.id);
+        assertReturnWithinPurchase(
+          get().invoices.filter((i) => belongsToBranch(i, currentBranchId())),
+          invoice,
+          requested,
+          existing.id,
+        );
         assertReturnStockAvailable(invoice, requested, requestedReturnLines(existing));
         if (!sameStockLines(existing, invoice)) {
           // Refuses when the old return is no longer fully on hand - see catalogStore.
@@ -382,7 +461,13 @@ export const usePurchasingStore = create<PurchasingState>()(
             i.id === id
               // Identity, system number and the return flag stay fixed: they key the stock
               // movements and the RET sequence.
-              ? { ...invoice, id: existing.id, invoiceNo: existing.invoiceNo, isReturn: true }
+              ? {
+                  ...invoice,
+                  id: existing.id,
+                  invoiceNo: existing.invoiceNo,
+                  isReturn: true,
+                  branchId: existing.branchId ?? invoice.branchId,
+                }
               : i
           ),
         }));
@@ -406,6 +491,8 @@ export const usePurchasingStore = create<PurchasingState>()(
         // to lose, so tier amounts stay 0 and the old fraction is preserved as identity.
         const persistedInvoices = (p.invoices ?? current.invoices).map((inv) => ({
           ...inv,
+          // Anything saved before branch scoping belonged to the original unconfigured RIY till.
+          branchId: inv.branchId ?? LEGACY_BRANCH_ID,
           // Invoices posted before the party picker could switch sides came from a vendor.
           partyType: inv.partyType ?? PARTY_TYPE_FLAG.vendor,
           totalBonusValue: inv.totalBonusValue ?? 0,
@@ -435,6 +522,12 @@ export const usePurchasingStore = create<PurchasingState>()(
           ...p,
           vendors: persistedVendors,
           invoices: persistedInvoices,
+          branchCounters: p.branchCounters ?? {
+            [LEGACY_BRANCH_ID]: {
+              purchase: p.invoiceCounter ?? current.invoiceCounter,
+              return: Math.max(p.returnCounter ?? 0, maxReturnNo),
+            },
+          },
           // Keep the persisted counter when it is ahead (a return may have been deleted), and
           // never recompute invoiceCounter downward - deleted purchases must not reuse PUR numbers.
           returnCounter: Math.max(p.returnCounter ?? 0, maxReturnNo),

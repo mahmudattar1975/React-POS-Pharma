@@ -14,6 +14,7 @@ import type {
   ControlledRegisterEntry,
 } from '../types/controlledRegister';
 import { useCatalogStore } from './catalogStore';
+import { currentBranchId, rowsForBranch } from '../utils/branchScope';
 
 interface ControlledRegisterState {
   entries: ControlledRegisterEntry[];
@@ -29,9 +30,10 @@ function directionFor(input: ControlledMovementInput): ControlledRegisterDirecti
 }
 
 function stockOnHand(itemId: string): number {
-  return useCatalogStore
-    .getState()
-    .batches.filter((batch) => batch.itemId === itemId)
+  // The register's `branchId` field is a cost-center id; stock ownership follows the terminal's
+  // configured branch, which is what Batch.branchId records.
+  return rowsForBranch(useCatalogStore.getState().batches, currentBranchId())
+    .filter((batch) => batch.itemId === itemId)
     .reduce((sum, batch) => sum + batch.qtyOnHand, 0);
 }
 

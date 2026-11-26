@@ -20,6 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { useCatalogStore } from '../../store/catalogStore';
 import { usePurchasingStore } from '../../store/purchasingStore';
+import { useBranchPurchases } from '../../store/branchSelectors';
 import type { Vendor } from '../../types/purchasing';
 import { PARTY_TYPE_FLAG, type PartyTypeFlag } from '../../types/party';
 import {
@@ -36,7 +37,7 @@ type PartyFilter = 'all' | 'vendor' | 'customer';
 export default function VendorsPage() {
   const tr = useT();
   const vendors = usePurchasingStore((s) => s.vendors);
-  const invoices = usePurchasingStore((s) => s.invoices);
+  const invoices = useBranchPurchases();
   const addVendor = usePurchasingStore((s) => s.addVendor);
   const addCustomer = usePurchasingStore((s) => s.addCustomer);
   const updateVendor = usePurchasingStore((s) => s.updateVendor);

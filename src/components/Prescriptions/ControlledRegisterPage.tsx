@@ -15,6 +15,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import type { Item } from '../../types/catalog';
 import type { ControlledRegisterKind } from '../../types/controlledRegister';
 import { useCatalogStore } from '../../store/catalogStore';
+import { useBranchBatches } from '../../store/branchSelectors';
 import { useControlledRegisterStore } from '../../store/controlledRegisterStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -46,7 +47,7 @@ export default function ControlledRegisterPage() {
   const entries = useControlledRegisterStore((s) => s.entries);
   const recordMovement = useControlledRegisterStore((s) => s.recordMovement);
   const items = useCatalogStore((s) => s.items);
-  const batches = useCatalogStore((s) => s.batches);
+  const batches = useBranchBatches();
   const decrementBatch = useCatalogStore((s) => s.decrementBatch);
   const centers = useCostCenterStore((s) => s.centers);
   const settings = useSettingsStore((s) => s.settings);

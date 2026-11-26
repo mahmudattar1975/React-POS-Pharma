@@ -21,7 +21,7 @@ import {
 } from '../../utils/costCenters';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useCostCenterStore } from '../../store/costCenterStore';
-import { useSalesStore } from '../../store/salesStore';
+import { useBranchSales } from '../../store/branchSelectors';
 import { useAuthStore } from '../../store/authStore';
 import { round2 } from '../../utils/vat';
 import { formatMoney } from '../../utils/format';
@@ -30,7 +30,7 @@ import { T, useT } from '../../i18n';
 export default function CategoryMapPage() {
   const tr = useT();
   const items = useCatalogStore((s) => s.items);
-  const sales = useSalesStore((s) => s.invoices);
+  const sales = useBranchSales();
   const centers = useCostCenterStore((s) => s.centers);
   const categoryMap = useCostCenterStore((s) => s.categoryMap);
   const setCategoryMapping = useCostCenterStore((s) => s.setCategoryMapping);

@@ -145,6 +145,9 @@ export type ZatcaSubmissionStatus =
 
 export interface SaleHeader {
   id: string;
+  // Branch that issued the document (server/config/branch.json on this terminal). Rows saved
+  // before branch scoping fall back to cc-br-001, the original demo register (RIY).
+  branchId?: string;
   invoiceNo: string;
   invoiceType: InvoiceType;
   date: string; // ISO datetime
@@ -224,6 +227,8 @@ export interface ReturnLine {
 
 export interface ReturnHeader {
   id: string;
+  // Branch that issued the credit note. Inherits the original sale's branch where available.
+  branchId?: string;
   returnNo: string;
   date: string;
   originalInvoiceId: string;

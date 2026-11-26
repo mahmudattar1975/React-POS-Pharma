@@ -33,6 +33,7 @@ import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 
 import type { SaleHeader } from '../../types/sales';
 import { useSalesStore } from '../../store/salesStore';
+import { useBranchSales } from '../../store/branchSelectors';
 import { useRsdOutboxStore } from '../../store/rsdOutboxStore';
 import * as zatcaApi from '../../api/zatcaApi';
 import {
@@ -51,7 +52,7 @@ type Filter = 'all' | 'needs' | 'failed' | 'accepted';
 
 export default function ZatcaInvoicesPanel() {
   const tr = useT();
-  const invoices = useSalesStore((s) => s.invoices);
+  const invoices = useBranchSales();
   const updateInvoiceZatca = useSalesStore((s) => s.updateInvoiceZatca);
   const rsdQueue = useRsdOutboxStore((s) => s.queue);
 

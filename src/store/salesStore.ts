@@ -8,6 +8,12 @@ import { usePendingSyncStore } from './pendingSyncStore';
 import { useRsdOutboxStore } from './rsdOutboxStore';
 import { useSettingsStore } from './settingsStore';
 import { branchNumberPrefix } from '../utils/invoiceNumber';
+import {
+  LEGACY_BRANCH_ID,
+  branchIdOf,
+  currentBranchId,
+  stampBranch,
+} from '../utils/branchScope';
 
 // Only these fields may be changed by a ZATCA submission/retry. The rest of a sale is a frozen
 // legal record; a retry must never be able to touch prices, lines, the customer or the tender.
@@ -17,11 +23,46 @@ type ZatcaEvidencePatch = Partial<Pick<
   'zatcaInvoiceHashBase64' | 'zatcaSubmittedAt' | 'zatcaEnvironment' | 'zatcaFailureReason'
 >>;
 
+interface BranchSaleCounter {
+  simplified: number;
+  standard: number;
+}
+
+// Old localStorage had one global SIM/STD counter for the demo register. Keep it as the RIY
+// counter; every other branch starts at 1 so PH001 does not inherit SIM-000016 from RIY.
+function counterForBranch(
+  counters: Record<string, BranchSaleCounter> | undefined,
+  branchId: string,
+  legacy: BranchSaleCounter,
+): BranchSaleCounter {
+  // The global counters remain authoritative for the original register; branchCounters only
+  // track terminals configured after branch scoping was added.
+  if (branchId === LEGACY_BRANCH_ID) return legacy;
+  return counters?.[branchId] ?? { simplified: 0, standard: 0 };
+}
+
+function bumpBranchCounter(
+  counters: Record<string, BranchSaleCounter> | undefined,
+  branchId: string,
+  invoiceType: SaleHeader['invoiceType'],
+): Record<string, BranchSaleCounter> {
+  const next = { ...(counters ?? {}) };
+  const current = next[branchId] ?? { simplified: 0, standard: 0 };
+  next[branchId] =
+    invoiceType === 'simplified'
+      ? { ...current, simplified: current.simplified + 1 }
+      : { ...current, standard: current.standard + 1 };
+  return next;
+}
+
 interface SalesState {
   invoices: SaleHeader[];
   returns: ReturnHeader[];
   simplifiedCounter: number;
   standardCounter: number;
+  // Per-branch sequences. Old installs only had the two global counters above, which are retained
+  // as the RIY (cc-br-001) sequence for backward compatibility.
+  branchCounters?: Record<string, BranchSaleCounter>;
   nextInvoiceNo: (invoiceType: SaleHeader['invoiceType']) => string;
   recordSale: (invoice: SaleHeader) => void;
   recordReturn: (ret: ReturnHeader, updatedInvoice: SaleHeader) => void;
@@ -55,18 +96,34 @@ export const useSalesStore = create<SalesState>()(
       returns: [],
       simplifiedCounter: 0,
       standardCounter: 0,
+      branchCounters: {},
 
       nextInvoiceNo: (invoiceType) => {
         const typePrefix = invoiceType === 'simplified' ? 'SIM' : 'STD';
-        const n = invoiceType === 'simplified' ? get().simplifiedCounter + 1 : get().standardCounter + 1;
+        const state = get();
+        const counter = counterForBranch(state.branchCounters, currentBranchId(), {
+          simplified: state.simplifiedCounter,
+          standard: state.standardCounter,
+        });
+        const n = invoiceType === 'simplified' ? counter.simplified + 1 : counter.standard + 1;
         return `${branchNumberPrefix()}${typePrefix}-${String(n).padStart(6, '0')}`;
       },
 
       recordSale: (invoice) => {
+        const stamped = stampBranch(invoice);
         set((s) => ({
-          invoices: [...s.invoices, invoice],
-          simplifiedCounter: invoice.invoiceType === 'simplified' ? s.simplifiedCounter + 1 : s.simplifiedCounter,
-          standardCounter: invoice.invoiceType === 'standard' ? s.standardCounter + 1 : s.standardCounter,
+          invoices: [...s.invoices, stamped],
+          // Legacy counters keep moving only for the old RIY register; the per-branch sequence is
+          // the source of truth for the number that was just issued.
+          simplifiedCounter:
+            stamped.invoiceType === 'simplified' && branchIdOf(stamped) === LEGACY_BRANCH_ID
+              ? s.simplifiedCounter + 1
+              : s.simplifiedCounter,
+          standardCounter:
+            stamped.invoiceType === 'standard' && branchIdOf(stamped) === LEGACY_BRANCH_ID
+              ? s.standardCounter + 1
+              : s.standardCounter,
+          branchCounters: bumpBranchCounter(s.branchCounters, branchIdOf(stamped), stamped.invoiceType),
         }));
         // Local save above already happened and is the record of truth - this is a best-effort
         // backup to this app's own database (see api/salesApi.ts). A sale must never fail or wait
@@ -74,9 +131,9 @@ export const useSalesStore = create<SalesState>()(
         // queued for retry rather than just logged and forgotten, so the SQL mirror's batch
         // quantities don't permanently drift just because the server happened to be down for this
         // one sale (see store/pendingSyncStore.ts).
-        backupSale(invoice).catch((err) => {
+        backupSale(stamped).catch((err) => {
           console.warn('Sale backup failed, queued for retry:', err);
-          usePendingSyncStore.getState().enqueue({ kind: 'sale', payload: invoice });
+          usePendingSyncStore.getState().enqueue({ kind: 'sale', payload: stamped });
         });
         // SFDA RSD: enqueue the serialised DRUG packs on this invoice and let the outbox send them
         // in the background. Item Master's "Batch / expiry tracking" switch is the drug gate (see
@@ -84,22 +141,27 @@ export const useSalesStore = create<SalesState>()(
         // Reporting is opt-in: with RSD off in Settings the sale is still recorded exactly as
         // before, it simply is not a national movement this register is responsible for.
         if (useSettingsStore.getState().settings.rsdEnabled === true) {
-          useRsdOutboxStore.getState().enqueueSale(invoice);
+          useRsdOutboxStore.getState().enqueueSale(stamped);
         }
       },
 
       recordReturn: (ret, updatedInvoice) => {
+        // A credit note belongs to the branch of the sale it reverses, not to whichever terminal
+        // happens to be open now - the return screen only offers invoices from this branch.
+        const branchId = branchIdOf(updatedInvoice);
+        const stampedReturn = stampBranch(ret, branchId);
+        const stampedInvoice = stampBranch(updatedInvoice, branchId);
         set((s) => ({
-          returns: [...s.returns, ret],
-          invoices: s.invoices.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv)),
+          returns: [...s.returns, stampedReturn],
+          invoices: s.invoices.map((inv) => (inv.id === stampedInvoice.id ? stampedInvoice : inv)),
         }));
         const returnPayload = {
-          ret,
-          updatedInvoiceStatus: updatedInvoice.status,
-          updatedInvoicePointsEarnedClawedBack: updatedInvoice.pointsEarnedClawedBack,
-          updatedInvoiceTotalIncentiveClawedBack: updatedInvoice.totalIncentiveClawedBack,
-          updatedInvoicePointsRedeemedRefunded: updatedInvoice.pointsRedeemedRefunded,
-          updatedLineReturnedQtys: updatedInvoice.lines.map((l) => ({ lineId: l.id, returnedQty: l.returnedQty })),
+          ret: stampedReturn,
+          updatedInvoiceStatus: stampedInvoice.status,
+          updatedInvoicePointsEarnedClawedBack: stampedInvoice.pointsEarnedClawedBack,
+          updatedInvoiceTotalIncentiveClawedBack: stampedInvoice.totalIncentiveClawedBack,
+          updatedInvoicePointsRedeemedRefunded: stampedInvoice.pointsRedeemedRefunded,
+          updatedLineReturnedQtys: stampedInvoice.lines.map((l) => ({ lineId: l.id, returnedQty: l.returnedQty })),
         };
         backupReturn(returnPayload).catch((err) => {
           console.warn('Return backup failed, queued for retry:', err);
@@ -110,14 +172,16 @@ export const useSalesStore = create<SalesState>()(
         // Like sales, this only runs when RSD reporting is enabled on this register.
         if (useSettingsStore.getState().settings.rsdEnabled === true) {
           useRsdOutboxStore.getState().enqueueReturn(
-            updatedInvoice,
-            ret.lines.map((line) => line.saleLineId),
-            ret.reason,
+            stampedInvoice,
+            stampedReturn.lines.map((line) => line.saleLineId),
+            stampedReturn.reason,
           );
         }
       },
 
-      invoiceByNo: (invoiceNo) => get().invoices.find((i) => i.invoiceNo === invoiceNo),
+      // Returns must not be able to reverse another branch's invoice by typing its number.
+      invoiceByNo: (invoiceNo) =>
+        get().invoices.find((i) => i.invoiceNo === invoiceNo && branchIdOf(i) === currentBranchId()),
 
       updateInvoiceZatca: (invoiceId, patch) => {
         set((s) => ({
@@ -167,7 +231,7 @@ export const useSalesStore = create<SalesState>()(
     }),
     {
       name: 'pharmacy-sales',
-      version: 3,
+      version: 4,
       // Sales saved before Phase 2 existed have no `zatcaStatus`. Without this back-fill the
       // invoices ledger dereferences `ZATCA_STATUS_LABEL[undefined]` and crashes the whole tab on
       // an upgraded install. Those sales did carry the 5-field Phase 1 QR, so "Phase 1 only" is
@@ -181,13 +245,22 @@ export const useSalesStore = create<SalesState>()(
           invoices: (state.invoices ?? []).map((invoice) => ({
             ...invoice,
             zatcaStatus: invoice.zatcaStatus ?? 'phase1_fallback',
+            // Everything persisted before v4 came from the original unconfigured RIY register.
+            branchId: invoice.branchId ?? LEGACY_BRANCH_ID,
           })),
           returns: (state.returns ?? []).map((ret) => ({
             ...ret,
             zatcaStatus: ret.zatcaStatus ?? 'pending_submission',
+            branchId: ret.branchId ?? LEGACY_BRANCH_ID,
           })),
           simplifiedCounter: state.simplifiedCounter ?? 0,
           standardCounter: state.standardCounter ?? 0,
+          branchCounters: state.branchCounters ?? {
+            [LEGACY_BRANCH_ID]: {
+              simplified: state.simplifiedCounter ?? 0,
+              standard: state.standardCounter ?? 0,
+            },
+          },
         } as SalesState;
       },
     }

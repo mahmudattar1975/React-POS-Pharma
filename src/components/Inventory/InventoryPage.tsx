@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Box, Typography, TextField, Table, TableHead, TableRow, TableCell, TableBody, Paper, Chip, Select, MenuItem } from '@mui/material';
 import { useCatalogStore } from '../../store/catalogStore';
+import { useBranchBatches } from '../../store/branchSelectors';
 import { isExpired, isNearExpiry, daysUntil } from '../../utils/fefo';
 import { CONTROLLED_STATUS_LABEL, CONTROLLED_STATUS_OPTIONS } from '../../utils/controlledSubstances';
 import type { ControlledStatus } from '../../types/catalog';
@@ -13,7 +14,9 @@ import { formatQty, formatUnitPrice } from '../../utils/format';
 import { T, useT } from '../../i18n';
 export default function InventoryPage() {
   const tr = useT();
-  const { items, batches, setControlledStatus } = useCatalogStore();
+  const setControlledStatus = useCatalogStore((s) => s.setControlledStatus);
+  const items = useCatalogStore((s) => s.items);
+  const batches = useBranchBatches();
   const [filter, setFilter] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 

@@ -72,7 +72,7 @@ test.describe('purchase returns', () => {
     await expect(page.getByRole('row', { name: /CN-2026-001/ })).toHaveCount(0);
     await expect(page.getByRole('row', { name: /RTN-PUR-2026-001/ })).toBeVisible();
     // The return has its own RET- sequence, so the next purchase is still PUR-000002.
-    await expect(page.getByLabel('Invoice seq.')).toHaveValue('PUR-000002');
+    await expect(page.getByLabel('Invoice seq.')).toHaveValue(/PUR-000002$/);
 
     // 5. Reports keep returns in their own named section: the 10 received and the 4 returned are
     //    both positive figures, never a minus row netted into stock received.
@@ -192,7 +192,7 @@ test.describe('purchase returns', () => {
 
     // 4. Modify lowers the return from 4 to 2 units; stock moves from 6 back up to 8.
     await returnRow().getByLabel('Modify return').click();
-    await expect(page.getByText(/Editing return RET-000001/)).toBeVisible();
+    await expect(page.getByText(/Editing return (?:[A-Z0-9]+-)?RET-000001/)).toBeVisible();
     await expect(page.getByLabel('Return paid qty Paracetamol 500mg')).toHaveValue('4');
     await page.getByLabel('Return paid qty Paracetamol 500mg').fill('2');
     await page.getByRole('button', { name: 'Update Return' }).click();
@@ -209,7 +209,7 @@ test.describe('purchase returns', () => {
     await page.goto('/purchase-returns');
     await returnRow().getByLabel('Delete return').click();
     const deleteDialog = page.getByRole('dialog');
-    await expect(deleteDialog).toContainText('Delete RET-000001?');
+    await expect(deleteDialog).toContainText(/Delete (?:[A-Z0-9]+-)?RET-000001\?/);
     await deleteDialog.getByRole('button', { name: 'Delete Return' }).click();
     await expect(page.getByText('No purchase returns posted yet.')).toBeVisible();
 

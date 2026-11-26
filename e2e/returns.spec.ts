@@ -20,7 +20,8 @@ test.describe('sales returns', () => {
 
     const titleText = await page.getByText(/^Invoice /).innerText();
     const invoiceNo = titleText.replace('Invoice', '').trim().split(/\s/)[0];
-    expect(invoiceNo).toMatch(/^(SIM|STD)-\d{6}$/);
+    // Configured tills prefix document numbers with the branch code (e.g. PH001-SIM-000001).
+    expect(invoiceNo).toMatch(/^(?:[A-Z0-9]+-)?(SIM|STD)-\d{6}$/);
     await page.getByRole('button', { name: 'New Sale' }).click();
 
     await page.goto('/returns');

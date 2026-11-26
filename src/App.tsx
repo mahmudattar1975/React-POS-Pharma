@@ -3,7 +3,6 @@ import { Box, CircularProgress } from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { usePendingSyncStore } from './store/pendingSyncStore';
 import { useRsdOutboxStore } from './store/rsdOutboxStore';
-import { useSettingsStore } from './store/settingsStore';
 import { getBranchContext } from './api/branchApi';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
@@ -55,27 +54,12 @@ export default function App() {
   // invoice numbers get the right prefix. If the server is unreachable, keep the last known value:
   // an offline pharmacy still sells, with the same branch stamped on every document.
   useEffect(() => {
-    let active = true;
-    getBranchContext()
-      .then((ctx) => {
-        if (!active || !ctx.configured) return;
-        // An unconfigured terminal keeps the historical numbering. This also keeps a fresh
-        // dev/test install (no branch.json) behaving exactly as before.
-        const settings = useSettingsStore.getState().settings;
-        useSettingsStore.getState().update({
-          branchId: ctx.branch.id,
-          branchCode: ctx.branch.code,
-          branchNameEn: ctx.branch.nameEn,
-          branchNameAr: ctx.branch.nameAr,
-          costCenterId: ctx.branch.costCenterId || settings.costCenterId,
-        });
-      })
-      .catch(() => {
-        // Advisory only - no notification at the till; the next successful boot will refresh it.
-      });
-    return () => {
-      active = false;
-    };
+    // getBranchContext() caches the configured terminal branch in settingsStore; an unconfigured
+    // terminal deliberately keeps the historical numbering. Failure is advisory - an offline till
+    // keeps the last known branch, and checkout retries the refresh before issuing a number.
+    getBranchContext().catch(() => {
+      // No notification at the till; the next successful boot or sale will refresh it.
+    });
   }, []);
 
   return (
