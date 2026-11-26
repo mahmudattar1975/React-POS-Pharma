@@ -231,8 +231,8 @@ export default function ItemMasterPage() {
               <TableCell align="right"><T>Sale Price</T></TableCell>
               <TableCell align="right"><T>Balance</T></TableCell>
               <TableCell align="right"><T>Min / Max</T></TableCell>
-              <TableCell><T>Status</T></TableCell>
               <TableCell align="right"><T>Actions</T></TableCell>
+              <TableCell><T>Status</T></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -334,13 +334,6 @@ export default function ItemMasterPage() {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {item.isActive === false ? (
-                      <Chip size="small" color="default" label={tr('Discontinued')} />
-                    ) : (
-                      <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
-                    )}
-                  </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton
                       size="small"
@@ -360,6 +353,13 @@ export default function ItemMasterPage() {
                     >
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
+                  </TableCell>
+                  <TableCell>
+                    {item.isActive === false ? (
+                      <Chip size="small" color="default" label={tr('Discontinued')} />
+                    ) : (
+                      <Chip size="small" color="success" variant="outlined" label={tr('Active')} />
+                    )}
                   </TableCell>
                 </TableRow>
               );
