@@ -229,10 +229,10 @@ Terminal branch: br-ph001 (from config/branch.json)
 ```powershell
 # من جذر المشروع
 npx tsc -b
-npm test -- --run          # 547 / 547 بعد استيراد Excel
+npm test -- --run          # 549 / 549 بعد قالب Excel
 npm run build
 npm run lint               # تحذيرات فقط
-npm run test:e2e           # 44 / 44 (بعد stub الكتالوج المشترك في e2e/fixtures.ts)
+npm run test:e2e           # 45 / 45 (بعد stub الكتالوج المشترك + اختبار تحميل القالب)
 
 # من server
 npm run build
@@ -320,6 +320,7 @@ GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-lo
 
 - `Inventory → Items → Import Excel` تفتح `src/components/Inventory/ItemImportDialog.tsx`.
 - الملف يُقرأ في المتصفح (`xlsx` يُحمّل ديناميكياً فقط عند الاختيار، فلا يدخل الحزمة الأولى). تُكتشف أعمدة الملف تلقائياً بأسماء إنجليزية أو عربية (`Barcode/الباركود`, `Item Name/اسم الصنف`, `Sale Price/سعر البيع`, `VAT %/ضريبة القيمة المضافة` إلخ)، وكل عمود قابل للتعديل يدوياً قبل التطبيق.
+- زر **Excel sample** بجانب "Choose Excel / CSV file" ينزّل قالب `item-import-sample.xlsx`: ورقة `Items` بالأعمدة المتوقعة وصف مثال واحد، وورقة `How to fill` تشرح كل عمود والقيم المقبولة. importer يقرأ الورقة الأولى فقط، ويجب حذف صف المثال قبل استيراد أصناف حقيقية.
 - معاينة إلزامية: كل صف يظهر كـ **New** أو **Update** أو **Error** مع رقم الصف الأصلي. أي خطأ (باركود مكرر داخل الملف، رقم ضريبة خارج 0–100%، اسم مفقود...) يمنع تطبيق الملف كله.
 - الضريبة تقبل `0.15` أو `15` أو `15%` والسعر الفارغ يُستورد صفراً مع تنبيه في المعاينة. الحد الأقصى 1000 صف لكل ملف.
 
@@ -343,4 +344,4 @@ GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-lo
 
 ### الملفات
 
-`server/src/items/import.ts`, `server/src/routes/items.ts`, `server/src/index.ts`, `src/utils/itemImport.ts`, `src/api/itemImportApi.ts`, `src/api/catalogApi.ts`, `src/components/Inventory/ItemImportDialog.tsx`, `src/components/Inventory/ItemMasterPage.tsx`, `src/store/catalogStore.ts`, `src/App.tsx`, `server/prisma/dotnet-pos-schema.prisma`، مع اختبارات في `src/utils/itemImport.test.ts`, `server/tests/items/import.test.ts`, `src/store/itemMasterStore.test.ts`.
+`server/src/items/import.ts`, `server/src/routes/items.ts`, `server/src/index.ts`, `src/utils/itemImport.ts`, `src/utils/itemImportSample.ts`, `src/api/itemImportApi.ts`, `src/api/catalogApi.ts`, `src/components/Inventory/ItemImportDialog.tsx`, `src/components/Inventory/ItemMasterPage.tsx`, `src/store/catalogStore.ts`, `src/App.tsx`, `server/prisma/dotnet-pos-schema.prisma`، مع اختبارات في `src/utils/itemImport.test.ts`, `server/tests/items/import.test.ts`, `src/store/itemMasterStore.test.ts`, `e2e/item-import-sample.spec.ts`.

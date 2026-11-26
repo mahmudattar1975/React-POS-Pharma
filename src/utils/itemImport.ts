@@ -73,7 +73,8 @@ export const ITEM_IMPORT_ALIASES: Record<ItemImportField, string[]> = {
     'مخدر', 'مؤثرات عقلية', 'وصف طبي',
   ],
   requiresBatchTracking: [
-    'batch tracking', 'track batch', 'requires batch', 'batch tracked', 'تتبع الدفعات', 'تتبع الدفعة',
+    'batch tracking', 'track batch', 'requires batch', 'requires batch tracking', 'batch tracked',
+    'تتبع الدفعات', 'تتبع الدفعة',
   ],
   isActive: [
     'active', 'is active', 'status', 'item status', 'نشط', 'الحالة', 'حالة الصنف',

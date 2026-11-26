@@ -3,6 +3,9 @@ import type { Item } from '../types/catalog';
 import {
   detectItemColumns, planItemImport, type ItemColumnMapping,
 } from './itemImport';
+import {
+  buildItemImportSampleWorkbook, ITEM_IMPORT_SAMPLE_HEADERS, ITEM_IMPORT_SAMPLE_ROW,
+} from './itemImportSample';
 
 function item(barcode: string, nameEn: string): Item {
   return {
@@ -83,5 +86,43 @@ describe('itemImport planning', () => {
     const plan = planItemImport([row({ 'VAT %': '150' })], columns, []);
     expect(plan.errors).toBe(1);
     expect(plan.apply).toHaveLength(0);
+  });
+});
+
+describe('Excel sample template', () => {
+  it('uses headers that are detected automatically and an example row that imports cleanly', () => {
+    const sampleColumns = detectItemColumns(ITEM_IMPORT_SAMPLE_HEADERS);
+    expect(sampleColumns).toMatchObject({
+      barcode: 'Barcode',
+      nameEn: 'Item Name (English)',
+      nameAr: 'Arabic Name',
+      basePrice: 'Sale Price',
+      vatRate: 'VAT %',
+      category: 'Category',
+      unit: 'Unit',
+      reorderLevel: 'Reorder Level',
+      controlledStatus: 'Controlled Status',
+      requiresBatchTracking: 'Requires Batch Tracking',
+      isActive: 'Active',
+    });
+    const plan = planItemImport([ITEM_IMPORT_SAMPLE_ROW], sampleColumns, []);
+    expect(plan.errors).toBe(0);
+    expect(plan.create).toBe(1);
+    expect(plan.apply[0]).toMatchObject({
+      barcode: 'SAMPLE-0001',
+      basePrice: 12.5,
+      vatRate: 0.15,
+      requiresBatchTracking: true,
+      isActive: true,
+    });
+  });
+
+  it('builds a workbook whose first sheet is the importable Items sheet', async () => {
+    const workbook = await buildItemImportSampleWorkbook();
+    expect(workbook.SheetNames).toEqual(['Items', 'How to fill']);
+    const XLSX = await import('xlsx');
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Items, { defval: '' });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject(ITEM_IMPORT_SAMPLE_ROW);
   });
 });

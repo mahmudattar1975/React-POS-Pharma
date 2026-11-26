@@ -12,12 +12,14 @@ import {
   TableRow, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DownloadIcon from '@mui/icons-material/Download';
 import type { Item } from '../../types/catalog';
 import { importItems, type ImportedItemRecord, type ItemImportResult } from '../../api/itemImportApi';
 import {
   detectItemColumns, ITEM_IMPORT_ALIASES, ITEM_IMPORT_FIELDS, ITEM_IMPORT_REQUIRED,
   planItemImport, type ItemColumnMapping, type ItemImportField, type ItemImportStatus,
 } from '../../utils/itemImport';
+import { downloadItemImportSample } from '../../utils/itemImportSample';
 import { formatMoney } from '../../utils/format';
 
 import { T, useT } from '../../i18n';
@@ -140,6 +142,15 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
     }
   }
 
+  async function handleSample() {
+    setFileError(undefined);
+    try {
+      await downloadItemImportSample();
+    } catch (err) {
+      setFileError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   async function apply() {
     if (!plan || busy || plan.errors > 0 || plan.apply.length === 0) return;
     setBusy(true);
@@ -169,19 +180,27 @@ export default function ItemImportDialog({ open, items, onClose, onImported }: P
             both the POS catalogue and the .NET item master — no batches or stock are created.</T>
           </Typography>
 
-          <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} sx={{ alignSelf: 'flex-start' }}>
-            {sheet?.fileName || tr('Choose Excel / CSV file')}
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleFile(file);
-                e.target.value = '';
-              }}
-            />
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
+              {sheet?.fileName || tr('Choose Excel / CSV file')}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleFile(file);
+                  e.target.value = '';
+                }}
+              />
+            </Button>
+            <Button variant="text" startIcon={<DownloadIcon />} onClick={() => void handleSample()}>
+              <T>Excel sample</T>
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            <T>Download the sample to see the exact columns. The first sheet is imported; delete its example row before using your own items.</T>
+          </Typography>
           {fileError && <Alert severity="error">{fileError}</Alert>}
 
           {sheet && (
