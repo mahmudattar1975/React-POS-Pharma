@@ -127,7 +127,9 @@ test.describe('purchase invoices', () => {
     await page.getByLabel('Barcode / GTIN 1 (main)').fill('SUPPLY-0001');
     await page.getByLabel('Name (English)').fill('Gauze Roll 10cm');
     await page.getByLabel('Name (Arabic - عربي)').fill('لفافة شاش 10 سم');
-    await page.getByLabel('Unit', { exact: true }).fill('Roll');
+    // Unit is now chosen from dbo.Units; Piece keeps this non-dated supply free of pack semantics.
+    await page.getByLabel('Unit', { exact: true }).click();
+    await page.getByRole('option', { name: 'Piece', exact: true }).click();
     await page.getByLabel('Sale Price').fill('8');
     await page.getByRole('switch', { name: 'Has expiry date' }).click();
     await page.getByRole('button', { name: 'Create Item' }).click();

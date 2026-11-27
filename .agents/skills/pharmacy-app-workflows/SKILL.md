@@ -1,6 +1,6 @@
 ---
 name: pharmacy-app-workflows
-description: Use this skill whenever work touches the Pharmacy-App repository at F:/SOURCE/React/Pharmacy-App — adding or changing a page, touching POS/inventory/purchasing/Wasfaty/ZATCA/RSD flows, running or debugging tests, doing a UI/accessibility/performance pass, or verifying a change. It captures the project's auth/shift gates, mock integration modes, accessibility rules, bundle rules, and the exact verification commands. Trigger even when the user does not name this skill, as long as the task is about this codebase.
+description: Use this skill whenever work touches the Pharmacy-App repository at F:/SOURCE/React/Pharmacy-App — adding or changing a page, touching POS/inventory/purchasing/Wasfaty/ZATCA/RSD flows, running or debugging tests, doing a UI/accessibility/performance pass, or verifying a change. It requires reading .mdfile/Maindeign.md before any new task and captures the project's auth/shift gates, mock integration modes, accessibility rules, bundle rules, and the exact verification commands. Trigger even when the user does not name this skill, as long as the task is about this codebase.
 compatibility: Node 20+, npm, Playwright Chromium, optional agent-browser + axe for UI audits.
 ---
 
@@ -9,6 +9,27 @@ compatibility: Node 20+, npm, Playwright Chromium, optional agent-browser + axe 
 This is a local-first pharmacy POS. Almost every screen is a Zustand store over `localStorage` plus an
 Express mirror on `:4300`; the cashier shift comes from a separate dotnet-pos API on `:5000`. Treat
 those boundaries as intentional: a backend failure must never block the till.
+
+## 0. Non-negotiable engineering standards
+
+**Before starting ANY new task in this repository, read `.mdfile/Maindeign.md` in full.** The owner
+adopted it as the fixed canonical standards file for every phase (analysis, design, implementation,
+testing and review). Do not rely on memory alone; open the file again. The five focus areas are:
+
+1. **Do not change existing business logic before understanding it.** Preserve pricing/discount/tax,
+   unit conversion, stock balances and sale/purchase/return rules; add regression tests first.
+2. **Performance starts in SQL Server and index design.** Deliberate (composite) indexes, Index Seek
+   over Table Scan, no `SELECT *`, barcodes stored as text, and Execution Plan / Logical Reads compared
+   before and after.
+3. **Never load more data than the screen needs.** Explicit Prisma `select`/DTOs, server-side search,
+   pagination/virtualization, no whole-catalogue loads on screen open.
+4. **Test every change before integrating it.** Build + lint + unit + e2e as appropriate; verification
+   is evidence, not an assumption.
+5. **No task is complete without performance measurement and tests.** Include before/after numbers and
+   test results in the implementation report.
+
+Priority: Data Integrity > Business Logic Correctness > Performance > Security > Scalability >
+Maintainability > User Experience. Analyze first, propose second, implement third.
 
 ## 1. Know the gates before debugging "the page is empty"
 
@@ -25,8 +46,8 @@ those boundaries as intentional: a backend failure must never block the till.
 ```powershell
 npm run build          # tsc -b && vite build; must have no chunk-size warning
 npm run lint           # oxlint; warnings are allowed, new ones should be justified
-npm test               # Vitest: 42 files / 529 tests at last verified state
-npm run test:e2e       # Playwright: 44 specs; workers are pinned to 2 in playwright.config.ts
+npm test               # Vitest: 46 files / 574 tests at last verified state (2026-11-27)
+npm run test:e2e       # Playwright: 47 tests; workers are pinned to 2 in playwright.config.ts
 ```
 
 If `npm run test:e2e` reports `ERR_CONNECTION_REFUSED`, check that Vite is listening on `:5173`

@@ -176,36 +176,213 @@ model Branch {
 // store/catalogStore.ts's upsertErpItem) rather than a generated key, so rows copied from either
 // source need no id translation at all.
 model Item {
-  id                    String @db.NVarChar(100) @id
-  barcode               String @db.NVarChar(100) @unique
-  nameAr                String @db.NVarChar(100)
-  nameEn                String @db.NVarChar(100)
-  unit                  String @db.NVarChar(100)
-  category              String @db.NVarChar(100)
-  // Link to the ItemCategories master. `category` above stays as the free-text label used by the
-  // POS and cost-center rules; this id is the stable key for reports and future category lookup.
-  categoryId            Int?    @map("categoryId")
-  basePrice             Decimal @db.Decimal(12, 3)
-  controlledStatus      String? @db.NVarChar(100)
-  vatRate               Decimal @db.Decimal(6, 4)
-  requiresBatchTracking Boolean
-  reorderLevel          Int
+  id       String @db.NVarChar(100) @id
+  // Internal item code (recommended master's ItemCode). Mirrors the frontend Item.itemNo; nullable
+  // so older rows and ERP scans without a code keep loading unchanged.
+  itemNo   Int?
+  // Barcode stays NVARCHAR(100) text: numeric types would drop the leading zeros printed on packs.
+  barcode  String @db.NVarChar(100) @unique
+  // Pack GTIN when it differs from the scannable barcode.
+  gtin     String? @db.NVarChar(32)
+
+  // Bilingual and pharmaceutical description.
+  nameAr                String  @db.NVarChar(100)
+  nameEn                String  @db.NVarChar(100)
+  genericName           String? @db.NVarChar(200)
+  activeIngredient      String? @db.NVarChar(200)
+  strength              String? @db.NVarChar(50)
+  dosageForm            String? @db.NVarChar(100)
+  routeOfAdministration String? @db.NVarChar(100)
+
+  // Classification. `category` stays the free-text label consumed by POS/cost-center rules;
+  // categoryId (main) and subCategoryId both point at Categories; brandId and
+  // manufacturerId point at their own masters. Text keys sit beside the FKs they mirror.
+  categoryId    Int?   @map("categoryId")
+  subCategoryId Int?
+  category      String @db.NVarChar(100)
+  brandId       Int?
+  itemType      String? @db.NVarChar(50)
+  // Manufacturer: the company number the frontend stores and the matching FK are the SAME link.
+  // The dbo.items trigger keeps them in sync: the text key wins, an unmatched key clears the FK,
+  // and a numeric-only write is filled from Manufacturers.CompanyNo.
+  manufacturerId Int?
+  manufacturerNo String? @db.NVarChar(50)
+  // Preferred vendor: same invariant (CustVendor.VendorNo is the stable key, VendorID the FK).
+  vendorId Int?
+  vendorNo String? @db.NVarChar(50)
+
+  // Unit of measure. `unit` stays the free-text label for POS/receipts and for legacy rows whose
+  // text has no matching Units row yet.
+  unitId   Int?
+  unit     String @db.NVarChar(100)
+  packSize Int?
+
+  // Regulatory / pharmaceutical metadata. controlledStatus remains the single detailed source
+  // (prescription / schedule_a..e); the booleans below are convenience filters for the same facts.
+  controlledStatus   String? @db.NVarChar(100)
+  drugClass          String? @db.NVarChar(100)
+  atcCode            String? @db.NVarChar(20)
+  sfdaRegistrationNo String? @db.NVarChar(50)
+  countryOfOrigin    String? @db.NVarChar(100)
+  storageCondition   String? @db.NVarChar(100)
+
+  // Pricing and tax. Decimal money columns, never float.
+  basePrice Decimal @db.Decimal(12, 3)
+  // Optional item-level cost entered in the Item Master (Item Master > Pricing & tax). Receiving
+  // still writes the authoritative per-batch cost on Batch.costPrice; this is the master/default
+  // value shared with every terminal. Nullable so older rows keep loading unchanged.
+  costPrice Decimal? @db.Decimal(12, 3)
+  vatRate   Decimal @db.Decimal(6, 4)
+
+  // Stock policy. reorderLevel is the existing trigger point; the min/max pair is the recommended
+  // bound pair and stays separate from it.
+  reorderLevel Int
+  minimumStock Int?
+  maximumStock Int?
+
+  // Every BIT column is last in dbo.items (migration 20261127130000). Operational flags come first,
+  // then clinical/financial flags. Names, not ordinals, are used by every query and the sync trigger.
+  isActive               Boolean @default(true)
+  requiresBatchTracking  Boolean
+  requiresExpiryDate     Boolean @default(true)
+  requiresSerialNumber   Boolean @default(false)
+  requiresPrescription   Boolean @default(false)
+  isControlledDrug       Boolean @default(false)
+  isNarcotic             Boolean @default(false)
+  isTaxable              Boolean @default(true)
+  isTemperatureSensitive Boolean @default(false)
 
   // NoAction on both sides keeps this relation out of Prisma's cyclic referential-action chain
   // (Item -> ItemCategory -> Item). A category still in use is rejected instead of silently
   // rewriting item rows.
-  categoryMaster ItemCategory?   @relation(fields: [categoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
-  batches        Batch[]
+  // Two separate relations into the same self-referencing category master: 3-level hierarchy is
+  // Main Category (categoryId) -> Subcategory (subCategoryId) -> Item.
+  categoryMaster    ItemCategory?   @relation("ItemMainCategory", fields: [categoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
+  subCategoryMaster ItemCategory?   @relation("ItemSubCategory", fields: [subCategoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
+  brand             Brand?          @relation(fields: [brandId], references: [brandId], onDelete: NoAction, onUpdate: NoAction)
+  unitMaster        Unit?           @relation(fields: [unitId], references: [unitId], onDelete: NoAction, onUpdate: NoAction)
+  manufacturer      Manufacturer?   @relation(fields: [manufacturerId], references: [manufacturerId], onDelete: NoAction, onUpdate: NoAction)
+  vendor            Vendor?         @relation(fields: [vendorId], references: [vendorId], onDelete: NoAction, onUpdate: NoAction)
+  batches           Batch[]
   offers         Offer[]
   incentives     IncentiveItem[]
 
+  @@index([itemNo])
+  @@index([gtin])
+  @@index([brandId])
+  @@index([unitId])
+  @@index([subCategoryId])
+  @@index([manufacturerId])
+  @@index([manufacturerNo])
+  @@index([vendorId])
+  @@index([vendorNo])
   @@index([categoryId])
+  @@index([atcCode])
+  @@index([sfdaRegistrationNo])
+  @@index([isActive])
   @@map("items")
 }
 
-// Pharmacy category master. Mirrors the owner's dbo.ItemCategories design: stable numeric id,
-// unique code, bilingual names, optional parent for future hierarchy, and an active flag. The
-// flat seeded list uses ParentCategoryID = NULL; the self-relation is ready for grouping later.
+// Brand master for the Item Master. BrandID / BrandCode / bilingual names / IsActive are the
+// original four fields; ManufacturerID and CountryOfOrigin were added at the owner's request so a
+// brand can record who makes it and where it comes from. No brand values exist in the catalogue yet,
+// so the table starts empty. The ManufacturerID FK is created after Manufacturers exists (migration
+// 20261126120000); this model only declares the relation.
+model Brand {
+  brandId        Int     @id @default(autoincrement()) @map("BrandID")
+  brandCode      String  @unique @map("BrandCode") @db.NVarChar(50)
+  nameEn         String  @map("BrandNameEn") @db.NVarChar(150)
+  nameAr         String  @map("BrandNameAr") @db.NVarChar(150)
+  manufacturerId Int?    @map("ManufacturerID")
+  countryOfOrigin String? @map("CountryOfOrigin") @db.NVarChar(100)
+  isActive       Boolean @default(true) @map("IsActive")
+  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [manufacturerId], onDelete: NoAction, onUpdate: NoAction)
+  items          Item[]
+
+  @@index([manufacturerId])
+  @@index([isActive])
+  @@map("BrandMaster")
+}
+
+// Unit-of-measure master. Seeded with the unit codes/names already present in the POS catalogue so
+// items.unit can be backfilled to unitId without changing what cashiers see on screen.
+model Unit {
+  unitId   Int     @id @default(autoincrement()) @map("UnitID")
+  unitCode String  @unique @map("UnitCode") @db.NVarChar(50)
+  nameAr   String  @map("UnitNameAr") @db.NVarChar(150)
+  nameEn   String  @map("UnitNameEn") @db.NVarChar(150)
+  isActive Boolean @default(true) @map("IsActive")
+  items    Item[]
+
+  @@index([isActive])
+  @@map("Units")
+}
+
+// Shelf/store location master for the Item Master dropdown. Item.location stays an app-level text
+// label (dbo.items has no location column yet), so older local catalogues keep working unchanged;
+// the dropdown simply stores Locations.LocationNameEn into that text field.
+model Location {
+  locationId   Int     @id @default(autoincrement()) @map("LocationID")
+  locationCode String  @unique @map("LocationCode") @db.NVarChar(50)
+  nameAr       String  @map("LocationNameAr") @db.NVarChar(150)
+  nameEn       String  @map("LocationNameEn") @db.NVarChar(150)
+  isActive     Boolean @default(true) @map("IsActive")
+
+  @@index([isActive])
+  @@map("Locations")
+}
+
+// Manufacturer / company master. Mirrors src/types/manufacturer.ts: CompanyNo is the stable number
+// stored in Item.manufacturerNo, so renaming a company never breaks the item link. The five seeded
+// rows come from src/utils/seedData.ts's seedManufacturers.
+model Manufacturer {
+  manufacturerId Int     @id @default(autoincrement()) @map("ManufacturerID")
+  companyNo      Int     @unique @map("CompanyNo")
+  nameAr         String  @map("ManufacturerNameAr") @db.NVarChar(150)
+  nameEn         String  @map("ManufacturerNameEn") @db.NVarChar(150)
+  details        String? @map("Details") @db.NVarChar(2000)
+  isActive       Boolean @default(true) @map("IsActive")
+  updatedAt      DateTime? @map("UpdatedAt")
+  items          Item[]
+  brands         Brand[]
+
+  @@index([isActive])
+  @@map("Manufacturers")
+}
+
+// Purchasing party master (FCODCSVN-style). Mirrors src/types/purchasing.ts's Vendor: vendors
+// (TypeFlag 1) and business customers (TypeFlag 2) share [dbo].[CustVendor] (renamed from Vendors in
+// migration 20261127110000), and VendorNo is the stable key stored in Item.vendorNo. The six seeded
+// rows come from seedData.ts's seedVendors.
+model Vendor {
+  vendorId            Int     @id @default(autoincrement()) @map("VendorID")
+  vendorNo            String  @unique @map("VendorNo") @db.NVarChar(50)
+  typeFlag            Int     @map("TypeFlag")
+  nameAr              String  @map("VendorNameAr") @db.NVarChar(150)
+  nameEn              String  @map("VendorNameEn") @db.NVarChar(150)
+  phone               String  @map("Phone") @db.NVarChar(50)
+  vatNumber           String? @map("VatNumber") @db.NVarChar(50)
+  category            String? @map("Category") @db.NVarChar(100)
+  creditLimit         Decimal? @map("CreditLimit") @db.Decimal(12, 2)
+  settlementDays      Int?    @map("SettlementDays")
+  vatType             Int?    @map("VatType")
+  glnNo               String? @map("GlnNo") @db.NVarChar(50)
+  bonusDiscountSetNo  Int?    @map("BonusDiscountSetNo")
+  limitationSetNo     Int?    @map("LimitationSetNo")
+  notes               String? @map("Notes") @db.NVarChar(2000)
+  isActive            Boolean @default(true) @map("IsActive")
+  updatedAt           DateTime? @map("UpdatedAt")
+  items               Item[]
+
+  @@index([typeFlag])
+  @@index([isActive])
+  @@map("CustVendor")
+}
+
+// Pharmacy category master, mapped to [dbo].[Categories] (renamed from ItemCategories in migration
+// 20261126160000). Stable numeric id, unique code, bilingual names, optional parent for hierarchy,
+// and an active flag. Main categories are top-level (ParentCategoryID NULL); subcategories point at
+// their main category, so the three-level system is Main -> Subcategory -> Item.
 model ItemCategory {
   categoryId       Int     @id @default(autoincrement()) @map("CategoryID")
   categoryCode     String  @unique @map("CategoryCode") @db.NVarChar(50)
@@ -214,11 +391,12 @@ model ItemCategory {
   parentCategoryId Int?    @map("ParentCategoryID")
   isActive         Boolean @default(true) @map("IsActive")
 
-  parent   ItemCategory?  @relation("ItemCategoryHierarchy", fields: [parentCategoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
-  children ItemCategory[] @relation("ItemCategoryHierarchy")
-  items    Item[]
+  parent          ItemCategory?  @relation("ItemCategoryHierarchy", fields: [parentCategoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction)
+  children        ItemCategory[] @relation("ItemCategoryHierarchy")
+  items           Item[]         @relation("ItemMainCategory")
+  subCategoryItems Item[]        @relation("ItemSubCategory")
 
-  @@map("ItemCategories")
+  @@map("Categories")
 }
 
 // Mirrors Batch.

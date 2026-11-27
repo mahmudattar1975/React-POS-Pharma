@@ -14,6 +14,9 @@ import { contextRouter } from './routes/context.js';
 import { stockRouter } from './routes/stock.js';
 import { itemsRouter } from './routes/items.js';
 import { itemCategoriesRouter } from './routes/itemCategories.js';
+import { unitsRouter } from './routes/units.js';
+import { locationsRouter } from './routes/locations.js';
+import { brandsRouter } from './routes/brands.js';
 import { initRsdSettings } from './rsd/settings.js';
 import { terminalBranch } from './branch.js';
 
@@ -39,6 +42,9 @@ async function main(): Promise<void> {
   app.use('/api/stock', stockRouter);
   app.use('/api/items', itemsRouter);
   app.use('/api/item-categories', itemCategoriesRouter);
+  app.use('/api/units', unitsRouter);
+  app.use('/api/locations', locationsRouter);
+  app.use('/api/brands', brandsRouter);
 
   app.listen(config.port, () => {
     console.log(`Pharmacy-App ZATCA server listening on http://localhost:${config.port} (ZATCA env: ${config.zatcaEnv}, mode: ${config.zatcaMode})`);

@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
   IconButton, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TextField, Typography,
+  TableRow, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -23,6 +23,9 @@ import { useBranchBatches, useBranchReceivingLog, useBranchSales } from '../../s
 import { usePurchasingStore } from '../../store/purchasingStore';
 import { useManufacturerStore } from '../../store/manufacturerStore';
 import { useItemCategoryStore } from '../../store/itemCategoryStore';
+import { useUnitStore } from '../../store/unitStore';
+import { useLocationStore } from '../../store/locationStore';
+import { useBrandStore } from '../../store/brandStore';
 import { useDosageStore } from '../../store/dosageStore';
 import type { Item } from '../../types/catalog';
 import { itemCodes, itemMovementTotals, itemNumberOf, nextItemNumber } from '../../utils/itemMaster';
@@ -33,6 +36,7 @@ import { CONTROLLED_STATUS_LABEL } from '../../utils/controlledSubstances';
 import { formatMoney, formatQty } from '../../utils/format';
 import ItemMasterFormDialog from './ItemMasterFormDialog';
 import ItemImportDialog from './ItemImportDialog';
+import ItemMastersPage from './ItemMastersPage';
 
 import { T, useT } from '../../i18n';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -51,8 +55,12 @@ export default function ItemMasterPage() {
   const vendors = usePurchasingStore((s) => s.vendors);
   const manufacturers = useManufacturerStore((s) => s.manufacturers);
   const itemCategories = useItemCategoryStore((s) => s.categories);
+  const units = useUnitStore((s) => s.units);
+  const locations = useLocationStore((s) => s.locations);
+  const brands = useBrandStore((s) => s.brands);
   const dosages = useDosageStore((s) => s.dosages);
 
+  const [view, setView] = useState<'items' | 'masters'>('items');
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dialog, setDialog] = useState<{ open: boolean; item: Item | null }>({ open: false, item: null });
@@ -156,6 +164,19 @@ export default function ItemMasterPage() {
 
   return (
     <Box>
+      {/* Second level inside /items: the catalogue and the four master tables behind its dropdowns. */}
+      <Tabs
+        value={view}
+        onChange={(_, value: 'items' | 'masters') => { setView(value); setSaveError(null); }}
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+      >
+        <Tab label={tr('Items')} aria-label="Items" />
+        <Tab label={tr('Masters')} aria-label="Item masters" />
+      </Tabs>
+      {view === 'masters' ? (
+        <ItemMastersPage />
+      ) : (
+      <>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Chip
@@ -282,7 +303,6 @@ export default function ItemMasterPage() {
                   </TableCell>
                   <TableCell>
                     {(() => {
-  const tr = useT();
                       const codes = itemCodes(item);
                       // Every code is listed, not just a "+N more" hint: the owner asked for several
                       // barcodes/GTINs per item, so they must be able to see them at a glance.
@@ -385,6 +405,9 @@ export default function ItemMasterPage() {
           item={dialog.item}
           items={items}
           itemCategories={itemCategories}
+          units={units}
+          locations={locations}
+          brands={brands}
           vendors={vendors}
           manufacturers={manufacturers}
           batches={batches}
@@ -418,6 +441,8 @@ export default function ItemMasterPage() {
           <Button color="error" variant="contained" onClick={confirmDelete}><T>Delete Item</T></Button>
         </DialogActions>
       </Dialog>
+      </>
+      )}
     </Box>
   );
 }

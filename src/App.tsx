@@ -6,8 +6,14 @@ import { useRsdOutboxStore } from './store/rsdOutboxStore';
 import { getBranchContext } from './api/branchApi';
 import { getSharedCatalog } from './api/catalogApi';
 import { getItemCategories } from './api/itemCategoryApi';
+import { getUnits } from './api/unitApi';
+import { getLocations } from './api/locationApi';
+import { getBrands } from './api/brandApi';
 import { useCatalogStore } from './store/catalogStore';
 import { useItemCategoryStore } from './store/itemCategoryStore';
+import { useUnitStore } from './store/unitStore';
+import { useLocationStore } from './store/locationStore';
+import { useBrandStore } from './store/brandStore';
 import type { Item } from './types/catalog';
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './components/Auth/LoginPage';
@@ -86,11 +92,21 @@ export default function App() {
           unit: row.unit,
           category: row.category,
           categoryId: row.categoryId,
+          brandId: row.brandId ?? undefined,
           basePrice: row.basePrice,
+          costPrice: row.costPrice ?? undefined,
           vatRate: row.vatRate,
           requiresBatchTracking: row.requiresBatchTracking,
+          hasExpiry: row.hasExpiry,
           reorderLevel: row.reorderLevel,
           controlledStatus: row.controlledStatus ?? undefined,
+          // Item-master flags are SQL-backed; SQL is authoritative for every terminal.
+          requiresPrescription: row.requiresPrescription,
+          isControlledDrug: row.isControlledDrug,
+          isTaxable: row.isTaxable,
+          isTemperatureSensitive: row.isTemperatureSensitive,
+          requiresSerialNumber: row.requiresSerialNumber,
+          isNarcotic: row.isNarcotic,
           // Aliases and the optional vendor/manufacturer keys are shared master data.
           barcodes: row.barcodes,
           vendorNo: row.vendorNo ?? undefined,
@@ -110,7 +126,7 @@ export default function App() {
     };
   }, []);
 
-  // The ItemCategories master is shared like the item catalogue. A failed sync keeps the seeded
+  // The Categories master is shared like the item catalogue. A failed sync keeps the seeded
   // 28-row fallback, so the Item Master dropdown and Excel importer still work at the till.
   useEffect(() => {
     const controller = new AbortController();
@@ -119,6 +135,55 @@ export default function App() {
       .then((rows) => useItemCategoryStore.getState().replaceCategories(rows))
       .catch(() => {
         // Advisory only: the persisted/seeded category list remains authoritative offline.
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  // Units and Locations are shared lookup masters too. Their seeded fallbacks let the Item Master
+  // dropdowns work before the sync completes; a failed sync never blocks the till.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    getUnits(controller.signal)
+      .then((rows) => useUnitStore.getState().replaceUnits(rows))
+      .catch(() => {
+        // Advisory only: the persisted/seeded unit list remains authoritative offline.
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    getLocations(controller.signal)
+      .then((rows) => useLocationStore.getState().replaceLocations(rows))
+      .catch(() => {
+        // Advisory only: the persisted/seeded location list remains authoritative offline.
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  // Brands are the fourth shared lookup master. The 131-row offline seed keeps the Item Master
+  // dropdown usable before this finishes or while the till has no connection.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    getBrands(controller.signal)
+      .then((rows) => useBrandStore.getState().replaceBrands(rows))
+      .catch(() => {
+        // Advisory only: the persisted/seeded brand list remains authoritative offline.
       })
       .finally(() => clearTimeout(timeout));
     return () => {

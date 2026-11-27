@@ -8,7 +8,20 @@ const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300
 
 // isActive is deliberately absent: it is branch-local (a terminal may discontinue an item without
 // changing the shared master), so syncing a SQL row must never overwrite that flag.
-export type SharedCatalogItem = Omit<ItemImportPayloadRow, 'isActive'> & { id: string };
+// The item-master flags below are SQL-backed, so a boot sync carries them to every terminal. The
+// frontend keeps `hasExpiry`; SQL stores the inverse as `requiresExpiryDate` and the route maps it.
+export type SharedCatalogItem = Omit<ItemImportPayloadRow, 'isActive'> & {
+  id: string;
+  brandId?: number | null;
+  costPrice?: number | null;
+  hasExpiry?: boolean;
+  requiresPrescription?: boolean;
+  isControlledDrug?: boolean;
+  isTaxable?: boolean;
+  isTemperatureSensitive?: boolean;
+  requiresSerialNumber?: boolean;
+  isNarcotic?: boolean;
+};
 
 export async function getSharedCatalog(signal?: AbortSignal): Promise<SharedCatalogItem[]> {
   const res = await fetch(`${BASE_URL}/api/items`, { cache: 'no-store', signal });

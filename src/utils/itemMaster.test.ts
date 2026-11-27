@@ -96,6 +96,24 @@ describe('item form conversion', () => {
       ...source,
       gtin: undefined,
       barcodes: ['06281007320014', '6281007000011'],
+      // The master form now writes every flag and optional link explicitly, so the round trip also
+      // carries these keys (undefined means "leave SQL NULL / use the SQL default").
+      brandId: undefined,
+      categoryId: undefined,
+      costPrice: undefined,
+      defaultDosageId: undefined,
+      dosageIds: undefined,
+      hasExpiry: undefined,
+      isControlledDrug: false,
+      isNarcotic: false,
+      isTaxable: true,
+      isTemperatureSensitive: false,
+      nupcoCode: undefined,
+      pack: undefined,
+      requiresPrescription: false,
+      requiresSerialNumber: false,
+      wasfatyEligible: undefined,
+      wasfatyPrice: undefined,
     };
     delete expected.id;
     expect(formToItemInput(itemToForm(source))).toEqual(expected);
@@ -108,6 +126,32 @@ describe('item form conversion', () => {
     expect(input.maxLevel).toBeUndefined();
     expect(input.cartonQty).toBeUndefined();
     expect(input.isActive).toBe(true);
+  });
+
+  it('round-trips the item-level cost price and keeps a blank cost as undefined', () => {
+    const source = item({ costPrice: 2.75 });
+    expect(itemToForm(source).costPrice).toBe('2.75');
+    expect(formToItemInput(itemToForm(source)).costPrice).toBe(2.75);
+    expect(formToItemInput(form()).costPrice).toBeUndefined();
+  });
+
+  it('writes every dbo.items boolean independently, including unchecked flags', () => {
+    const values = form({
+      requiresPrescription: true,
+      isControlledDrug: false,
+      isTaxable: false,
+      isTemperatureSensitive: true,
+      requiresSerialNumber: true,
+      isNarcotic: true,
+    });
+    expect(formToItemInput(values)).toMatchObject({
+      requiresPrescription: true,
+      isControlledDrug: false,
+      isTaxable: false,
+      isTemperatureSensitive: true,
+      requiresSerialNumber: true,
+      isNarcotic: true,
+    });
   });
 
   it('defaults an item to having an expiry date and stores only the opt-out', () => {
@@ -229,6 +273,12 @@ describe('item validation', () => {
     expect(validateItemForm(form({ basePrice: '-1' }), [item()]).basePrice).toBeDefined();
     expect(validateItemForm(form({ reorderLevel: '2.5' }), [item()]).reorderLevel).toBeDefined();
     expect(validateItemForm(form({ reorderLevel: '50', maxLevel: '10' }), [item()]).maxLevel).toBeDefined();
+  });
+
+  it('allows a blank cost price but rejects a negative or non-numeric one', () => {
+    expect(validateItemForm(form(), [item()]).costPrice).toBeUndefined();
+    expect(validateItemForm(form({ costPrice: '-1' }), [item()]).costPrice).toBeDefined();
+    expect(validateItemForm(form({ costPrice: 'abc' }), [item()]).costPrice).toBeDefined();
   });
 
   it('rejects a carton quantity below one', () => {

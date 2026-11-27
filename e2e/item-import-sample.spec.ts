@@ -38,7 +38,7 @@ test('Excel sample button downloads a usable item-import template', async ({ pag
   rmSync(saved, { force: true });
 });
 
-test('Item Master links CategoryID and fills the category label from ItemCategories', async ({ page }) => {
+test('Item Master links CategoryID and fills the category label from Categories', async ({ page }) => {
   await page.goto('/items');
   await page.getByRole('button', { name: 'Add Item' }).click();
 

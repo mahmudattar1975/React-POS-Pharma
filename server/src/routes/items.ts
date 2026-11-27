@@ -144,8 +144,11 @@ itemsRouter.get('/', async (_req, res) => {
       orderBy: { nameEn: 'asc' },
       select: {
         id: true, barcode: true, nameAr: true, nameEn: true, unit: true, category: true,
-        categoryId: true, basePrice: true, vatRate: true, controlledStatus: true,
-        requiresBatchTracking: true, reorderLevel: true, vendorNo: true, manufacturerNo: true,
+        categoryId: true, brandId: true, basePrice: true, costPrice: true, vatRate: true, controlledStatus: true,
+        requiresBatchTracking: true, requiresExpiryDate: true, reorderLevel: true,
+        requiresPrescription: true, isControlledDrug: true, isTaxable: true,
+        isTemperatureSensitive: true, requiresSerialNumber: true, isNarcotic: true,
+        vendorNo: true, manufacturerNo: true,
       },
     });
     // Alternate codes are part of the shared catalogue too: a branch that never imported the file
@@ -161,11 +164,21 @@ itemsRouter.get('/', async (_req, res) => {
         unit: row.unit,
         category: row.category,
         categoryId: row.categoryId,
+        brandId: row.brandId,
         basePrice: row.basePrice.toNumber(),
+        costPrice: row.costPrice?.toNumber() ?? null,
         vatRate: row.vatRate.toNumber(),
         requiresBatchTracking: row.requiresBatchTracking,
+        // The form uses hasExpiry (positive), SQL stores requiresExpiryDate (inverse).
+        hasExpiry: row.requiresExpiryDate,
         reorderLevel: row.reorderLevel,
         controlledStatus: row.controlledStatus,
+        requiresPrescription: row.requiresPrescription,
+        isControlledDrug: row.isControlledDrug,
+        isTaxable: row.isTaxable,
+        isTemperatureSensitive: row.isTemperatureSensitive,
+        requiresSerialNumber: row.requiresSerialNumber,
+        isNarcotic: row.isNarcotic,
         vendorNo: row.vendorNo,
         manufacturerNo: row.manufacturerNo,
         // isActive is branch-local pharmacy data (the SQL mirror has no column for it), so it is
@@ -207,7 +220,7 @@ itemsRouter.post('/import', async (req, res) => {
     }
     const missing = requestedCategoryIds.filter((id) => !validCategoryIds.has(id));
     if (missing.length > 0) {
-      res.status(400).json({ error: `Unknown ItemCategories id(s): ${missing.join(', ')}.` });
+      res.status(400).json({ error: `Unknown Categories id(s): ${missing.join(', ')}.` });
       return;
     }
   }

@@ -46,7 +46,7 @@ const FIELD_LABEL: Record<ItemImportField, string> = {
   basePrice: 'Sale price',
   vatRate: 'VAT rate',
   category: 'Category (free text)',
-  itemCategories: 'CategoryID (ItemCategories)',
+  itemCategories: 'CategoryID (Categories)',
   unit: 'Unit',
   reorderLevel: 'Reorder level',
   controlledStatus: 'Controlled status',

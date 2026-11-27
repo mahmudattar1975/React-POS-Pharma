@@ -34,6 +34,9 @@ import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import type { Batch, Item, ItemCategory } from '../../types/catalog';
 import type { Vendor } from '../../types/purchasing';
 import type { Manufacturer } from '../../types/manufacturer';
+import type { Unit } from '../../types/unit';
+import type { Location } from '../../types/location';
+import type { Brand } from '../../types/brand';
 import type { ReceivingEvent } from '../../store/catalogStore';
 import {
   EMPTY_ITEM_FORM, ITEM_VAT_RATES, codeConflictMessage, formPack, formToItemInput, isValidBarcode,
@@ -54,6 +57,9 @@ interface Props {
   item: Item | null; // null = creating a new item
   items: Item[];
   itemCategories: ItemCategory[];
+  units: Unit[];
+  locations: Location[];
+  brands: Brand[];
   vendors: Vendor[];
   manufacturers: Manufacturer[];
   batches: Batch[];
@@ -78,7 +84,7 @@ const PAIR_GRID = {
 };
 
 export default function ItemMasterFormDialog({
-  open, item, items, itemCategories, vendors, manufacturers, batches, receivingLog, saleLines, onSave, onClose, error,
+  open, item, items, itemCategories, units, locations, brands, vendors, manufacturers, batches, receivingLog, saleLines, onSave, onClose, error,
 }: Props) {
   const tr = useT();
   const [values, setValues] = useState<ItemMasterFormValues>(() =>
@@ -101,6 +107,39 @@ export default function ItemMasterFormDialog({
   const boxPrice = Number(values.basePrice) || 0;
   const stripPrice = packPreview ? priceForLevel(boxPrice, packPreview, 'strip') : 0;
   const tabletPrice = packPreview ? priceForLevel(boxPrice, packPreview, 'tablet') : 0;
+
+  // Unit and Location are master-backed selects, but the values saved on the item stay the same
+  // text labels the POS already displays. A legacy label with no master row stays visible as its own
+  // option until the owner replaces it, so opening and saving an old item never silently edits it.
+  const unitOptions = useMemo(
+    () => units.filter((unit) => unit.isActive !== false).sort((a, b) => a.unitId - b.unitId),
+    [units]
+  );
+  const locationOptions = useMemo(
+    () => locations.filter((location) => location.isActive !== false).sort((a, b) => a.locationId - b.locationId),
+    [locations]
+  );
+  // Brand is a numeric FK: an item linked to a disabled/deleted master row still shows that id as a
+  // fallback option so opening and saving an old item never silently drops its brand.
+  const brandOptions = useMemo(
+    () => brands.filter((brand) => brand.isActive !== false).sort((a, b) => a.brandId - b.brandId),
+    [brands]
+  );
+  const selectedUnit = unitOptions.find((unit) => {
+    const text = values.unit.trim().toLowerCase();
+    return unit.nameEn.toLowerCase() === text || unit.unitCode.toLowerCase() === text;
+  });
+  const selectedLocation = locationOptions.find((location) => {
+    const text = values.location.trim().toLowerCase();
+    return location.nameEn.toLowerCase() === text || location.locationCode.toLowerCase() === text;
+  });
+  const selectedBrandId = values.brandId.trim();
+  const selectedBrand = brandOptions.find((brand) => String(brand.brandId) === selectedBrandId);
+  const brandIsLegacy = !!selectedBrandId && !selectedBrand;
+  const unitSelectValue = selectedUnit?.nameEn ?? values.unit;
+  const locationSelectValue = selectedLocation?.nameEn ?? values.location;
+  const unitIsLegacy = !selectedUnit && values.unit.trim() !== '';
+  const locationIsLegacy = !selectedLocation && values.location.trim() !== '';
 
   function patch<K extends keyof ItemMasterFormValues>(key: K, value: ItemMasterFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -432,7 +471,7 @@ export default function ItemMasterFormDialog({
                     </MenuItem>
                   ))}
                 </Select>
-                <FormHelperText>{tr('Linked to dbo.ItemCategories')}</FormHelperText>
+                <FormHelperText>{tr('Linked to dbo.Categories')}</FormHelperText>
               </FormControl>
               <TextField
                 label={tr('Category')}
@@ -440,19 +479,57 @@ export default function ItemMasterFormDialog({
                 onChange={(e) => patch('category', e.target.value)}
                 size="small"
                 helperText={values.categoryId
-                  ? tr('Filled from ItemCategories; clear the link to edit manually')
+                  ? tr('Filled from Categories; clear the link to edit manually')
                   : tr('e.g. Analgesics, Antibiotics')}
                 fullWidth
                 slotProps={{ htmlInput: { readOnly: !!values.categoryId } }}
               />
-              <TextField
-                label={tr('Unit')}
-                value={values.unit}
-                onChange={(e) => patch('unit', e.target.value)}
-                size="small"
-                helperText={tr('e.g. Box, Strip, Bottle')}
-                fullWidth
-              />
+              <FormControl size="small" fullWidth>
+                <InputLabel id="item-brand-master-label">{tr('Brand')}</InputLabel>
+                <Select
+                  labelId="item-brand-master-label"
+                  label={tr('Brand')}
+                  value={
+                    selectedBrand
+                      ? String(selectedBrand.brandId)
+                      : brandIsLegacy ? selectedBrandId : ''
+                  }
+                  onChange={(e) => patch('brandId', String(e.target.value ?? ''))}
+                >
+                  <MenuItem value=""><em><T>None</T></em></MenuItem>
+                  {brandIsLegacy && (
+                    <MenuItem value={selectedBrandId}>
+                      #{selectedBrandId} · <T>not in Brands master</T>
+                    </MenuItem>
+                  )}
+                  {brandOptions.map((brand) => (
+                    <MenuItem key={brand.brandId} value={String(brand.brandId)}>
+                      {brand.nameEn} · {brand.nameAr}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{tr('Linked to dbo.BrandMaster')}</FormHelperText>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="item-unit-master-label">{tr('Unit')}</InputLabel>
+                <Select
+                  labelId="item-unit-master-label"
+                  label={tr('Unit')}
+                  value={unitSelectValue}
+                  onChange={(e) => patch('unit', String(e.target.value ?? ''))}
+                >
+                  <MenuItem value=""><em><T>None</T></em></MenuItem>
+                  {unitIsLegacy && (
+                    <MenuItem value={values.unit}>
+                      {values.unit} · <T>not in Units master</T>
+                    </MenuItem>
+                  )}
+                  {unitOptions.map((unit) => (
+                    <MenuItem key={unit.unitId} value={unit.nameEn}>{unit.nameEn}</MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{tr('Linked to dbo.Units')}</FormHelperText>
+              </FormControl>
               <TextField
                 label={tr('Carton Qty')}
                 type="number"
@@ -512,20 +589,38 @@ export default function ItemMasterFormDialog({
                   )}
                   {vendors.map((v) => (
                     <MenuItem key={v.id} value={v.vendorNo}>
-                      {v.vendorNo} — {v.nameEn}
+                      {v.nameEn}
                       {v.isActive === false ? tr("(inactive)") : ''}
                     </MenuItem>
                   ))}
                 </Select>
+                <FormHelperText error={!!errorFor('vendorNo')}>
+                  {errorFor('vendorNo') ??
+                    (vendorMissing
+                      ? tr("This number is not in the vendor master.")
+                      : tr("Picked from Vendors — رقم المورد"))}
+                </FormHelperText>
               </FormControl>
-              <TextField
-                label={tr('Location')}
-                value={values.location}
-                onChange={(e) => patch('location', e.target.value)}
-                size="small"
-                helperText={tr('Shelf / store location')}
-                fullWidth
-              />
+              <FormControl size="small" fullWidth>
+                <InputLabel id="item-location-master-label">{tr('Location')}</InputLabel>
+                <Select
+                  labelId="item-location-master-label"
+                  label={tr('Location')}
+                  value={locationSelectValue}
+                  onChange={(e) => patch('location', String(e.target.value ?? ''))}
+                >
+                  <MenuItem value=""><em><T>None</T></em></MenuItem>
+                  {locationIsLegacy && (
+                    <MenuItem value={values.location}>
+                      {values.location} · <T>not in Locations master</T>
+                    </MenuItem>
+                  )}
+                  {locationOptions.map((location) => (
+                    <MenuItem key={location.locationId} value={location.nameEn}>{location.nameEn}</MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{tr('Linked to dbo.Locations')}</FormHelperText>
+              </FormControl>
             </Box>
           </Section>
 
@@ -679,6 +774,20 @@ export default function ItemMasterFormDialog({
                 }}
                 fullWidth
               />
+              <TextField
+                label={tr('Cost Price')}
+                type="number"
+                value={values.costPrice}
+                onChange={(e) => patch('costPrice', e.target.value)}
+                error={!!errorFor('costPrice')}
+                helperText={errorFor('costPrice') ?? tr('Optional — VAT-exclusive cost per unit')}
+                size="small"
+                slotProps={{
+                  htmlInput: { min: 0, step: 'any' },
+                  input: { endAdornment: <InputAdornment position="end"><T>SAR</T></InputAdornment> },
+                }}
+                fullWidth
+              />
               <FormControl fullWidth size="small">
                 <InputLabel id="item-vat-label"><T>VAT rate</T></InputLabel>
                 <Select
@@ -730,6 +839,57 @@ export default function ItemMasterFormDialog({
                 setValues((v) => ({ ...v, dosageIds, defaultDosageId }))
               }
             />
+          </Section>
+
+          <Section
+            icon={<MedicationOutlinedIcon />}
+            title={tr('Regulatory & handling flags')}
+            caption="Independent switches from dbo.items — nothing here is inferred from another field"
+          >
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.25,
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+              }}
+            >
+              <FlagSwitch
+                label={tr('Requires prescription')}
+                hint={tr('Prescription details are required at the till')}
+                checked={values.requiresPrescription}
+                onChange={(checked) => patch('requiresPrescription', checked)}
+              />
+              <FlagSwitch
+                label={tr('Controlled drug')}
+                hint={tr('Schedule or psychotropic medicine')}
+                checked={values.isControlledDrug}
+                onChange={(checked) => patch('isControlledDrug', checked)}
+              />
+              <FlagSwitch
+                label={tr('Taxable')}
+                hint={tr('Standard-rated line — the VAT rate below decides the amount')}
+                checked={values.isTaxable}
+                onChange={(checked) => patch('isTaxable', checked)}
+              />
+              <FlagSwitch
+                label={tr('Temperature sensitive')}
+                hint={tr('Needs cold-chain storage and handling')}
+                checked={values.isTemperatureSensitive}
+                onChange={(checked) => patch('isTemperatureSensitive', checked)}
+              />
+              <FlagSwitch
+                label={tr('Requires serial number')}
+                hint={tr('Each pack is reported to SFDA / RSD')}
+                checked={values.requiresSerialNumber}
+                onChange={(checked) => patch('requiresSerialNumber', checked)}
+              />
+              <FlagSwitch
+                label={tr('Narcotic')}
+                hint={tr('Narcotic schedule — keep in the controlled register')}
+                checked={values.isNarcotic}
+                onChange={(checked) => patch('isNarcotic', checked)}
+              />
+            </Box>
           </Section>
 
           <Section
@@ -976,6 +1136,36 @@ function Section({
         {action}
       </Stack>
       <Box sx={{ p: 2 }}>{children}</Box>
+    </Paper>
+  );
+}
+
+// Compact toggle tile for the dbo.items flags. Each switch owns one boolean so enabling, say, a
+// serial number never silently changes controlledStatus or the VAT rate.
+function FlagSwitch({
+  label, hint, checked, onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ px: 1.5, py: 1, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.25 }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{label}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+          {hint}
+        </Typography>
+      </Box>
+      <Switch
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        slotProps={{ input: { 'aria-label': label } }}
+      />
     </Paper>
   );
 }

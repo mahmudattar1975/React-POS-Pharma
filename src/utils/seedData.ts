@@ -3,7 +3,13 @@ import type { Customer } from '../types/customer';
 import type { Vendor } from '../types/purchasing';
 import type { CostCenter } from '../types/costCenters';
 import type { Manufacturer } from '../types/manufacturer';
+import type { Unit } from '../types/unit';
+import type { Location } from '../types/location';
 import type { DosageInstruction } from '../types/dosage';
+
+// Offline fallback for the shared brand master lives in its own generated file; re-export it here
+// so callers that already import their seeds from seedData.ts keep working.
+export { seedBrands } from './brandSeeds';
 
 function isoDaysFromNow(days: number): string {
   const d = new Date();
@@ -51,6 +57,47 @@ export const seedItemCategories: ItemCategory[] = [
   { categoryId: 45, categoryCode: 'CAT-045', nameAr: 'مكياج', nameEn: 'Make Up', parentCategoryId: null, isActive: true },
   { categoryId: 46, categoryCode: 'CAT-046', nameAr: 'العناية النسائية', nameEn: 'Feminine Care', parentCategoryId: null, isActive: true },
   { categoryId: 47, categoryCode: 'CAT-047', nameAr: 'منتج خدمة البيع بالتجزئة', nameEn: 'Retail Service Product', parentCategoryId: null, isActive: true },
+];
+
+// Offline fallback for dbo.Units. Ids/codes/names match migration 20261126100000 exactly, so a
+// label chosen while offline is the same one the SQL master will return on the next boot sync.
+export const seedUnits: Unit[] = [
+  { unitId: 1, unitCode: 'BOX', nameAr: 'علبة', nameEn: 'Box', isActive: true },
+  { unitId: 2, unitCode: 'STRIP', nameAr: 'شريط', nameEn: 'Strip', isActive: true },
+  { unitId: 3, unitCode: 'BOTTLE', nameAr: 'زجاجة', nameEn: 'Bottle', isActive: true },
+  { unitId: 4, unitCode: 'VIAL', nameAr: 'أمبولة', nameEn: 'Vial', isActive: true },
+  { unitId: 5, unitCode: 'TIN', nameAr: 'علبة معدنية', nameEn: 'Tin', isActive: true },
+  { unitId: 6, unitCode: 'CARTON', nameAr: 'كرتونة', nameEn: 'Carton', isActive: true },
+  { unitId: 7, unitCode: 'TABLET', nameAr: 'حبة', nameEn: 'Tablet', isActive: true },
+  { unitId: 8, unitCode: 'CAPSULE', nameAr: 'كبسولة', nameEn: 'Capsule', isActive: true },
+  { unitId: 9, unitCode: 'PACK', nameAr: 'عبوة', nameEn: 'Pack', isActive: true },
+  { unitId: 10, unitCode: 'PIECE', nameAr: 'قطعة', nameEn: 'Piece', isActive: true },
+  { unitId: 11, unitCode: 'SACHET', nameAr: 'كيس', nameEn: 'Sachet', isActive: true },
+  { unitId: 12, unitCode: 'BUTTL', nameAr: 'زجاجة (نظام XPH)', nameEn: 'Bottle (ERP)', isActive: true },
+  { unitId: 13, unitCode: 'UNIT', nameAr: 'وحدة', nameEn: 'Unit', isActive: true },
+  { unitId: 14, unitCode: 'ML', nameAr: 'مل', nameEn: 'ml', isActive: true },
+];
+
+// Offline fallback for the new dbo.Locations master. Deterministic ids/codes keep every branch on
+// the same shelf names; older local Item.location text stays visible until the owner picks a row.
+export const seedLocations: Location[] = [
+  { locationId: 1, locationCode: 'LOC-A-01', nameAr: 'الرف A-01', nameEn: 'A-01', isActive: true },
+  { locationId: 2, locationCode: 'LOC-A-02', nameAr: 'الرف A-02', nameEn: 'A-02', isActive: true },
+  { locationId: 3, locationCode: 'LOC-A-03', nameAr: 'الرف A-03', nameEn: 'A-03', isActive: true },
+  { locationId: 4, locationCode: 'LOC-A-04', nameAr: 'الرف A-04', nameEn: 'A-04', isActive: true },
+  { locationId: 5, locationCode: 'LOC-A-05', nameAr: 'الرف A-05', nameEn: 'A-05', isActive: true },
+  { locationId: 6, locationCode: 'LOC-A-06', nameAr: 'الرف A-06', nameEn: 'A-06', isActive: true },
+  { locationId: 7, locationCode: 'LOC-A-07', nameAr: 'الرف A-07', nameEn: 'A-07', isActive: true },
+  { locationId: 8, locationCode: 'LOC-A-08', nameAr: 'الرف A-08', nameEn: 'A-08', isActive: true },
+  { locationId: 9, locationCode: 'LOC-A-09', nameAr: 'الرف A-09', nameEn: 'A-09', isActive: true },
+  { locationId: 10, locationCode: 'LOC-A-10', nameAr: 'الرف A-10', nameEn: 'A-10', isActive: true },
+  { locationId: 11, locationCode: 'LOC-A-11', nameAr: 'الرف A-11', nameEn: 'A-11', isActive: true },
+  { locationId: 12, locationCode: 'LOC-A-12', nameAr: 'الرف A-12', nameEn: 'A-12', isActive: true },
+  { locationId: 13, locationCode: 'LOC-B-01', nameAr: 'الرف B-01', nameEn: 'B-01', isActive: true },
+  { locationId: 14, locationCode: 'LOC-B-02', nameAr: 'الرف B-02', nameEn: 'B-02', isActive: true },
+  { locationId: 15, locationCode: 'LOC-B-03', nameAr: 'الرف B-03', nameEn: 'B-03', isActive: true },
+  { locationId: 16, locationCode: 'LOC-B-04', nameAr: 'الرف B-04', nameEn: 'B-04', isActive: true },
+  { locationId: 17, locationCode: 'LOC-MAIN', nameAr: 'الرف الرئيسي', nameEn: 'Main Shelf', isActive: true },
 ];
 
 // VAT rate is set per item, read from the item master, exactly like the legacy system's own

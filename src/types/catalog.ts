@@ -16,7 +16,7 @@ export interface PackConfig {
   stripSize: number; // tablets per strip
 }
 
-// Shared category master from dotnet_pos.dbo.ItemCategories. IDs are the stable key; the bilingual
+// Shared category master from dotnet_pos.dbo.Categories. IDs are the stable key; the bilingual
 // names are display/import aliases. ParentCategoryID is reserved for future grouping - the seeded
 // 28 rows are all top-level.
 export interface ItemCategory {
@@ -49,11 +49,18 @@ export interface Item {
   // without it keep their existing single-unit behaviour, so old catalogs and ERP rows are untouched.
   pack?: PackConfig;
   category: string;
-  // Stable link to dbo.ItemCategories. `category` above remains the free-text label consumed by
+  // Stable link to dbo.Categories. `category` above remains the free-text label consumed by
   // POS lines, analytics and cost-center rules, so old catalog rows and XPH scans keep working.
   // Undefined means the item predates the master or has no category selected.
   categoryId?: number | null;
+  // Stable link to dbo.BrandMaster; the bilingual brand label is resolved through the master so a
+  // rename reaches every item without rewriting the catalogue. Undefined/null = no brand selected.
+  brandId?: number | null;
   basePrice: number; // unit sale price, VAT-EXCLUSIVE, SAR
+  // Optional item-level cost entered in the Item Master beside basePrice. Receiving still stores
+  // the per-batch cost on Batch.costPrice; this is the shared master/default value. Undefined keeps
+  // older catalog rows unchanged.
+  costPrice?: number;
   // undefined = no restriction. Set manually per item (Inventory & Expiry page) - there's no
   // reliable source for this in the ERP data, so it's never inferred automatically. Selling an
   // item with this set requires prescription info to be captured at checkout - see
@@ -96,6 +103,16 @@ export interface Item {
   // false = discontinued. undefined means active, so every row saved before this field existed
   // (and every ERP item, which has no status column in the integration) keeps selling normally.
   isActive?: boolean;
+  // ---- Regulatory / handling flags, mirrored from dbo.items -----------------------------------
+  // These are independent switches in the Item Master: they are never silently derived from
+  // controlledStatus (which also covers psychotropics) or from the VAT rate. undefined keeps the
+  // SQL/back-compat default for older persisted rows that never stored the flag.
+  requiresPrescription?: boolean;
+  isControlledDrug?: boolean;
+  isTaxable?: boolean; // default true, even for zero-rated medicines
+  isTemperatureSensitive?: boolean;
+  requiresSerialNumber?: boolean; // SFDA/RSD serialised packs only
+  isNarcotic?: boolean; // deliberately NOT derived from controlledStatus
   // ---- Wasfaty / NUPCO mapping (Phase 0) -------------------------------------------------------
   // `nupcoCode` is the item's code on NUPCO's approved Wasfaty item list. It is pharmacy-specific
   // mapping data, not something to infer: one NUPCO code belongs to exactly one local item, and the

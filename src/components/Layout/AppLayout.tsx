@@ -108,7 +108,7 @@ export default function AppLayout() {
             >
               <LanguageIcon fontSize="small" />
               <Typography component="span" variant="caption" sx={{ marginInlineStart: 0.5, fontWeight: 700 }}>
-                {locale === 'en' ? 'EN' : 'AR'}
+                {locale === 'en' ? 'AR' : 'EN'}
               </Typography>
             </IconButton>
           </Tooltip>

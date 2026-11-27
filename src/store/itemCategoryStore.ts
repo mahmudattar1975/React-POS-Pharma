@@ -1,4 +1,4 @@
-// Offline copy of the shared dbo.ItemCategories master. It is read-only from the till's point of
+// Offline copy of the shared dbo.Categories master. It is read-only from the till's point of
 // view: the SQL table is authoritative and App.tsx replaces the list on a successful boot sync,
 // while the seeded 28 rows keep the Item Master and Excel importer usable before that sync.
 import { create } from 'zustand';
@@ -9,6 +9,7 @@ import { seedItemCategories } from '../utils/seedData';
 interface ItemCategoryState {
   categories: ItemCategory[];
   replaceCategories: (categories: ItemCategory[]) => void;
+  upsertCategory: (category: ItemCategory) => void;
 }
 
 export const useItemCategoryStore = create<ItemCategoryState>()(
@@ -20,6 +21,12 @@ export const useItemCategoryStore = create<ItemCategoryState>()(
         if (categories.length === 0) return;
         set({ categories });
       },
+      upsertCategory: (category) => set((s) => ({
+        categories: [
+          ...s.categories.filter((entry) => entry.categoryId !== category.categoryId),
+          category,
+        ].sort((a, b) => a.categoryId - b.categoryId),
+      })),
     }),
     {
       name: 'pharmacy-item-categories',

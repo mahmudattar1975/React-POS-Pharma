@@ -23,7 +23,7 @@ export interface ItemImportInput {
   nameAr: string;
   unit: string;
   category: string;
-  // Optional link to dbo.ItemCategories. Blank Excel cells leave an existing link untouched.
+  // Optional link to dbo.Categories. Blank Excel cells leave an existing link untouched.
   categoryId?: number;
   basePrice: number;
   vatRate: number;

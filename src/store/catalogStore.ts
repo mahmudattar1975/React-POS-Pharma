@@ -598,6 +598,17 @@ export const useCatalogStore = create<CatalogState>()(
             controlledStatus: row.controlledStatus ?? undefined,
             vendorNo: row.vendorNo ?? undefined,
             manufacturerNo: row.manufacturerNo ?? undefined,
+            // Excel-import rows omit these fields; a boot sync supplies every one of them. Keep a
+            // locally chosen brand when SQL has no link, but let explicit SQL booleans win.
+            ...(row.brandId != null ? { brandId: row.brandId } : {}),
+            ...(row.costPrice !== undefined ? { costPrice: row.costPrice ?? undefined } : {}),
+            ...(row.hasExpiry !== undefined ? { hasExpiry: row.hasExpiry } : {}),
+            ...(row.requiresPrescription !== undefined ? { requiresPrescription: row.requiresPrescription } : {}),
+            ...(row.isControlledDrug !== undefined ? { isControlledDrug: row.isControlledDrug } : {}),
+            ...(row.isTaxable !== undefined ? { isTaxable: row.isTaxable } : {}),
+            ...(row.isTemperatureSensitive !== undefined ? { isTemperatureSensitive: row.isTemperatureSensitive } : {}),
+            ...(row.requiresSerialNumber !== undefined ? { requiresSerialNumber: row.requiresSerialNumber } : {}),
+            ...(row.isNarcotic !== undefined ? { isNarcotic: row.isNarcotic } : {}),
           } as Partial<Item>;
           // A boot sync has no branch-local active flag: keep this terminal's current choice
           // instead of silently re-enabling an item it had discontinued.

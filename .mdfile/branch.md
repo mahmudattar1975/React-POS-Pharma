@@ -349,9 +349,9 @@ GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-lo
 
 ---
 
-## 12. جدول الفئات ItemCategories
+## 12. جدول الفئات Categories
 
-بناءً على طلب صاحب الصيدلية أُضيف جدول رئيسي حقيقي في `dotnet_pos.dbo.ItemCategories`:
+بناءً على طلب صاحب الصيدلية أُضيف جدول رئيسي حقيقي في `dotnet_pos.dbo.Categories` (كان اسمه `ItemCategories` حتى الهجرة `20261126160000`):
 
 | العمود | المعنى |
 |---|---|
@@ -363,6 +363,8 @@ GET /api/rsd/status → mode=mock, environment=test (بإعدادات process-lo
 | `IsActive` | حالة التفعيل |
 
 الهجرة `20261126140000_add_item_categories` طبّقت على قاعدة الحية، وتحقّق أنها زرعت **28 صفاً** بالأسماء العربية والإنجليزية المطلوبة. أضافت أيضاً `items.categoryId` مع FK وفهرس. علاقة Prisma تستخدم `NoAction` على التحديث والحذف لتفادي سلسلة referential actions الدائرية؛ حذف فئة مستخدمة يُرفض بدل تعديل الأصناف تلقائياً.
+
+الهجرة `20261126160000_rename_item_categories_to_categories` غيّرت اسم الجدول إلى `dbo.Categories` وعدّلت أسماء القيود المرتبطة به؛ المراجع من `items` تتبع إعادة التسمية تلقائياً، وبيانات الفئات لم تتغير.
 
 ### القرار التصميمي
 

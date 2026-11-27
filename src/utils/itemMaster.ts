@@ -28,10 +28,14 @@ export interface ItemMasterFormValues {
   nameEn: string;
   category: string;
   // Dropdown value as a string so an empty Select is represented by ''. On save it becomes the
-  // numeric ItemCategories link; the category text is kept in sync with the selected master row.
+  // numeric Categories link; the category text is kept in sync with the selected master row.
   categoryId: string;
+  // Stable dbo.BrandMaster link, kept as a string so an empty Select is ''. The bilingual label is
+  // resolved from the master on display; only the id is persisted on the item.
+  brandId: string;
   unit: string;
   basePrice: string;
+  costPrice: string; // optional item-level cost, kept as a string for the number input
   vatRate: string; // one of ITEM_VAT_RATES, kept as a string for <Select> value handling
   reorderLevel: string;
   maxLevel: string;
@@ -56,6 +60,14 @@ export interface ItemMasterFormValues {
   hasExpiry: boolean;
   isActive: boolean;
   controlledStatus: ControlledStatus | '';
+  // Independent dbo.items booleans. Kept alongside the existing batch/expiry/active switches so
+  // the master screen exposes every flag SQL stores rather than inferring any of them.
+  requiresPrescription: boolean;
+  isControlledDrug: boolean;
+  isTaxable: boolean;
+  isTemperatureSensitive: boolean;
+  requiresSerialNumber: boolean;
+  isNarcotic: boolean;
   // Dosage-instruction library links. The item can carry several suitable directions and mark one
   // as the suggested default for the POS; both are optional. Kept as ids, not copied text, so a
   // correction in the library reaches every linked item at once.
@@ -81,8 +93,10 @@ export const EMPTY_ITEM_FORM: ItemMasterFormValues = {
   nameEn: '',
   category: '',
   categoryId: '',
+  brandId: '',
   unit: '',
   basePrice: '',
+  costPrice: '',
   vatRate: '0',
   reorderLevel: '0',
   maxLevel: '',
@@ -101,6 +115,12 @@ export const EMPTY_ITEM_FORM: ItemMasterFormValues = {
   hasExpiry: true,
   isActive: true,
   controlledStatus: '',
+  requiresPrescription: false,
+  isControlledDrug: false,
+  isTaxable: true,
+  isTemperatureSensitive: false,
+  requiresSerialNumber: false,
+  isNarcotic: false,
   dosageIds: [],
   defaultDosageId: '',
   nupcoCode: '',
@@ -150,8 +170,10 @@ export function itemToForm(item: Item, categories: ItemCategory[] = seedItemCate
     nameEn: item.nameEn,
     category: linkedCategory ? itemCategoryLabel(linkedCategory) : item.category,
     categoryId: linkedCategory ? String(linkedCategory.categoryId) : '',
+    brandId: item.brandId ? String(item.brandId) : '',
     unit: item.unit,
     basePrice: String(item.basePrice),
+    costPrice: numberOrBlank(item.costPrice),
     vatRate: String(item.vatRate),
     reorderLevel: String(item.reorderLevel),
     maxLevel: numberOrBlank(item.maxLevel),
@@ -172,6 +194,13 @@ export function itemToForm(item: Item, categories: ItemCategory[] = seedItemCate
     hasExpiry: item.hasExpiry !== false,
     isActive: item.isActive !== false,
     controlledStatus: item.controlledStatus ?? '',
+    // Undefined means the SQL default (false for restrictions, true for taxable).
+    requiresPrescription: item.requiresPrescription === true,
+    isControlledDrug: item.isControlledDrug === true,
+    isTaxable: item.isTaxable !== false,
+    isTemperatureSensitive: item.isTemperatureSensitive === true,
+    requiresSerialNumber: item.requiresSerialNumber === true,
+    isNarcotic: item.isNarcotic === true,
     dosageIds: item.dosageIds ?? [],
     defaultDosageId: item.defaultDosageId ?? '',
     nupcoCode: item.nupcoCode ?? '',
@@ -338,6 +367,13 @@ export function validateItemForm(
     errors.basePrice = 'Enter a sale price of 0 or more.';
   }
 
+  // Cost is optional, but a typed value must be a real non-negative number so a stray character
+  // cannot silently become NaN in the shared catalogue.
+  if (values.costPrice.trim() !== '') {
+    const cost = Number(values.costPrice);
+    if (!Number.isFinite(cost) || cost < 0) errors.costPrice = 'Enter a cost price of 0 or more, or leave it blank.';
+  }
+
   const reorder = Number(values.reorderLevel);
   if (values.reorderLevel.trim() === '' || !Number.isInteger(reorder) || reorder < 0) {
     errors.reorderLevel = 'Enter a whole number of 0 or more.';
@@ -439,6 +475,7 @@ export function formToItemInput(
       : undefined;
   const nupcoCode = normaliseNupcoCode(values.nupcoCode.trim());
   const selectedCategory = categories.find((category) => String(category.categoryId) === values.categoryId);
+  const brandId = Number(values.brandId);
   return {
     barcode,
     barcodes: barcodes.length > 0 ? barcodes : undefined,
@@ -448,13 +485,24 @@ export function formToItemInput(
     // The selected master row owns the canonical label; free text remains only for unlinked rows.
     category: selectedCategory ? itemCategoryLabel(selectedCategory) : values.category.trim(),
     categoryId: selectedCategory?.categoryId,
+    brandId: Number.isInteger(brandId) && brandId > 0 ? brandId : undefined,
     basePrice: Number(values.basePrice),
+    // Blank = no master cost recorded; keep it undefined so SQL stays NULL.
+    costPrice: values.costPrice.trim() === '' ? undefined : Number(values.costPrice),
     vatRate: Number(values.vatRate),
     requiresBatchTracking: values.requiresBatchTracking,
     // undefined means "has an expiry" (every pre-existing item), so only the opt-out is stored.
     hasExpiry: values.hasExpiry ? undefined : false,
     reorderLevel: Number(values.reorderLevel),
     controlledStatus: values.controlledStatus === '' ? undefined : values.controlledStatus,
+    // Every toggle is written explicitly so clearing one on an existing row cannot be mistaken for
+    // "field absent" and keep the old SQL default on the next shared-catalogue sync.
+    requiresPrescription: values.requiresPrescription,
+    isControlledDrug: values.isControlledDrug,
+    isTaxable: values.isTaxable,
+    isTemperatureSensitive: values.isTemperatureSensitive,
+    requiresSerialNumber: values.requiresSerialNumber,
+    isNarcotic: values.isNarcotic,
     gtin: undefined,
     registrationNo: optionalText(values.registrationNo),
     customsNo: optionalText(values.customsNo),
