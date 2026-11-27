@@ -18,11 +18,16 @@ import { unitsRouter } from './routes/units.js';
 import { locationsRouter } from './routes/locations.js';
 import { brandsRouter } from './routes/brands.js';
 import { initRsdSettings } from './rsd/settings.js';
+import { assertSecretStoreConfigured } from './store/secretFile.js';
 import { terminalBranch } from './branch.js';
 import { loadAuthConfig } from './auth/config.js';
 import { requireAuth } from './auth/middleware.js';
 
 async function main(): Promise<void> {
+  // SEC-09: never accept traffic in production without a valid envelope key, even if no state file
+  // exists yet. Fail before the listeners are created, not on the first invoice/credential read.
+  assertSecretStoreConfigured();
+  await config.ready();
   // Apply any saved Settings > RSD values before the first request. `.env` is only the seed.
   await initRsdSettings();
   // Fail closed if JWT validation is not configured; never start an open API by accident.
@@ -71,4 +76,9 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+// Startup gates (SEC-09 key, state file, SEC-10 auth config) must stop the process before any
+// listener opens. Print only the error message: none of these configs belong in a stack trace log.
+main().catch((err) => {
+  console.error(`[startup] refusing to start: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+});

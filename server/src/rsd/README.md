@@ -71,10 +71,11 @@ POS (browser, local-first)
 Settings > RSD writes `RSD_MODE`, `RSD_ENV`, the selected environment's `*_GLN`, `*_USERNAME`,
 `*_PASSWORD`, `*_SALE_URL`, `*_CANCEL_URL`, plus `RSD_DIRECT_TO_GLN` /
 `RSD_DIRECT_PRESCRIPTION_ID` to `data/rsd-settings.json` and applies them to the running process,
-so a saved change needs no restart. The file is plaintext on disk (dev-grade, like the ledger);
-production needs a real secrets store. The browser only reads `hasPassword`/`credentialsConfigured`,
-never the password itself. Per-environment blocks are kept separately, so switching test →
-production does not overwrite the test credentials.
+so a saved change needs no restart. When `SECURE_STORE_KEY` is configured (required in production),
+the file is an AES-256-GCM envelope, not plaintext; legacy plaintext files are migrated on first
+read. A real KMS/HSM is still needed to hide credentials from a compromised process. The browser only
+reads `hasPassword`/`credentialsConfigured`, never the password itself. Per-environment blocks are
+kept separately, so switching test → production does not overwrite the test credentials.
 
 Live mode fails closed: if credentials or the environment's URLs are missing, every report returns
 `503 rsd_not_configured` and nothing is faked. Production endpoints must be `https://`; the adapter

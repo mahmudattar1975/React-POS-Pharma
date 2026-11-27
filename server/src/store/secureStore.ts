@@ -1,19 +1,23 @@
 // Persists ZATCA onboarding material (CSID private key, certificate, secrets) and the invoice
 // chain counter (ICV) to a local JSON file.
 //
-// DEV-GRADE ONLY - this is plaintext-on-disk storage, fine for building and testing this project
-// locally, NOT fine for production. Before going live, replace this with a real secrets store
-// (a KMS, an HSM, or at minimum an encrypted-at-rest store with access control) - the CSID
-// private key is exactly the kind of material a compromise of which lets someone forge invoices
-// under this business's VAT registration.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+// SEC-09: the whole file is encrypted with AES-256-GCM when SECURE_STORE_KEY is configured (required
+// in production). Without a key outside production, the original plaintext workflow is preserved
+// for local development. See store/secretFile.ts for the envelope, migration and failure rules.
+// A real HSM/KMS would still be needed to stop a compromised running process from using the key.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ZatcaIdentity } from './identity.js';
+import { readSecretJson, writeSecretJson } from './secretFile.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const FILE = path.join(DATA_DIR, 'zatca-state.json');
+const DEFAULT_FILE = path.join(DATA_DIR, 'zatca-state.json');
+
+function stateFile(): string {
+  // Tests and special deployments can relocate the state file; production still requires the key.
+  return process.env.ZATCA_STATE_FILE?.trim() || DEFAULT_FILE;
+}
 
 export interface StoredCsid {
   requestId: string;
@@ -57,24 +61,19 @@ const EMPTY_STATE: ZatcaState = {
 };
 
 async function ensureFile(): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  try {
-    await readFile(FILE, 'utf8');
-  } catch {
-    await writeFile(FILE, JSON.stringify(EMPTY_STATE, null, 2), 'utf8');
+  if (await readSecretJson<ZatcaState>(stateFile()) === null) {
+    await writeSecretJson(stateFile(), EMPTY_STATE);
   }
 }
 
 export async function loadState(): Promise<ZatcaState> {
   await ensureFile();
-  const text = await readFile(FILE, 'utf8');
-  const parsed = JSON.parse(text) as Partial<ZatcaState>;
+  const parsed = await readSecretJson<Partial<ZatcaState>>(stateFile());
   return { ...EMPTY_STATE, ...parsed }; // back-fills `environment` for state files written before it existed
 }
 
 export async function saveState(state: ZatcaState): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(FILE, JSON.stringify(state, null, 2), 'utf8');
+  await writeSecretJson(stateFile(), state);
 }
 
 export async function getEnvironment(): Promise<ZatcaEnv> {

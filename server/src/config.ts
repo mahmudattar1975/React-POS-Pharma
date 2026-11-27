@@ -20,18 +20,27 @@ const ZATCA_BASE_URLS: Record<ZatcaEnv, string> = {
 // so the Settings > ZATCA panel can switch it live without a server restart. `.env`'s ZATCA_ENV is
 // only the seed value used the very first time the state file is created.
 let cachedEnv: ZatcaEnv = (process.env.ZATCA_ENV as ZatcaEnv) ?? 'sandbox';
-getEnvironment().then((e) => {
-  cachedEnv = e;
-});
-
 let cachedMode: ZatcaMode = (process.env.ZATCA_MODE as ZatcaMode) ?? 'live';
-getMode().then((m) => {
-  cachedMode = m;
-});
+let stateError: unknown = null;
+// Do not turn a secret-file/key failure into an unhandled rejection at import time. The startup
+// gate in index.ts throws first; the getters here fail closed if a request is made anyway.
+const stateReady = Promise.all([getEnvironment(), getMode()])
+  .then(([environment, mode]) => {
+    cachedEnv = environment;
+    cachedMode = mode;
+  })
+  .catch((err) => {
+    stateError = err;
+  });
 
 export const config = {
   port: Number(process.env.PORT ?? 4300),
+  async ready() {
+    await stateReady;
+    if (stateError) throw stateError;
+  },
   get zatcaEnv() {
+    if (stateError) throw stateError;
     return cachedEnv;
   },
   async setZatcaEnv(env: ZatcaEnv) {
@@ -39,6 +48,7 @@ export const config = {
     cachedEnv = env;
   },
   get zatcaMode() {
+    if (stateError) throw stateError;
     return cachedMode;
   },
   async setZatcaMode(mode: ZatcaMode) {

@@ -6,9 +6,10 @@
 // restart, while keeping every credential on the server - the browser only ever receives booleans
 // such as `hasPassword` / `credentialsConfigured`.
 //
-// DEV-GRADE, like store/secureStore.ts: the file is plaintext on disk. Before a production rollout,
-// move these values to a real secrets store (KMS/HSM or an encrypted store with access control).
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+// SEC-09: with SECURE_STORE_KEY configured (required in production) the whole file is an
+// AES-256-GCM envelope, so the username/password pair is never plaintext on disk. Without a key
+// outside production, the original plaintext workflow is preserved for local development. See
+// store/secretFile.ts for the migration and failure rules.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -19,6 +20,7 @@ import {
   hasRsdCredentials,
 } from './config.js';
 import { badRequest } from './errors.js';
+import { readSecretJson, writeSecretJson } from '../store/secretFile.js';
 import type { RsdEnvironment, RsdMode } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -100,44 +102,42 @@ function currentEnvSettings(environment: RsdEnvironment): RsdEnvSettings {
 }
 
 export async function loadStoredSettings(): Promise<RsdStoredSettings | null> {
-  try {
-    const text = await readFile(settingsFile(), 'utf8');
-    const parsed = JSON.parse(text) as Partial<RsdStoredSettings>;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const base = {
-      mode: getRsdMode(),
-      environment: getRsdEnvironment(),
-      test: currentEnvSettings('test'),
-      production: currentEnvSettings('production'),
-      directToGln: getRsdConfig().directToGln,
-      directPrescriptionId: getRsdConfig().directPrescriptionId,
-      updatedAt: new Date(0).toISOString(),
-    };
-    for (const environment of ENVIRONMENTS) {
-      const block = parsed[environment];
-      if (block && typeof block === 'object') {
-        base[environment] = { ...base[environment], ...block };
-      }
+  // A missing file means "no saved overrides yet" and falls back to the .env seed. A wrong key,
+  // tampered envelope or unreadable file must throw: silently falling back could point the adapter
+  // at a different credential/environment than the one the operator saved.
+  const parsed = await readSecretJson<Partial<RsdStoredSettings>>(settingsFile());
+  if (!parsed || typeof parsed !== 'object') return null;
+  const base = {
+    mode: getRsdMode(),
+    environment: getRsdEnvironment(),
+    test: currentEnvSettings('test'),
+    production: currentEnvSettings('production'),
+    directToGln: getRsdConfig().directToGln,
+    directPrescriptionId: getRsdConfig().directPrescriptionId,
+    updatedAt: new Date(0).toISOString(),
+  };
+  for (const environment of ENVIRONMENTS) {
+    const block = parsed[environment];
+    if (block && typeof block === 'object') {
+      base[environment] = { ...base[environment], ...block };
     }
-    return {
-      ...base,
-      mode: parsed.mode === 'live' ? 'live' : parsed.mode === 'mock' ? 'mock' : base.mode,
-      environment:
-        parsed.environment === 'production'
-          ? 'production'
-          : parsed.environment === 'test'
-            ? 'test'
-            : base.environment,
-      directToGln: typeof parsed.directToGln === 'string' ? parsed.directToGln : base.directToGln,
-      directPrescriptionId:
-        typeof parsed.directPrescriptionId === 'string'
-          ? parsed.directPrescriptionId
-          : base.directPrescriptionId,
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : base.updatedAt,
-    };
-  } catch {
-    return null;
   }
+  return {
+    ...base,
+    mode: parsed.mode === 'live' ? 'live' : parsed.mode === 'mock' ? 'mock' : base.mode,
+    environment:
+      parsed.environment === 'production'
+        ? 'production'
+        : parsed.environment === 'test'
+          ? 'test'
+          : base.environment,
+    directToGln: typeof parsed.directToGln === 'string' ? parsed.directToGln : base.directToGln,
+    directPrescriptionId:
+      typeof parsed.directPrescriptionId === 'string'
+        ? parsed.directPrescriptionId
+        : base.directPrescriptionId,
+    updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : base.updatedAt,
+  };
 }
 
 // Push a saved configuration into the process environment so the per-call config reader sees it.
@@ -157,9 +157,9 @@ export function applyStoredSettings(stored: RsdStoredSettings): void {
   }
 }
 
-// Called once at server start, before routes are mounted. A missing/corrupt file leaves the .env
-// seed in place, which is the right failure mode: an unreadable settings file must not silently
-// switch RSD off or point it at a different environment.
+// Called once at server start, before routes are mounted. A missing file leaves the .env seed in
+// place; an unreadable/undecryptable file fails closed instead of silently switching RSD to a
+// different credential or environment.
 export async function initRsdSettings(): Promise<void> {
   const stored = await loadStoredSettings();
   if (stored) applyStoredSettings(stored);
@@ -243,9 +243,7 @@ export async function updateRsdSettings(raw: RsdSettingsUpdate): Promise<RsdSett
     updatedAt: new Date().toISOString(),
   };
 
-  const file = settingsFile();
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify(next, null, 2), 'utf8');
+  await writeSecretJson(settingsFile(), next);
   applyStoredSettings(next);
   return getRsdSettingsView();
 }

@@ -21,8 +21,9 @@ duplicate an archive row, never leave an accepted invoice whose chain pointer mo
 retained copy. Writes are serialised through one promise chain (two simultaneous checkouts would
 otherwise read-modify-write the same JSON and lose one).
 
-Like `secureStore.ts`, this is plaintext-on-disk: fine locally, not a production retention store
-(it needs an append-only database with access control and a backup policy).
+Unlike `secureStore.ts`, this retention file is still plaintext-on-disk. SEC-09 encrypts the CSID
+state and RSD credentials, not the invoice archive; production still needs an append-only database
+with access control and a backup policy because the archive contains signed invoices/customer data.
 
 ## Seller & device identity (`data/zatca-state.json`)
 
@@ -73,6 +74,12 @@ npm run dev
 ```
 
 Requires `openssl` on PATH (used to generate the CSID's EC key + CSR - see `src/crypto/csr.ts`).
+
+For any non-local deployment set `SECURE_STORE_KEY` in `.env`/the service secret store first:
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`. Production
+refuses to start without it; `store/secretFile.ts` encrypts both `data/zatca-state.json` and
+`data/rsd-settings.json` with AES-256-GCM, migrates legacy plaintext on first read, and writes
+atomically. Keep the key outside the repo and back it up separately from the encrypted files.
 
 ## This app's own database (sales/invoices/returns backup)
 Sales and returns are still recorded primarily in the browser's local storage (`src/store/
@@ -238,14 +245,16 @@ src/
     signInvoice.ts           ties XML + canonicalize + hash + sign + QR together for one invoice
     submitSaleInvoice.ts      takes a POS sale, builds+signs+submits it, advances the invoice chain
     sampleInvoices.ts         the 6 throwaway samples ZATCA's compliance check requires
-  store/secureStore.ts     DEV-GRADE plaintext JSON storage for CSID keys/certs - see its own
-                            header comment before using this anywhere but local development
-  routes/, index.ts        Express app
+  store/secretFile.ts      AES-256-GCM envelope, key validation, legacy migration, atomic writes
+  store/secureStore.ts     CSID/ICV state; routes through secretFile.ts when a key is configured
+  routes/, index.ts        Express app (production fails closed without SECURE_STORE_KEY)
 ```
 
 ## Security note
 
-`store/secureStore.ts` is plaintext-on-disk. Fine for building/testing this locally. Before this
-goes anywhere near production, that needs to become a real secrets store (KMS/HSM or at minimum
-encrypted-at-rest with access control) - the CSID private key is exactly the kind of thing whose
-compromise lets someone forge invoices under this business's VAT registration.
+SEC-09: with `SECURE_STORE_KEY` set, the CSID private key and RSD password are encrypted at rest
+with AES-256-GCM (`store/secretFile.ts`); production refuses to start without a valid key. Without
+a key outside production the plaintext dev workflow still works. This protects disk/backup copies,
+not a compromised running process: a real KMS/HSM, key rotation tooling and secret-access logging
+are still required before production rollout. The invoice archive, RSD/Wasfaty ledgers and browser
+localStorage are separate retention/PHI decisions (see `.mdfile/AppSecuity.md` §16).

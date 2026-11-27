@@ -231,7 +231,7 @@ Positive controls are listed in section 12.
 4. **Impact:** File compromise lets an attacker forge invoices under the business's VAT registration and submit SFDA movements.
 5. **Reproduction (authorized, descriptive):** On staging, inspect existence and NTFS ACLs of `server/data/zatca-state.json` and `rsd-settings.json` using key names only; confirm via unauthenticated API that identity/config writes are currently possible.
 6. **Remediation:** Move secrets to KMS/HSM or encrypted-at-rest store with strict ACLs and audit; rotate any credential ever stored in plaintext; require admin + dual control for identity changes.
-7. **Verification:** No plaintext private key/password on disk in staging; unauthorized config writes return 401/403; key usage audited.
+7. **Verification:** No plaintext private key/password on disk in staging; unauthorized config writes return 401/403. **Status:** encryption/fail-closed/plaintext-absence implemented and unit-tested in §16; per-decryption key-usage audit and staging ACL check remain open.
 
 ### SEC-10 — HIGH — Live ZATCA/RSD submission and mode endpoints unauthenticated
 1. **Description:** Invoice submission, environment/mode switching, production CSID requests and RSD sales/mock controls require no credential.
@@ -803,7 +803,56 @@ immutable audit record. No live fiscal movement was sent while testing.
   limiter before exposing port 4300 beyond the LAN.
 - The audit file is append-only **within the app**, not WORM storage: an attacker with filesystem
   access can still edit/delete it. Ship it to central logging (or a signed/WORM store) in production.
-- SEC-09 plaintext CSID/RSD secrets, SEC-11 JWT in localStorage and SEC-12 PHI in localStorage are
+- SEC-09 is remediated in §16; SEC-11 JWT in localStorage and SEC-12 PHI in localStorage remain
   unchanged. The JWT config (`AUTH_JWT_*`) is still required before the server will start.
 - Staging verification with the real dotnet-pos token, an authorized admin account and a live but
   non-production ZATCA/SFDA environment is mandatory before enabling either live switch.
+
+---
+
+## 16. Remediation status — SEC-09 secrets at rest (2026-11-27)
+
+Owner-approved design: AES-256-GCM with a 32-byte `SECURE_STORE_KEY`, encrypting the **whole**
+`zatca-state.json` and `rsd-settings.json`. A real HSM/KMS was explicitly out of scope; this closes
+the "filesystem/backup copy reveals the private key or password" exposure, not "compromised running
+process can still use the key".
+
+### 16.1 Implemented
+
+| Finding | Change | Evidence |
+|---|---|---|
+| SEC-09 | `server/src/store/secretFile.ts`: envelope `{v:1, alg:'aes-256-gcm', iv, tag, data}` with a fresh 12-byte random IV per write, 16-byte GCM tag, fixed AAD, strict base64/hex key parsing, atomic temp-file + rename, `0600` mode on POSIX, and errors that never echo the key or plaintext. `SECURE_STORE_KEY` accepts base64 of exactly 32 bytes or 64 hex characters. | `secretFile.ts` |
+| SEC-09 | Production fails closed when the key is missing/malformed: `assertSecretStoreConfigured()` runs before any listener, `config.ready()` surfaces state-file errors, and `loadStoredSettings()` no longer swallows decryption/read failures into a silent `.env` fallback. Outside production, plaintext dev workflow remains available. | `server/src/index.ts`, `server/src/config.ts`, `server/src/rsd/settings.ts` |
+| SEC-09 | Legacy plaintext files are accepted and atomically rewritten as encrypted envelopes on first read with a key; no onboarding/credential state is changed by the migration. `ZATCA_STATE_FILE` and `RSD_SETTINGS_FILE` remain overridable for tests/relocation. | `secretFile.ts`, `secureStore.ts`, `rsd/settings.ts` |
+| SEC-09 | Both CSID material (`secret`, `binarySecurityToken`, `certificatePem`, `privateKeyPem`) and both RSD credential blocks are encrypted; the browser still receives only `hasPassword`/`credentialsConfigured`, blank password still preserves the stored password, and restart re-applies saved RSD settings. | `server/tests/store/secureStore.test.ts`, `server/tests/rsd/settings.test.ts` |
+| Tests | 11 new SEC-09 regressions: no plaintext private key/secret/password on disk, AES envelope shape, fresh IV per write, no leftover temp files, base64 + hex keys, round-trip reload, CSID clearing/ICV reset after encryption, wrong key/tampered ciphertext/unsupported envelope rejection, missing/malformed key fail-closed, legacy plaintext migration, and dev plaintext fallback. | `server/tests/store/secretFile.test.ts`, `server/tests/store/secureStore.test.ts`, updated `server/tests/rsd/settings.test.ts` |
+
+### 16.2 Verification evidence
+
+- Targeted SEC-09 tests: **15 passed / 3 files**. Full `npm test`: **622 passed / 53 files**
+  (was 611/51 before SEC-09; 11 new tests). `npm run test:e2e`: **47 passed** — local-first
+  sale/return/RSD flows still work with the backend down.
+- Server `npm run build` and root `npm run build`: pass. `npm run lint`: pass with only pre-existing
+  warnings; none in the new/changed secret-storage files.
+- Encryption overhead measured over 2,000 iterations after 200 warm-ups on a representative CSID
+  state (2 appends per write): plaintext write **4.4904 ms**, AES write **4.9529 ms** (+0.4625 ms);
+  plaintext read **2.4918 ms**, AES read **2.5881 ms** (+0.0963 ms); full encrypted round trip
+  **7.5682 ms**. This is local Windows file-I/O cost; encryption is not on the cashier checkout path
+  because the browser sale remains authoritative and ZATCA signing is already network-bound.
+- Fail-closed startup verified on the built server with `NODE_ENV=production` and no key:
+  `[startup] refusing to start: SECURE_STORE_KEY is required in production.` and exit code **1**,
+  before any listener opened. No live ZATCA/SFDA call, real key rotation or destructive staging
+  test was performed.
+
+### 16.3 Remaining risks / decisions required
+
+- `SECURE_STORE_KEY` must be generated outside the repo and stored in the service secret store/OS
+  keyring; `.env` is gitignored but a copied `.env` still grants decryption to whoever holds it.
+- There is no HSM/KMS and no per-decryption audit: a compromised Express process can still call the
+  key. Key rotation currently means decrypt with the old key and re-save with the new one; a dedicated
+  rotation CLI and central/WORM secret-access logging should be added before production rollout.
+- `data/zatca-invoices.json` (signed UBL retention) and the RSD/Wasfaty ledgers are still plaintext
+  JSON. They are not the CSID private key, but they do contain invoice/customer data and need their
+  own retention/access-control decision.
+- SEC-11 (JWT in localStorage), SEC-12 (PHI in localStorage), SEC-06 (cross-branch stock policy),
+  SEC-07 (tenant/company columns), rate limiting and WORM/central audit shipping remain open.

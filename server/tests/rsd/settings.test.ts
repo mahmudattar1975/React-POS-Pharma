@@ -1,7 +1,8 @@
 // Settings > RSD is the only place a credential can be entered. These tests pin the two rules the
 // browser relies on: it never receives the password back, and a blank password field must keep the
 // stored one instead of wiping it. They also check that test/production blocks survive a switch.
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ import {
   initRsdSettings,
   updateRsdSettings,
 } from '../../src/rsd/settings';
+import { readSecretJson } from '../../src/store/secretFile';
 
 const TOUCHED = [
   'RSD_MODE',
@@ -28,6 +30,7 @@ const TOUCHED = [
   'RSD_DIRECT_TO_GLN',
   'RSD_DIRECT_PRESCRIPTION_ID',
   'RSD_SETTINGS_FILE',
+  'SECURE_STORE_KEY',
 ];
 
 let dir: string;
@@ -42,6 +45,7 @@ beforeEach(async () => {
   process.env.RSD_TEST_SALE_URL = 'http://rsd-test/sale';
   process.env.RSD_TEST_CANCEL_URL = 'http://rsd-test/cancel';
   process.env.RSD_SETTINGS_FILE = path.join(dir, 'rsd-settings.json');
+  process.env.SECURE_STORE_KEY = randomBytes(32).toString('base64');
 });
 
 afterEach(async () => {
@@ -72,8 +76,11 @@ describe('RSD settings', () => {
       cancelUrl: 'http://rsd-test/cancel',
     });
 
-    const file = JSON.parse(await readFile(process.env.RSD_SETTINGS_FILE as string, 'utf8'));
-    expect(file.test.password).toBe('test-secret');
+    const file = await readSecretJson<{ test: { password: string } }>(
+      process.env.RSD_SETTINGS_FILE as string,
+    );
+    expect(file?.test.password).toBe('test-secret');
+    expect(await readFile(process.env.RSD_SETTINGS_FILE as string, 'utf8')).not.toContain('test-secret');
     expect((await getRsdSettingsView()).source).toBe('stored');
   });
 
@@ -103,9 +110,11 @@ describe('RSD settings', () => {
     expect(view.gln).toBe('6286479000015');
     expect(view.username).toBe('test-user');
 
-    const file = JSON.parse(await readFile(process.env.RSD_SETTINGS_FILE as string, 'utf8'));
-    expect(file.test.password).toBe('test-secret-2');
-    expect(file.production.password).toBe('prod-secret');
+    const file = await readSecretJson<{ test: { password: string }; production: { password: string } }>(
+      process.env.RSD_SETTINGS_FILE as string,
+    );
+    expect(file?.test.password).toBe('test-secret-2');
+    expect(file?.production.password).toBe('prod-secret');
   });
 
   it('re-applies the saved configuration after a restart', async () => {
@@ -130,5 +139,56 @@ describe('RSD settings', () => {
     const view = await getRsdSettingsView();
     expect(view.username).toBe('test-user');
     expect(view.hasPassword).toBe(true);
+  });
+
+  it('never leaves the RSD password in plaintext and rejects a wrong key', async () => {
+    await updateRsdSettings({
+      mode: 'live',
+      environment: 'production',
+      gln: '6280000000001',
+      username: 'prod-user',
+      password: 'prod-secret-encrypted',
+      saleUrl: 'https://rsd.sfda.gov.sa/sale',
+      cancelUrl: 'https://rsd.sfda.gov.sa/cancel',
+    });
+
+    const raw = await readFile(process.env.RSD_SETTINGS_FILE as string, 'utf8');
+    expect(raw).not.toContain('prod-secret-encrypted');
+    expect(JSON.parse(raw)).toMatchObject({ v: 1, alg: 'aes-256-gcm' });
+
+    const configuredKey = process.env.SECURE_STORE_KEY;
+    process.env.SECURE_STORE_KEY = randomBytes(32).toString('base64');
+    await expect(getRsdSettingsView()).rejects.toMatchObject({
+      code: 'secret_file_decryption_failed',
+    });
+    process.env.SECURE_STORE_KEY = configuredKey;
+    expect((await getRsdSettingsView()).source).toBe('stored');
+  });
+
+  it('migrates a legacy plaintext RSD settings file on first read', async () => {
+    delete process.env.SECURE_STORE_KEY;
+    await writeFile(process.env.RSD_SETTINGS_FILE as string, JSON.stringify({
+      mode: 'live',
+      environment: 'test',
+      test: {
+        gln: '6286479000015',
+        username: 'legacy-user',
+        password: 'legacy-secret',
+        saleUrl: 'http://rsd-test/sale',
+        cancelUrl: 'http://rsd-test/cancel',
+      },
+    }), 'utf8');
+
+    process.env.SECURE_STORE_KEY = randomBytes(32).toString('base64');
+    await initRsdSettings(); // a restart applies the migrated stored settings to process.env
+    const view = await getRsdSettingsView();
+    expect(view.source).toBe('stored');
+    expect(view.username).toBe('legacy-user');
+    expect(view.hasPassword).toBe(true);
+    const migrated = await readSecretJson<{ test: { password: string } }>(
+      process.env.RSD_SETTINGS_FILE as string,
+    );
+    expect(migrated?.test.password).toBe('legacy-secret');
+    expect(await readFile(process.env.RSD_SETTINGS_FILE as string, 'utf8')).not.toContain('legacy-secret');
   });
 });
