@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { getOnboardingStatus, requestComplianceCsid, runComplianceChecks, requestProductionCsid, setZatcaEnvironment, setZatcaMode, OnboardingStepError } from '../zatca/onboarding.js';
 import { getZatcaSettings, updateZatcaSettings } from '../zatca/settings.js';
 import { IdentityValidationError } from '../store/identity.js';
@@ -27,7 +28,7 @@ onboardingRouter.get('/settings', async (_req, res) => {
   }
 });
 
-onboardingRouter.put('/settings', async (req, res) => {
+onboardingRouter.put('/settings', requireAdmin, async (req, res) => {
   try {
     res.json(await updateZatcaSettings(req.body));
   } catch (err) {
@@ -39,7 +40,7 @@ onboardingRouter.put('/settings', async (req, res) => {
   }
 });
 
-onboardingRouter.post('/environment', async (req, res) => {
+onboardingRouter.post('/environment', requireAdmin, async (req, res) => {
   const { environment } = req.body as { environment?: string };
   if (!environment || !VALID_ENVS.includes(environment as ZatcaEnv)) {
     res.status(400).json({ error: `environment must be one of: ${VALID_ENVS.join(', ')}` });
@@ -52,7 +53,7 @@ onboardingRouter.post('/environment', async (req, res) => {
   }
 });
 
-onboardingRouter.post('/mode', async (req, res) => {
+onboardingRouter.post('/mode', requireAdmin, async (req, res) => {
   const { mode } = req.body as { mode?: string };
   if (!mode || !VALID_MODES.includes(mode as ZatcaMode)) {
     res.status(400).json({ error: `mode must be one of: ${VALID_MODES.join(', ')}` });
@@ -65,7 +66,7 @@ onboardingRouter.post('/mode', async (req, res) => {
   }
 });
 
-onboardingRouter.post('/compliance', async (req, res) => {
+onboardingRouter.post('/compliance', requireAdmin, async (req, res) => {
   const { otp } = req.body as { otp?: string };
   if (!otp) {
     res.status(400).json({ error: 'otp is required - get it from your Fatoora portal account (Onboard New Solution Unit)' });
@@ -79,7 +80,7 @@ onboardingRouter.post('/compliance', async (req, res) => {
   }
 });
 
-onboardingRouter.post('/compliance-check', async (_req, res) => {
+onboardingRouter.post('/compliance-check', requireAdmin, async (_req, res) => {
   try {
     res.json(await runComplianceChecks());
   } catch (err) {
@@ -87,7 +88,7 @@ onboardingRouter.post('/compliance-check', async (_req, res) => {
   }
 });
 
-onboardingRouter.post('/production', async (_req, res) => {
+onboardingRouter.post('/production', requireAdmin, async (_req, res) => {
   try {
     const csid = await requestProductionCsid();
     res.json({ issuedAt: csid.issuedAt, requestId: csid.requestId });

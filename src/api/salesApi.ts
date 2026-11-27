@@ -3,13 +3,14 @@
 // local copy (zustand persist) is always the primary record; a failure here is swallowed by the
 // caller, same "never block a sale" philosophy as ZATCA submission.
 import type { SaleHeader, ReturnHeader } from '../types/sales';
+import { authHeaders } from './authHeaders';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export async function backupSale(invoice: SaleHeader): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/sales`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(invoice),
   });
   if (!res.ok) {
@@ -29,7 +30,7 @@ export interface ReturnBackupPayload {
 export async function backupReturn(payload: ReturnBackupPayload): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/sales/returns`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       id: payload.ret.id,
       returnNo: payload.ret.returnNo,

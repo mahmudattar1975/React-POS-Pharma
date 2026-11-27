@@ -2,6 +2,8 @@
 // mirrors backupSale/backupReturn's pattern in salesApi.ts. The browser's local catalogStore is
 // always the primary record; a failure here is handled by the caller (queued for retry, see
 // store/pendingSyncStore.ts), never blocking the receiving action itself.
+import { authHeaders } from './authHeaders';
+
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export interface ReceivingBackupPayload {
@@ -31,7 +33,7 @@ export interface ReceivingBackupPayload {
 export async function backupReceiving(payload: ReceivingBackupPayload): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/receiving`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -49,7 +51,7 @@ export async function reverseReceiving(payload: {
 }): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/receiving/reverse`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {

@@ -6,6 +6,7 @@
 // Reporting is deliberately synchronous per unit. The POS calls this after the sale is already
 // saved locally; a 5xx/503 means "not reported yet, queue a retry", never "the sale failed".
 import { Router, type Request, type Response } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { RsdApiError } from '../rsd/errors.js';
 import {
   acceptMockUnit,
@@ -56,7 +57,7 @@ rsdRouter.post('/sales', async (req, res) => {
 });
 
 // Report the cancellation of one pack (a full return). Refused unless the sale was accepted.
-rsdRouter.post('/sales/cancel', async (req, res) => {
+rsdRouter.post('/sales/cancel', requireAdmin, async (req, res) => {
   try {
     res.json(await reportCancel(req.body as RsdCancelInput));
   } catch (err) {
@@ -95,7 +96,7 @@ rsdRouter.get('/units/:gtin/:serialNo', async (req, res) => {
 // than the unit data (for example FC 21017, or a corrected credential). It clears the terminal
 // flag on the existing record and keeps every attempt; the next report sends again. The outbox's
 // Retry button calls this before resending, which is the browser equivalent of --retry-rejected.
-rsdRouter.post('/reopen', async (req, res) => {
+rsdRouter.post('/reopen', requireAdmin, async (req, res) => {
   try {
     const body = req.body as { kind?: string; gtin?: string; serialNo?: string };
     if (body.kind !== 'sale' && body.kind !== 'cancel') {
@@ -119,7 +120,7 @@ rsdRouter.get('/settings', async (_req, res) => {
   }
 });
 
-rsdRouter.put('/settings', async (req, res) => {
+rsdRouter.put('/settings', requireAdmin, async (req, res) => {
   try {
     res.json(await updateRsdSettings((req.body ?? {}) as RsdSettingsUpdate));
   } catch (err) {
@@ -129,7 +130,7 @@ rsdRouter.put('/settings', async (req, res) => {
 
 // Read-only connectivity probe: WSDL + Basic auth in live mode, local simulator in mock mode.
 // It never sends a sale/cancel, so pressing "Test connection" cannot create a movement.
-rsdRouter.post('/test', async (_req, res) => {
+rsdRouter.post('/test', requireAdmin, async (_req, res) => {
   try {
     res.json(await testConnection());
   } catch (err) {
@@ -138,7 +139,7 @@ rsdRouter.post('/test', async (_req, res) => {
 });
 
 // Mock-only stand-ins for Accept, used to prepare sellable units for the offline trial.
-rsdRouter.post('/mock/accept', async (req, res) => {
+rsdRouter.post('/mock/accept', requireAdmin, async (req, res) => {
   try {
     res.json(await acceptMockUnit(req.body as RsdUnit));
   } catch (err) {
@@ -146,7 +147,7 @@ rsdRouter.post('/mock/accept', async (req, res) => {
   }
 });
 
-rsdRouter.post('/mock/reset', async (_req, res) => {
+rsdRouter.post('/mock/reset', requireAdmin, async (_req, res) => {
   try {
     await resetMock();
     res.json({ ok: true });

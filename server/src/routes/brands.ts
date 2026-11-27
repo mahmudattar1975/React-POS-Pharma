@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { prisma } from '../db/prisma.js';
 import { masterErrorResponse, nextMasterCode, parseMasterId, parseMasterWrite } from './masterHelpers.js';
 
@@ -26,7 +27,7 @@ brandsRouter.get('/', async (_req, res) => {
   }
 });
 
-brandsRouter.post('/', async (req, res) => {
+brandsRouter.post('/', requireAdmin, async (req, res) => {
   try {
     const input = parseMasterWrite(req.body);
     const codes = await prisma.brand.findMany({ select: { brandCode: true } });
@@ -46,7 +47,7 @@ brandsRouter.post('/', async (req, res) => {
   }
 });
 
-brandsRouter.patch('/:id', async (req, res) => {
+brandsRouter.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseMasterId(req.params.id);
     const input = parseMasterWrite(req.body);

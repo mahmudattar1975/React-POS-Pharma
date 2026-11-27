@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { prisma } from '../db/prisma.js';
 import { dotnetPos } from '../db/dotnetPosPrisma.js';
 import { barcodeKey, validateItemImportBody, type ItemImportInput } from '../items/import.js';
@@ -190,7 +191,7 @@ itemsRouter.get('/', async (_req, res) => {
   }
 });
 
-itemsRouter.post('/import', async (req, res) => {
+itemsRouter.post('/import', requireAdmin, async (req, res) => {
   let inputs: ItemImportInput[];
   try {
     inputs = validateItemImportBody(req.body).items;

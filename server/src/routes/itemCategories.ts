@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { prisma } from '../db/prisma.js';
 import {
   MasterInputError, masterErrorResponse, nextMasterCode, parseMasterId, parseMasterWrite,
@@ -39,7 +40,7 @@ async function validateParent(parentCategoryId: number | null | undefined, selfI
   if (!parent) throw new MasterInputError('That parent category does not exist.');
 }
 
-itemCategoriesRouter.post('/', async (req, res) => {
+itemCategoriesRouter.post('/', requireAdmin, async (req, res) => {
   try {
     const input = parseMasterWrite(req.body);
     await validateParent(input.parentCategoryId);
@@ -61,7 +62,7 @@ itemCategoriesRouter.post('/', async (req, res) => {
   }
 });
 
-itemCategoriesRouter.patch('/:id', async (req, res) => {
+itemCategoriesRouter.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseMasterId(req.params.id);
     const input = parseMasterWrite(req.body);

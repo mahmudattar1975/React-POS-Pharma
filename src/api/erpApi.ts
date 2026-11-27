@@ -1,5 +1,7 @@
 // Talks to this app's own server (server/src/routes/erp.ts), which reads real item/batch/customer
 // data from XPH via the existing PharmaAxis .NET backend. Read-only - see server/src/erp/README.md.
+import { authHeaders } from './authHeaders';
+
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export interface ErpStatus {
@@ -35,7 +37,7 @@ export interface ErpCustomer {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const res = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `ERP request ${path} failed (${res.status})`);
   return body as T;
@@ -75,7 +77,7 @@ export interface ItemAndBatches {
 // returns null rather than throwing the way `get()` does for every other non-OK response. Anything
 // else not-OK (the server unreachable, a real backend error) still throws, same as everywhere else.
 export async function getErpItemByBarcode(barcode: string): Promise<ItemAndBatches | null> {
-  const res = await fetch(`${BASE_URL}/api/erp/items/by-barcode/${encodeURIComponent(barcode)}`);
+  const res = await fetch(`${BASE_URL}/api/erp/items/by-barcode/${encodeURIComponent(barcode)}`, { headers: authHeaders() });
   if (res.status === 404) return null;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `ERP barcode lookup failed (${res.status})`);

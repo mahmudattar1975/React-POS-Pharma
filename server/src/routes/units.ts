@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { prisma } from '../db/prisma.js';
 import { masterErrorResponse, nextMasterCode, parseMasterId, parseMasterWrite } from './masterHelpers.js';
 
@@ -17,7 +18,7 @@ unitsRouter.get('/', async (_req, res) => {
   }
 });
 
-unitsRouter.post('/', async (req, res) => {
+unitsRouter.post('/', requireAdmin, async (req, res) => {
   try {
     const input = parseMasterWrite(req.body);
     const codes = await prisma.unit.findMany({ select: { unitCode: true } });
@@ -37,7 +38,7 @@ unitsRouter.post('/', async (req, res) => {
   }
 });
 
-unitsRouter.patch('/:id', async (req, res) => {
+unitsRouter.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const id = parseMasterId(req.params.id);
     const input = parseMasterWrite(req.body);

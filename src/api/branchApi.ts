@@ -1,6 +1,7 @@
 // Branch master + terminal context + cross-branch stock. All read calls are advisory: the POS
 // works from localStorage first, so a failed request here must never stop a sale.
 import type { Branch, BranchContext, BranchStock } from '../types/branch';
+import { authHeaders } from './authHeaders';
 import { applyBranchContext } from '../utils/branchScope';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
@@ -8,7 +9,7 @@ const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `Request ${path} failed (${res.status})`);

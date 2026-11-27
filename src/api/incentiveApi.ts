@@ -1,11 +1,12 @@
 import type { IncentiveItem, IncentiveRecord, IncentiveSummary } from '../types/incentive';
+import { authHeaders } from './authHeaders';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(options.headers ?? {}) },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

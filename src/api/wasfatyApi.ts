@@ -18,6 +18,7 @@ import type {
   WasfatyPrescription,
   WasfatySession,
 } from '../types/wasfaty';
+import { authHeaders } from './authHeaders';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 const BASE_PATH = `${BASE_URL}/api/wasfaty`;
@@ -27,6 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...(init?.headers ?? {}),
     },
   });

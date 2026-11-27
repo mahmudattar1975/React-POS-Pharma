@@ -3,6 +3,8 @@
 // unreachable or onboarding hasn't happened yet (see cartStore/POSPage's fallback to the Phase 1
 // client-side QR), so every function here throws on failure rather than silently degrading -
 // callers decide what "ZATCA isn't available right now" should mean for the sale.
+import { authHeaders } from './authHeaders';
+
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export type ZatcaEnv = 'sandbox' | 'simulation' | 'production';
@@ -43,7 +45,7 @@ export class ZatcaApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...init?.headers },
     signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   const body = await res.json().catch(() => ({}));

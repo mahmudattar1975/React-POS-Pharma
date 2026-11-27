@@ -2,6 +2,7 @@
 // backups, this is a deliberate admin action: the dialog treats a failure as fatal and leaves the
 // local catalogue untouched, so the owner can retry after fixing the server/database problem.
 import type { ItemImportPayloadRow } from '../utils/itemImport';
+import { authHeaders } from './authHeaders';
 
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
@@ -20,7 +21,7 @@ export interface ItemImportResult {
 export async function importItems(items: ItemImportPayloadRow[]): Promise<ItemImportResult> {
   const res = await fetch(`${BASE_URL}/api/items/import`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ items }),
   });
   const body = await res.json().catch(() => ({}));

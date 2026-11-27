@@ -8,6 +8,7 @@
 // means "queue it and try again"; the sale itself is already complete and must never be rolled
 // back because SFDA was unreachable.
 import type { RsdUnit } from '../types/rsd';
+import { authHeaders } from './authHeaders';
 
 export type { RsdUnit } from '../types/rsd';
 export { isRsdReportableLine, rsdUnitsForLine } from '../utils/rsdUnits';
@@ -36,6 +37,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders(),
         ...(init?.headers ?? {}),
       },
     });

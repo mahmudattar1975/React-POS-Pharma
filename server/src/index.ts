@@ -19,16 +19,33 @@ import { locationsRouter } from './routes/locations.js';
 import { brandsRouter } from './routes/brands.js';
 import { initRsdSettings } from './rsd/settings.js';
 import { terminalBranch } from './branch.js';
+import { loadAuthConfig } from './auth/config.js';
+import { requireAuth } from './auth/middleware.js';
 
 async function main(): Promise<void> {
   // Apply any saved Settings > RSD values before the first request. `.env` is only the seed.
   await initRsdSettings();
+  // Fail closed if JWT validation is not configured; never start an open API by accident.
+  const authConfig = await loadAuthConfig();
 
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/health', (_req, res) => res.json({ ok: true, zatcaEnv: config.zatcaEnv }));
+
+  // Deny by default. Roles and identity come only from the verified JWT, never from the body.
+  app.use('/api', requireAuth(authConfig));
+
+  // Mock-only RSD helpers are development tools; they must not exist in a production process.
+  app.use('/api/rsd/mock', (_req, res, next) => {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    next();
+  });
+
   app.use('/api/zatca/onboarding', onboardingRouter);
   app.use('/api/zatca/invoices', invoicesRouter);
   app.use('/api/incentives', incentivesRouter);
@@ -46,8 +63,10 @@ async function main(): Promise<void> {
   app.use('/api/locations', locationsRouter);
   app.use('/api/brands', brandsRouter);
 
-  app.listen(config.port, () => {
-    console.log(`Pharmacy-App ZATCA server listening on http://localhost:${config.port} (ZATCA env: ${config.zatcaEnv}, mode: ${config.zatcaMode})`);
+  // Loopback by default; a staging/production proxy must explicitly opt in to another interface.
+  const bindHost = process.env.BIND_HOST ?? '127.0.0.1';
+  app.listen(config.port, bindHost, () => {
+    console.log(`Pharmacy-App ZATCA server listening on http://${bindHost}:${config.port} (ZATCA env: ${config.zatcaEnv}, mode: ${config.zatcaMode})`);
     console.log(`Terminal branch: ${terminalBranch.id} (${terminalBranch.configured ? 'from config/branch.json' : 'fallback - set config/branch.json'})`);
   });
 }

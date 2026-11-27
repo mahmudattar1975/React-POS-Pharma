@@ -3,6 +3,7 @@
 // data now lives in the separate dotnet_pos database: commission_item holds the curated item list
 // and pos/pos_item hold the commission ledger (see prisma/dotnet-pos-schema.prisma).
 import { Router, type Request, type Response } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import {
   Prisma,
   type CommissionItem,
@@ -142,7 +143,7 @@ incentivesRouter.get('/active', async (req, res) => {
   }
 });
 
-incentivesRouter.post('/items', async (req, res) => {
+incentivesRouter.post('/items', requireAdmin, async (req, res) => {
   try {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const itemKey = String(b.itemId ?? '').trim();
@@ -190,7 +191,7 @@ incentivesRouter.post('/items', async (req, res) => {
   }
 });
 
-incentivesRouter.put('/items/:id', async (req, res) => {
+incentivesRouter.put('/items/:id', requireAdmin, async (req, res) => {
   try {
     const id = parsePositiveId(req.params.id);
     if (id === null) {
@@ -242,7 +243,7 @@ incentivesRouter.put('/items/:id', async (req, res) => {
   }
 });
 
-incentivesRouter.delete('/items/:id', async (req, res) => {
+incentivesRouter.delete('/items/:id', requireAdmin, async (req, res) => {
   try {
     const id = parsePositiveId(req.params.id);
     if (id === null) {
@@ -344,7 +345,7 @@ async function applyCommission(posId: number, item: Item | null, line: RecordLin
   });
 }
 
-incentivesRouter.post('/records', async (req, res) => {
+incentivesRouter.post('/records', requireAdmin, async (req, res) => {
   try {
     const b = (req.body ?? {}) as Record<string, unknown>;
     const invoiceNo = String(b.invoiceNo ?? '').trim();

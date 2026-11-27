@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../auth/middleware.js';
 import { prisma } from '../db/prisma.js';
 import { DEFAULT_BRANCHES, normalizeBranchCode, type BranchRecord } from '../branches.js';
 
@@ -51,7 +52,7 @@ branchesRouter.get('/', async (_req, res) => {
   }
 });
 
-branchesRouter.post('/', async (req, res) => {
+branchesRouter.post('/', requireAdmin, async (req, res) => {
   try {
     const value = validate(req.body as Record<string, unknown>, true);
     const duplicate = await prisma.branch.findFirst({
@@ -69,7 +70,7 @@ branchesRouter.post('/', async (req, res) => {
   }
 });
 
-branchesRouter.patch('/:id', async (req, res) => {
+branchesRouter.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const existing = await prisma.branch.findUnique({ where: { id: req.params.id } });
     if (!existing) {

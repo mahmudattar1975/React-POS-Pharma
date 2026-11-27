@@ -664,4 +664,50 @@ Positive: no SQL injection found in Prisma raw queries (see section 12).
 
 ---
 
-**End of report. No application code was modified during this assessment.**
+**End of initial assessment. No application code was modified during that assessment.**
+
+---
+
+## 13. Remediation status — Phase 0 + CRITICAL (2026-11-27)
+
+Owner approval was given for **Phase 0 containment + CRITICAL findings only**, with JWT identity
+sourced from the external dotnet-pos token (env-driven validation) and tenant columns deferred.
+
+### 13.1 Implemented
+
+| Finding | Change | Evidence |
+|---|---|---|
+| SEC-01 | Deny-by-default `requireAuth` mounted on `/api/*` before every router; `/health` remains public. | `server/src/index.ts:27-47`, `server/src/auth/middleware.ts` |
+| SEC-02 | `requireAdmin` function-level guard on branch/ZATCA/RSD/commission/masters writes and item import. Sale reporting mirrors stay authenticated only so ERP sale flow is unchanged. | `server/src/routes/{branches,onboarding,rsd,incentives,items,brands,units,locations,itemCategories}.ts` |
+| SEC-01 (clients) | All 15 `:4300` API modules now attach `Authorization: Bearer <token>` via one helper. | `src/api/authHeaders.ts`, `src/api/*.ts` |
+| SEC-13 | Boot-time sync effects wait for an authenticated session instead of issuing anonymous requests. | `src/App.tsx:38-206` |
+| Phase 0 | Loopback bind by default (`BIND_HOST`), mock-only RSD routes return 404 when `NODE_ENV=production`, fail-closed startup when auth config is absent. | `server/src/index.ts`, `server/.env.example` |
+| Verification | New security regression tests for missing/tampered/expired/wrong-issuer/wrong-audience tokens, invalid claims and admin denial. | `server/tests/auth/auth.test.ts`, `src/api/authHeaders.test.ts` |
+
+JWT verification uses `jose` with an algorithm allow-list (HS256 or RS256), required issuer/audience,
+`exp`/`nbf` checks and claim mapping via `AUTH_JWT_*` variables. No key material is stored in the repo
+and there is no development bypass.
+
+### 13.2 Verification evidence
+
+- `npm run build` (root): pass, no chunk-size warning.
+- `npm run build` (server, `tsc -b`): pass.
+- `npm run lint`: pass (only pre-existing warnings).
+- `npm test`: **583 passed** (48 files; was 574/46 before — 9 new auth tests).
+- `npm run test:e2e`: **47 passed**.
+- Fail-closed startup: `node dist/index.js` with no `AUTH_JWT_*` config exits 1 with
+  `AUTH_JWT_ISSUER is required to validate POS JWTs`.
+- Auth verification cost (2,000 authenticated middleware calls, HS256): **927.83 ms total,
+  0.4639 ms/request mean**. This is the new cost of deny-by-default; there is no pre-auth baseline
+  because the endpoint was previously unauthenticated. No database query or index change was made.
+
+### 13.3 Remaining risks / next steps
+
+- **Production configuration is still required:** set `AUTH_JWT_ALGORITHM`, the signing key or JWKS,
+  `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE` and, if the dotnet-pos claim names differ from the defaults,
+  the `AUTH_JWT_*_CLAIM` variables. Until then the server intentionally refuses to start.
+- **SEC-03–SEC-13 (HIGH) are not fixed.** Object-level scoping on returns, server-side sale/receiving
+  validation, branch/tenant isolation, plaintext CSID/RSD secrets and localStorage token/PHI storage
+  remain open and still block production.
+- Staging verification of the exact dotnet-pos token shape and the role/endpoint matrix is still
+  mandatory; static tests cannot prove the external issuer's claims match the configured mapping.
