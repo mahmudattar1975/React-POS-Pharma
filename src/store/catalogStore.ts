@@ -331,6 +331,7 @@ export const useCatalogStore = create<CatalogState>()(
         // salesStore.ts - without this, the SQL mirror's batches table only ever moved on a sale,
         // never on receiving, and would drift out of sync in the opposite direction.
         const backupPayload = {
+          receivingId: event.id.slice(0, 100),
           batchId,
           itemId,
           itemNameAr: item?.nameAr ?? '',
@@ -414,7 +415,12 @@ export const useCatalogStore = create<CatalogState>()(
 
         // Best-effort SQL mirror, same "never block the action" pattern as the receiving backup.
         for (const { itemId, batchNo, qty } of received.values()) {
-          reverseReceiving({ itemId, batchNo, qty }).catch((err) => {
+          reverseReceiving({
+            reversalId: `rev-${purchaseInvoiceNo}-${itemId}-${batchNo}`.slice(0, 100),
+            itemId,
+            batchNo,
+            qty,
+          }).catch((err) => {
             console.warn('Receiving reversal backup failed:', err);
           });
         }

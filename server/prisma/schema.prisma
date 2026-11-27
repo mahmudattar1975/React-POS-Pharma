@@ -421,6 +421,24 @@ model Batch {
   @@map("batches")
 }
 
+// Idempotency ledger for receiving/reversal backups. The browser's receivingLog has a unique
+// event id, but the SQL batches table cannot tell a repeat delivery from a new one; without this
+// ledger a replayed backup (pendingSyncStore retry) would add stock twice. Events are scoped to
+// the terminal branch so a receipt id from another terminal cannot cancel or duplicate a write.
+model ReceivingBackupEvent {
+  id         String   @db.NVarChar(100) @id
+  kind       String   @db.NVarChar(10) // 'receive' | 'reverse'
+  branchId   String   @db.NVarChar(100)
+  itemId     String   @db.NVarChar(100)
+  batchNo    String   @db.NVarChar(100)
+  qty        Int
+  cashierId  Int
+  createdAt  DateTime @default(now())
+
+  @@index([branchId, itemId, batchNo])
+  @@map("receiving_backup_events")
+}
+
 // Mirrors Offer. No real source for this in XPH at all (confirmed live) - every row here is
 // fictional demo data, copied as-is from seedData.ts, not a snapshot of anything real.
 model Offer {

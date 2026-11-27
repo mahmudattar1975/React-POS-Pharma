@@ -12,10 +12,17 @@ import {
   type PosItem,
 } from '../../node_modules/.prisma/dotnet-pos-client/index.js';
 import { dotnetPos } from '../db/dotnetPosPrisma.js';
+import { prisma } from '../db/prisma.js';
+import { terminalBranch } from '../branch.js';
+import { RequestError, badRequest } from '../validation/common.js';
 
 export const incentivesRouter = Router();
 
 function fail(res: Response, err: unknown): void {
+  if (err instanceof RequestError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
   console.error('[incentives] unexpected error:', err);
   res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
 }
@@ -266,6 +273,8 @@ interface RecordLine {
   qty?: number;
   saleAmount?: number;
   incentiveAmount?: number;
+  incentiveType?: string;
+  rate?: number;
   posItemId?: number;
   incentiveItemId?: string;
 }
@@ -275,13 +284,18 @@ async function findOrCreatePos(
   invoiceDate: Date,
   cashierName: string,
   total: number,
-  posSaleId?: number,
+  posSaleId: number | undefined,
+  expectedInvoiceNo: string,
 ): Promise<Pos> {
-  // On a return, callers pass the original dotnet-pos sale id so the clawback lands on that sale's
-  // pos_item row. Otherwise prefer the mirror row created at checkout, keyed by invoice number.
+  // SEC-08: a client-supplied posSaleId is only a hint. Resolve it back to the verified invoice
+  // number before using it, so a return cannot land its clawback on an unrelated sale's ledger.
   if (posSaleId !== undefined) {
     const original = await dotnetPos.pos.findUnique({ where: { id: posSaleId } });
-    if (original) return original;
+    if (!original) throw badRequest('Unknown posSaleId.');
+    if (original.invoiceNo !== expectedInvoiceNo) {
+      throw badRequest('posSaleId does not belong to this invoice.');
+    }
+    return original;
   }
   const existing = await dotnetPos.pos.findFirst({ where: { invoiceNo }, orderBy: { id: 'desc' } });
   if (existing) return existing;
@@ -308,20 +322,27 @@ async function findOrCreatePos(
   });
 }
 
-async function applyCommission(posId: number, item: Item | null, line: RecordLine): Promise<void> {
+async function applyCommission(client: typeof dotnetPos, pos: Pos, item: Item | null, line: RecordLine): Promise<void> {
   const amount = toNum(line.incentiveAmount);
   const qty = toNum(line.qty);
   const saleAmount = toNum(line.saleAmount);
   const specifiedId = parsePositiveId(String(line.posItemId ?? ''));
-  // posItemId comes from the original sale line, so trust it directly: a return's payload carries a
-  // different invoice number and must still find that same row to decrement its commission.
-  let posItem = specifiedId !== null
-    ? await dotnetPos.posItem.findUnique({ where: { id: specifiedId } })
-    : null;
-  if (!posItem && item) posItem = await dotnetPos.posItem.findFirst({ where: { posId, itemId: item.id } });
+  // SEC-08: resolve the target through the verified invoice (and item) instead of trusting the
+  // client id. A return may carry a different invoice number, but its pos_item still belongs to
+  // the original sale row resolved above.
+  let posItem = null;
+  if (specifiedId !== null) {
+    posItem = await client.posItem.findFirst({
+      where: { id: specifiedId, posId: pos.id, ...(item ? { itemId: item.id } : {}) },
+    });
+    if (!posItem) throw badRequest('posItemId does not belong to this invoice/item.');
+  }
+  if (!posItem && item) {
+    posItem = await client.posItem.findFirst({ where: { posId: pos.id, itemId: item.id } });
+  }
 
   if (posItem) {
-    await dotnetPos.posItem.update({
+    await client.posItem.update({
       where: { id: posItem.id },
       // Positive is a fresh grant (set, so replays don't double-count); negative is a return
       // clawback, which must accumulate against the original grant.
@@ -330,9 +351,9 @@ async function applyCommission(posId: number, item: Item | null, line: RecordLin
     return;
   }
   if (!item) return; // no way to create a pos_item without a valid ItemId
-  await dotnetPos.posItem.create({
+  await client.posItem.create({
     data: {
-      posId,
+      posId: pos.id,
       itemId: item.id,
       itemName: String(line.itemNameEn ?? item.name),
       qty,
@@ -351,11 +372,53 @@ incentivesRouter.post('/records', requireAdmin, async (req, res) => {
     const invoiceNo = String(b.invoiceNo ?? '').trim();
     const invoiceDate = new Date(String(b.invoiceDate ?? '').trim());
     const cashierName = String(b.cashierName ?? '').trim();
+    const saleId = String(b.saleId ?? '').trim();
     const lines = (Array.isArray(b.lines) ? b.lines : []) as RecordLine[];
     if (!invoiceNo || Number.isNaN(invoiceDate.getTime())) {
       res.status(400).json({ error: 'invoiceNo and a valid invoiceDate are required.' });
       return;
     }
+    if (lines.length > 500) {
+      res.status(400).json({ error: 'lines must contain at most 500 entries.' });
+      return;
+    }
+    for (const line of lines) {
+      const amount = toNum(line.incentiveAmount);
+      const qty = toNum(line.qty);
+      const saleAmount = toNum(line.saleAmount);
+      const rate = toNum(line.rate);
+      const type = String(line.incentiveType ?? 'percent');
+      if (!['percent', 'amount'].includes(type) || !Number.isFinite(amount) || !Number.isFinite(qty)
+        || !Number.isFinite(saleAmount) || !Number.isFinite(rate) || qty < 0 || saleAmount < 0
+        || rate < 0 || (type === 'percent' ? rate > 1 : rate > 1_000_000)) {
+        res.status(400).json({ error: 'Invalid commission line (type, qty, amounts or rate).' });
+        return;
+      }
+    }
+
+    // SEC-03/08: the original invoice must belong to this terminal. For a return this also gives
+    // the ORIGINAL invoice number, which is what the dotnet-pos sale row must match.
+    const localSale = saleId
+      ? await prisma.sale.findFirst({
+          where: { id: saleId, branchId: terminalBranch.id },
+          select: { id: true, invoiceNo: true },
+        })
+      : null;
+    const expectedInvoiceNo = localSale?.invoiceNo ?? invoiceNo;
+
+    // A return's negative clawback is an increment on the original grant. Once the return has
+    // been backed up locally, a replay of this mirror must not increment it again.
+    if (lines.some((l) => toNum(l.incentiveAmount) < 0)) {
+      const recordedReturn = await prisma.returnRecord.findFirst({
+        where: { returnNo: invoiceNo, branchId: terminalBranch.id },
+        select: { id: true },
+      });
+      if (recordedReturn) {
+        res.status(201).json({ ok: true, count: 0, duplicate: true });
+        return;
+      }
+    }
+
     const applicable = lines.filter((l) => toNum(l.incentiveAmount) !== 0);
     if (applicable.length === 0) {
       res.status(201).json({ ok: true, count: 0 });
@@ -363,11 +426,13 @@ incentivesRouter.post('/records', requireAdmin, async (req, res) => {
     }
     const total = applicable.reduce((s, l) => s + Math.abs(toNum(l.saleAmount)), 0);
     const posSaleId = parsePositiveId(String(b.posSaleId ?? ''));
-    const pos = await findOrCreatePos(invoiceNo, invoiceDate, cashierName, total, posSaleId ?? undefined);
-    for (const line of applicable) {
-      const item = await findDotnetItem(String(line.barcode ?? line.itemId ?? '').trim());
-      await applyCommission(pos.id, item, line);
-    }
+    const pos = await findOrCreatePos(invoiceNo, invoiceDate, cashierName, total, posSaleId ?? undefined, expectedInvoiceNo);
+    await dotnetPos.$transaction(async (tx) => {
+      for (const line of applicable) {
+        const item = await findDotnetItem(String(line.barcode ?? line.itemId ?? '').trim());
+        await applyCommission(tx as unknown as typeof dotnetPos, pos, item, line);
+      }
+    });
     res.status(201).json({ ok: true, count: applicable.length });
   } catch (err) {
     fail(res, err);

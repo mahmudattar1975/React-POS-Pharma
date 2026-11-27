@@ -706,8 +706,57 @@ and there is no development bypass.
 - **Production configuration is still required:** set `AUTH_JWT_ALGORITHM`, the signing key or JWKS,
   `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE` and, if the dotnet-pos claim names differ from the defaults,
   the `AUTH_JWT_*_CLAIM` variables. Until then the server intentionally refuses to start.
-- **SEC-03–SEC-13 (HIGH) are not fixed.** Object-level scoping on returns, server-side sale/receiving
-  validation, branch/tenant isolation, plaintext CSID/RSD secrets and localStorage token/PHI storage
-  remain open and still block production.
+- **SEC-06/07/09/10/11/12 (HIGH) are still open.** Branch disclosure policy, tenant/company columns,
+  key/certificate storage, live submission endpoints, browser token storage and localStorage PHI
+  need an owner decision before code changes; tenant columns remain explicitly deferred.
 - Staging verification of the exact dotnet-pos token shape and the role/endpoint matrix is still
   mandatory; static tests cannot prove the external issuer's claims match the configured mapping.
+
+---
+
+## 14. Remediation status — HIGH Phase A (stock/financial integrity, 2026-11-27)
+
+Scope: the four HIGH findings that can corrupt stock or money through the `:4300` SQL mirror were
+fixed first. Architectural findings (SEC-06/07/09/10/11/12) were **not** changed: they need an owner
+decision on disclosure policy, tenant columns and secret/browser storage.
+
+### 14.1 Implemented
+
+| Finding | Change | Evidence |
+|---|---|---|
+| SEC-03 | Returns now require the original invoice to belong to `terminalBranch`; return lines must belong to that invoice; cumulative `returnedQty` is checked against each line's qty and written back; no client-supplied `updatedLineReturnedQtys` is trusted; status is re-derived. Replays are deduped by return id/number. | `server/src/routes/sales.ts` |
+| SEC-04 | Sale line/header arithmetic is re-derived (`qty × price − discount`, VAT, totals, payments); qty must be a positive integer, VAT rate a 0–1 fraction, invoice type/status allow-listed; cashier identity comes from the verified JWT, never the body. Replays are deduped by sale id/invoice number. | `server/src/validation/sales.ts`, `server/src/validation/common.ts`, `server/src/routes/sales.ts` |
+| SEC-05 | Receiving/reversal quantities, dates, prices and discounts are validated; all batch reads/writes are branch-scoped; conditional `updateMany` prevents negative stock; a new idempotency ledger makes queued retries no-ops. | `server/src/validation/receiving.ts`, `server/src/routes/receiving.ts`, `server/prisma/schema.prisma` |
+| SEC-08 | `posSaleId`/`posItemId` are only hints: they are re-resolved against the verified invoice and item; rates/types/qty are bounded; all commission writes run in one transaction; duplicate return clawbacks are skipped once the local return has been backed up. | `server/src/routes/incentives.ts` |
+| Clients | `receivingId` (browser receiving event id) and deterministic `reversalId` are sent with the best-effort mirrors so retries are safe. Local-first behavior is unchanged: a rejected/failed mirror is queued by `pendingSyncStore` and never blocks a sale. | `src/api/receivingApi.ts`, `src/store/catalogStore.ts` |
+| Database | Migration `20261128100000_add_receiving_backup_events` (idempotency ledger, PK + branch/item/batch composite index) generated clients and applied. `prisma migrate status` now reports 21/21 applied. | `server/prisma/migrations/20261128100000_add_receiving_backup_events/migration.sql` |
+| Tests | Boundary unit tests plus HTTP route regressions with an in-memory Prisma double: cross-branch returns rejected, excess return qty rejected, second partial return accumulates, negative stock writes rejected, sale/return/receiving replays are no-ops, commission IDs verified. | `server/tests/validation/mirror.test.ts`, `server/tests/routes/mirrorIntegrity.test.ts` |
+
+### 14.2 Verification evidence
+
+- `npm run db:generate`: pass (both Prisma clients). `npx prisma migrate deploy`: migration applied;
+  `npx prisma migrate status`: 21/21 applied.
+- `npm run build` (server `tsc -b` and root `tsc -b && vite build`): pass; no chunk-size warning.
+- `npm run lint`: pass, only previously-known warnings (no new warnings in changed files).
+- `npm test`: **602 passed / 50 files** (was 583/48 after Phase 0; 19 new tests).
+- `npm run test:e2e`: **47 passed** (unchanged local-first flows; backend was intentionally down, so
+  mirrors failed and queued exactly as designed).
+- Validation overhead measured over 2,000 calls each after 200 warm-ups: sale **0.0110 ms/request**,
+  return **0.0038 ms/request**, receiving **0.0040 ms/request**. There is no pre-fix baseline because
+  these boundaries previously performed no checks at all.
+- SQL Server plan (`SET SHOWPLAN_ALL ON`) on the new table: id lookup uses **Clustered Index Seek**
+  (`receiving_backup_events_pkey`, cost 0.0032831); branch+item+batch lookup uses **Index Seek**
+  (`receiving_backup_events_branch_item_batch_idx`, cost 0.0032831). No table scan introduced.
+
+### 14.3 Remaining HIGH risks / decisions required
+
+- SEC-06 cross-branch stock disclosure: currently an authenticated cashier can ask what other
+  branches hold. Decide whether that is an allowed business feature or must be role-scoped.
+- SEC-07 tenant/company dimension and branch-from-local-file: deferred by owner decision; needs
+  schema and dotnet-pos changes.
+- SEC-09 plaintext CSID key / RSD password, SEC-10 live submission endpoints, SEC-11 token in
+  localStorage, SEC-12 PHI in localStorage: no change in Phase A.
+- SEC-08 duplicate-clawback suppression relies on the local return being backed up before the
+  incentive mirror; a permanent hard dedupe key should be added if the two queues can diverge.
+- Replayed sale/return/receiving mirrors are rejected or acknowledged as duplicates; monitor 409/200
+  `duplicate: true` responses to detect genuine client id collisions.

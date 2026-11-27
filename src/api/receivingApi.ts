@@ -7,6 +7,8 @@ import { authHeaders } from './authHeaders';
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export interface ReceivingBackupPayload {
+  // Unique id of the browser's receiving event. The SQL mirror uses it to make retries idempotent.
+  receivingId?: string;
   batchId: string;
   itemId: string;
   itemNameAr: string;
@@ -45,6 +47,8 @@ export async function backupReceiving(payload: ReceivingBackupPayload): Promise<
 // Mirror of catalogStore.reversePurchaseInvoice's batch decrement. Best-effort: a failure must not
 // block deleting/modifying the invoice, since the browser's catalogStore is the primary record.
 export async function reverseReceiving(payload: {
+  // Deterministic per invoice + item + batch, so replaying a reversal is a no-op on the SQL mirror.
+  reversalId?: string;
   itemId: string;
   batchNo: string;
   qty: number;
