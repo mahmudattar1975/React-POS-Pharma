@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { audited } from '../audit.js';
+import { config } from '../config.js';
 import { submitSaleInvoice, validateSubmissionRequest } from '../zatca/submitSaleInvoice.js';
 import { findArchivedInvoice, listArchivedInvoices } from '../store/invoiceArchive.js';
 
@@ -29,7 +31,16 @@ invoicesRouter.post('/', async (req, res) => {
     return;
   }
   try {
-    const result = await submitSaleInvoice(parsed.value);
+    // Submission must stay available to the authenticated cashier: a failed ZATCA call must never
+    // block a sale. Record who sent which document to which environment, but not the customer or
+    // line contents (patient/items are PHI and must not enter the security audit file).
+    const result = await audited(req, 'zatca.invoice.submit', {
+      invoiceNo: parsed.value.invoiceNo,
+      invoiceType: parsed.value.invoiceType,
+      documentType: parsed.value.documentType ?? 'invoice',
+      environment: config.zatcaEnv,
+      mode: config.zatcaMode,
+    }, () => submitSaleInvoice(parsed.value));
     res.json(result);
   } catch (err) {
     // Submission failures (network, ZATCA rejection, no CSID yet) are business-as-usual for a POS

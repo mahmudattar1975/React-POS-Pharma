@@ -16,6 +16,12 @@ function StepIcon({ state }: { state: StepState }) {
   return <RadioButtonUncheckedIcon fontSize="small" color={state === 'active' ? 'primary' : 'disabled'} />;
 }
 
+// Explicit proof of intent required by the server for irreversible production switches (SEC-10).
+const CONFIRM = {
+  productionEnvironment: 'PRODUCTION ENVIRONMENT',
+  productionCsid: 'PRODUCTION CSID',
+} as const;
+
 const ENV_INFO: Record<ZatcaEnv, { label: string; help: string; suggestedOtp?: string }> = {
   sandbox: {
     label: 'Test Mode',
@@ -73,11 +79,16 @@ export default function ZatcaOnboardingPanel() {
 
   async function switchEnv(next: ZatcaEnv) {
     if (next === env) return;
+    if (next === 'production' && !window.confirm(
+      'Switch ZATCA to PRODUCTION ENVIRONMENT? This clears any CSID on file and future invoices go to the real ZATCA gateway. Continue only after Simulation has been fully validated.',
+    )) return;
     setOtp(ENV_INFO[next].suggestedOtp ?? '');
     setCheckResults(null);
     // Switching environment invalidates any CSID already on file (server/src/store/secureStore.ts
     // clears it) - a CSID issued against sandbox is meaningless in simulation and vice versa.
-    await run('env', async () => { await zatcaApi.setEnvironment(next); });
+    await run('env', async () => {
+      await zatcaApi.setEnvironment(next, next === 'production' ? CONFIRM.productionEnvironment : undefined);
+    });
   }
 
   const step = status?.step ?? 'not_started';
@@ -201,7 +212,12 @@ export default function ZatcaOnboardingPanel() {
           <Button
             variant="contained"
             disabled={productionState !== 'active' || busy !== null}
-            onClick={() => run('production', async () => { await zatcaApi.requestProductionCsid(); })}
+            onClick={() => {
+              if (!window.confirm(
+                'Request a PRODUCTION CSID? It authorises this device to sign legally reportable invoices.',
+              )) return;
+              void run('production', async () => { await zatcaApi.requestProductionCsid(CONFIRM.productionCsid); });
+            }}
           >
             {busy === 'production' ? <CircularProgress size={20} /> : tr("Get Production CSID")}
           </Button>

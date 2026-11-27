@@ -121,6 +121,16 @@ export default function RsdSettingsPanel() {
   }
 
   async function save() {
+    // Switching the SFDA adapter to live/production is irreversible in effect: every later sale is
+    // a national track-and-trace movement. Ask a human first, then send the exact server phrase.
+    const goesLive = form.mode === 'live' && view?.mode !== 'live';
+    const goesProduction = form.environment === 'production' && view?.environment !== 'production';
+    const needsConfirmation = goesLive || goesProduction;
+    if (needsConfirmation && !window.confirm(
+      'Enable live RSD reporting? Future sales will be reported to the SFDA' +
+      (goesProduction ? ' PRODUCTION' : ' test') + ' service. Continue only when the account and endpoints are verified.',
+    )) return;
+
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -129,7 +139,10 @@ export default function RsdSettingsPanel() {
     // so turning reporting off always works at the till.
     updateSettings({ rsdEnabled: enabled });
     try {
-      const payload: RsdSettingsUpdate = { ...form };
+      const payload: RsdSettingsUpdate = {
+        ...form,
+        ...(needsConfirmation ? { confirmation: 'ENABLE LIVE RSD' } : {}),
+      };
       // Blank means "keep the stored password" (the UI never receives it back).
       if ((payload.password ?? '').trim() === '') delete payload.password;
       const next = await updateRsdSettings(payload);

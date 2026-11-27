@@ -15,6 +15,9 @@ dist-ssr
 # Per-terminal branch selection (each PC declares its own branch; never commit)
 server/config/branch.json
 
+# Server runtime state: CSID keys, RSD credentials and the append-only security audit trail
+server/data/
+
 # Playwright
 /test-results/
 /playwright-report/

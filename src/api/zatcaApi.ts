@@ -8,6 +8,7 @@ import { authHeaders } from './authHeaders';
 const BASE_URL = import.meta.env.VITE_ZATCA_SERVER_URL ?? 'http://localhost:4300';
 
 export type ZatcaEnv = 'sandbox' | 'simulation' | 'production';
+export type ZatcaMode = 'mock' | 'live';
 
 export interface OnboardingStatus {
   step: 'not_started' | 'compliance_issued' | 'compliance_checked' | 'production_issued';
@@ -57,8 +58,20 @@ export function getOnboardingStatus(): Promise<OnboardingStatus> {
   return request('/api/zatca/onboarding/status');
 }
 
-export function setEnvironment(environment: ZatcaEnv): Promise<OnboardingStatus> {
-  return request('/api/zatca/onboarding/environment', { method: 'POST', body: JSON.stringify({ environment }) });
+// The optional `confirmation` is proof of a human decision, not a secret: the server refuses the
+// irreversible switches unless the exact phrase is present. The UI only sends it after a dialog.
+export function setEnvironment(environment: ZatcaEnv, confirmation?: string): Promise<OnboardingStatus> {
+  return request('/api/zatca/onboarding/environment', {
+    method: 'POST',
+    body: JSON.stringify({ environment, ...(confirmation ? { confirmation } : {}) }),
+  });
+}
+
+export function setMode(mode: ZatcaMode, confirmation?: string): Promise<OnboardingStatus> {
+  return request('/api/zatca/onboarding/mode', {
+    method: 'POST',
+    body: JSON.stringify({ mode, ...(confirmation ? { confirmation } : {}) }),
+  });
 }
 
 export function requestComplianceCsid(otp: string): Promise<{ issuedAt: string; requestId: string }> {
@@ -69,8 +82,11 @@ export function runComplianceCheck(): Promise<{ passed: boolean; results: Array<
   return request('/api/zatca/onboarding/compliance-check', { method: 'POST' });
 }
 
-export function requestProductionCsid(): Promise<{ issuedAt: string; requestId: string }> {
-  return request('/api/zatca/onboarding/production', { method: 'POST' });
+export function requestProductionCsid(confirmation?: string): Promise<{ issuedAt: string; requestId: string }> {
+  return request('/api/zatca/onboarding/production', {
+    method: 'POST',
+    ...(confirmation ? { body: JSON.stringify({ confirmation }) } : {}),
+  });
 }
 
 // --- Seller + device identity (Settings > ZATCA > Company & Device) -----------------------------

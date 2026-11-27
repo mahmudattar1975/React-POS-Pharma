@@ -165,6 +165,9 @@ export interface RsdSettingsView {
 export interface RsdSettingsUpdate {
   mode: RsdMode;
   environment: RsdEnvironment;
+  // Required by the server when switching mock -> live or test -> production. Sent only after a
+  // human confirmation dialog; it is proof of intent, not a credential.
+  confirmation?: string;
   gln: string;
   username: string;
   // Omit/blank to keep the stored password.

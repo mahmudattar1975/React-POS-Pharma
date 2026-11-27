@@ -760,3 +760,50 @@ decision on disclosure policy, tenant columns and secret/browser storage.
   incentive mirror; a permanent hard dedupe key should be added if the two queues can diverge.
 - Replayed sale/return/receiving mirrors are rejected or acknowledged as duplicates; monitor 409/200
   `duplicate: true` responses to detect genuine client id collisions.
+
+---
+
+## 15. Remediation status — SEC-10 live ZATCA/RSD endpoints (2026-11-27)
+
+Scope decision: the Phase 0 deny-by-default `requireAuth` on `/api/*` and the existing `requireAdmin`
+guards were kept. Cashier sale/ZATCA submission and RSD sale reporting stay **authenticated only** so
+the local-first till can keep selling; the irreversible switches gain an admin-only second key and an
+immutable audit record. No live fiscal movement was sent while testing.
+
+### 15.1 Implemented
+
+| Finding | Change | Evidence |
+|---|---|---|
+| SEC-10 | `server/src/audit.ts`: append-only JSONL trail (`attempt`/`success`/`failure`/`denied`) with verified-JWT actor, timestamp, action and a key-name denylist for secrets/confirmations/PHI. Default `server/data/security-audit.jsonl`; `SECURITY_AUDIT_FILE` overrides it for tests. The attempt is written **before** the fiscal action; a failed audit append aborts it. | `server/src/audit.ts`, `server/src/auth/confirmation.ts` |
+| SEC-10 | ZATCA: admin + exact confirmation phrases `PRODUCTION ENVIRONMENT` (env→production), `ENABLE LIVE` (mode→live), `PRODUCTION CSID` (production CSID). Compliance CSID/check requests are audited; the OTP is never logged. | `server/src/routes/onboarding.ts`, `src/api/zatcaApi.ts`, `src/components/Zatca/ZatcaOnboardingPanel.tsx` |
+| SEC-10 | RSD: admin + `ENABLE LIVE RSD` when settings move mock→live or test→production; `ALLOW MOCK RSD` for the dev-only mock accept/reset helpers. Sale/cancel/reopen/connection-test/settings changes are audited. Mock routes still return 404 in a `NODE_ENV=production` process (`src/index.ts`). | `server/src/routes/rsd.ts`, `src/api/rsdApi.ts`, `src/components/Settings/RsdSettingsPanel.tsx` |
+| SEC-10 | ZATCA invoice submission is audited (attempt + outcome) with invoice number/type/document type/environment/mode only — never customer name, line items, QR, key or OTP. | `server/src/routes/invoices.ts` |
+| SEC-10 | Human `window.confirm` dialogs gate the ZATCA production env/CSID and RSD live/production UI actions; cancelling sends no request. `server/data/` is now gitignored so audit/config files cannot be committed. | `src/components/Zatca/ZatcaOnboardingPanel.tsx`, `src/components/Settings/RsdSettingsPanel.tsx`, `.gitignore` |
+| Tests | 9 HTTP regressions with signed HS256 tokens and local service mocks: anonymous 401, cashier 403, missing/incorrect phrase 400 `confirmation_required` + `denied` audit, valid phrase 200 + attempt/success audit, submission failure 502 + `failure` audit, and byte-level checks that OTP/password/confirmation phrases/GTIN/serial/prescription/customer name never reach the audit file. | `server/tests/routes/securityControls.test.ts` |
+
+### 15.2 Verification evidence
+
+- `npm run build` (server `tsc -b`, root `tsc -b && vite build`): pass. `npm run lint`: pass with only
+  pre-existing warnings (no new warning in changed files).
+- `npm test`: **611 passed / 51 files** (was 602/50; 9 new SEC-10 tests).
+  `npm run test:e2e`: **47 passed** — local-first sale/return/RSD flows unchanged with the backend down.
+- Audit overhead measured over 2,000 iterations after 200 warm-ups (2 appends per action):
+  single append **2.0914 ms/action**, full `audited` wrapper **4.1458 ms/action**. A correct
+  confirmation phrase adds **0.0015 ms** (no write); a denied one writes one record (**2.1163 ms**).
+  These are local file-append costs on this Windows host; admin switches are infrequent and the
+  ZATCA/SFDA network round trip dominates the per-sale audit cost.
+- Destination allow-listing is structural: ZATCA hosts are hard-coded per environment in
+  `server/src/config.ts`, and production RSD endpoints are rejected unless `https://`
+  (`server/src/rsd/settings.ts`). No live endpoint was contacted during verification.
+
+### 15.3 Remaining risks / decisions required
+
+- **Rate limiting is not implemented.** The confirmation key and audit trail limit accidental or
+  single-actor misuse, but a compromised admin token can still retry live actions; add a per-actor
+  limiter before exposing port 4300 beyond the LAN.
+- The audit file is append-only **within the app**, not WORM storage: an attacker with filesystem
+  access can still edit/delete it. Ship it to central logging (or a signed/WORM store) in production.
+- SEC-09 plaintext CSID/RSD secrets, SEC-11 JWT in localStorage and SEC-12 PHI in localStorage are
+  unchanged. The JWT config (`AUTH_JWT_*`) is still required before the server will start.
+- Staging verification with the real dotnet-pos token, an authorized admin account and a live but
+  non-production ZATCA/SFDA environment is mandatory before enabling either live switch.
